@@ -243,7 +243,7 @@ SET(SANDER_SRC
         rmsgrd.F90
         runmd.F90
         runmin.F90
-#        runext.F90
+        runext.F90
         sander.F90
         sander_lib.F90
         scaledMD.F90
