@@ -104,6 +104,11 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
                        bar_collect_cont, do_mbar
 #endif /* MPI */
 
+#ifdef PMFLIB
+   use pmf_sander
+   use nblist, only: a,b,c,alpha,beta,gamma
+#endif
+
    use amoeba_mdin, only: iamoeba
    use amoeba_runmd, only: AM_RUNMD_scale_cell
    use constantph, only: cnstphinit, cnstphwrite, cnstphupdatepairs, &
@@ -362,6 +367,21 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
    integer :: plumed_version,plumed_stopflag
    _REAL_ :: plumed_energyUnits,plumed_timeUnits,plumed_lengthUnits
 ! END PLUMED RELATED VARIABLES
+
+#if defined PMFLIB
+   _REAL_           :: pmfene
+   _REAL_           :: curr_temp
+   _REAL_           :: remd_temp0
+   logical          :: con_modified
+   logical          :: remd_updated
+   integer          :: pmfexit
+   pmfene       = 0.0d0
+   curr_temp    = 0.0d0
+   remd_temp0   = 0.0d0
+   con_modified = .false.
+   remd_updated = .false.
+   pmfexit      = 0
+#endif
 
    !==========================================================================
   
@@ -1601,6 +1621,18 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
    iprint = 0
    if( nstep == 0 .or. nstep+1 == nstlim ) iprint = 1
 
+#ifdef PMFLIB
+    curr_temp = ener%kin%tot / fac(1)
+#ifdef MPI
+    call pmf_sander_update_xv_mpi(natom,remd_updated,x,v,curr_temp,remd_temp0)
+#else
+    call pmf_sander_update_xv(natom,remd_updated,x,v,curr_temp,remd_temp0)
+#endif
+    if( remd_updated ) then
+        temp0 = remd_temp0
+    end if
+#endif
+
    if (sebomd_obj%do_sebomd) then
      ! write down atomic charges and density matrix if needed
      sebomd_obj%iflagch = 0
@@ -1704,6 +1736,18 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
       for(1:nr3) = abfqmmm_param%f(1:nr3)
       f(1:nr3) = abfqmmm_param%f(1:nr3)
    end if
+
+#ifdef PMFLIB
+    if( ntb .ne. 0 ) then
+        call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
+    end if
+#ifdef MPI
+    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,pmfene)
+#else
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,pmfene)
+#endif
+    ener%pot%constraint = ener%pot%constraint + pmfene
+#endif
 
    ! Constant pH transition evaluation for GB CpHMD (not explicit CpHMD)
    if ((icnstph == 1) .and. (mod(irespa+mdloop*nstlim,ntcnstph) == 0)) then
@@ -2537,7 +2581,17 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
 
    call timer_stop(TIME_VERLET)
    
-   if (ntc /= 1) then
+#ifdef PMFLIB
+#ifdef MPI
+   call pmf_sander_constraints_mpi(natom,x,con_modified)
+#else
+   call pmf_sander_constraints(natom,x,con_modified)
+#endif
+
+   if ( (ntc /= 1) .or. con_modified ) then
+#else
+   if (ntc /= 1 ) then
+#endif
 
       !-------------------------------------------------------------------
       !   Step 4a: if shake is being used, update the new positions to fix
@@ -2545,6 +2599,11 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
       !-------------------------------------------------------------------
    
       call timer_start(TIME_SHAKE)
+
+#ifdef PMFLIB
+      if (ntc /= 1 ) then
+#endif
+
       if (isgld > 0) call sgfshake(istart,iend,dtx,amass,x,.false.)   
       qspatial=.false.
       call shake(nrp,nbonh,nbona,0,ix(iibh),ix(ijbh),ix(ibellygp), &
@@ -2556,7 +2615,11 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
          goto 480
       end if
       !  Including constraint forces in self-guiding force calculation
-      if (isgld > 0) call sgfshake(istart,iend,dtx,amass,x,.true.)   
+      if (isgld > 0) call sgfshake(istart,iend,dtx,amass,x,.true.)  
+
+#ifdef PMFLIB
+      end if
+#endif 
 
       !  Need to synchronize coordinates for linearly scaled atoms after shake
 #ifdef MPI
@@ -2898,6 +2961,10 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
    if( ntwr /= 0 ) then
       if ( mod(total_nstep, ntwr ) == 0 ) ixdump = .true. ! Restart
    endif
+#ifdef PMFLIB
+    call pmf_sander_shouldexit(pmfexit)
+    if ( pmfexit .ne. 0 ) ixdump = .true. ! premature end of run
+#endif
    if( total_nstep >= total_nstlim ) ixdump = .true. ! Final restart
    if ( nscm > 0 ) then
       if( mod(total_nstep,nscm) == 0 ) ivscm =.true. ! C.o.M. removal
@@ -4129,7 +4196,13 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
    end if
    if (plumed /= 0 .and. plumed_stopflag/=0) goto 480
 
+#ifdef PMFLIB
+    call pmf_sander_shouldexit(pmfexit)
+    if ( (nstep < nstlim) .and. (pmfexit .eq. 0) ) goto 260
+#else
    if (nstep < nstlim) goto 260
+#endif
+
    480 continue
 
 #ifdef MPI     

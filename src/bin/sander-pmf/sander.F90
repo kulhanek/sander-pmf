@@ -71,6 +71,11 @@ subroutine sander()
    use sander_rism_interface, only: rism_setparam, rism_init,rism_finalize 
 #endif
 
+#ifdef PMFLIB
+   use pmf_sander
+   use nblist, only: a,b,c,alpha,beta,gamma
+#endif
+
 #ifdef PUPIL_SUPPORT
    use pupildata
 #endif /* PUPIL */
@@ -909,6 +914,26 @@ subroutine sander()
    call rism_init(commsander)
 #  endif /* RISMSANDER */
 
+#ifdef PMFLIB
+#ifdef MPI
+    call pmf_sander_init_taskid_mpi(mytaskid)
+#endif
+    if (master) then
+        ! basic initialization
+        call pmf_sander_init_preinit(mdin,natom,nres,ntb,nstlim,dt,temp0,a,b,c,alpha,beta,gamma)
+        ! topology population
+        do i=1,nres
+            call pmf_sander_set_residue(i,ih(m02-1+i),ix(i02-1+i))
+        end do
+        do i=1,natom
+            call pmf_sander_set_atom(i,ih(m04-1+i),ih(m06-1+i))
+        end do
+        call pmf_sander_finalize_preinit(natom,x(lmass),x(lcrd))
+        call pmf_sander_con_init_collisions(ntc,nbonh,ix(iifstwt),ix(iibh),ix(ijbh),x(l50))
+        call pmf_sander_init(natom,x(lmass),x(lcrd))
+    end if
+#endif
+
 #ifdef MPI
 
    call mpi_barrier(commsander,ier)
@@ -1059,6 +1084,10 @@ subroutine sander()
 
    call startup_groups(ier)
    call startup(x,ix,ih)
+
+#ifdef PMFLIB
+    call pmf_sander_bcast_dat_mpi(natom,numtasks,iparpt)
+#endif
 
 !  +---------------------------------------------------------------------------+
 !  |  Broadcast EVB/PIMD inputs/parameters to all PEs                          |
@@ -1713,6 +1742,12 @@ subroutine sander()
          REQUIRE( ier == 0 )
       endif
    end if
+
+#ifdef PMFLIB
+    if (master) then
+        call pmf_sander_finalize()
+    end if
+#endif
 
    ! -- calc time spent running vs setup
    call timer_stop(TIME_TOTAL)
