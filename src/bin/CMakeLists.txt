@@ -3,6 +3,6 @@
 # ==============================================================================
 
 INCLUDE_DIRECTORIES(lib SYSTEM)
-INCLUDE_DIRECTORIES(sander SYSTEM)
+INCLUDE_DIRECTORIES(sander-pmf SYSTEM)
 
 ADD_SUBDIRECTORY(sander-pmf)
