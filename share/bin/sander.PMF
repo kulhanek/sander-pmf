@@ -1,0 +1,73 @@
+#!/bin/bash
+# =============================================================================
+# Module build: sander.PMF
+# sander - script that executes _sander.MPI in Infinity environment
+#
+# Required environment:
+#  INF_NCPU               - number of CPU used for job execution
+#  INF_NODEFILE           - file name with the list of nodes
+#
+# =============================================================================
+
+PROGRAM_NAME="sander.PMF"
+
+# check required environment --------------------------------------------------
+
+if [ "$INF_NCPU" == "" ]; then
+    echo ""
+    echo "ERROR: Unable to execute: $PROGRAM_NAME!"
+    echo "       Number of processors is not provided!"
+    echo "       Set INF_NCPU variable or use Infinity system for job submition!"
+    echo ""
+    exit 1
+fi
+
+if [ "$INF_NCPU" -eq 1 ]; then
+    echo ""
+    echo "ERROR: Unable to execute: $PROGRAM_NAME !"
+    echo "       Number of CPU (\'$INF_NCPU\') has to be greater than 1."
+    echo ""
+    exit 1
+fi
+
+if ! [ -f "$INF_NODEFILE" ]; then
+    echo ""
+    echo "ERROR: Unable to execute: $PROGRAM_NAME!"
+    echo "       Node file does not exist!"
+    echo "       Set INF_NODEFILE variable!"
+    echo ""
+    exit 1
+fi
+
+# get program name with path --------------------------------------------------
+
+PROG=`type -p _sander.PMF.MPI`
+
+if [ -z "$PROG" ]; then
+    echo ""
+    echo "ERROR: Unable to execute: $PROGRAM_NAME !"
+    echo "       Full path to sander.MPI is not known !"
+    echo ""
+    exit 1
+fi
+
+# initialize mpich environment ------------------------------------------------
+
+module add openmpi:1.4.3
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo " ERROR: Unable to execute: $PROGRAM_NAME !"
+    echo "        Module 'openmpi' is required !"
+    echo ""
+    exit 1
+fi
+
+# start program ---------------------------------------------------------------
+
+mpiexec -machinefile $INF_NODEFILE -np $INF_NCPU $PROG $*
+
+EXIT_CODE=$?
+
+exit $EXIT_CODE
+
