@@ -929,7 +929,7 @@ subroutine sander()
             call pmf_sander_set_atom(i,ih(m04-1+i),ih(m06-1+i))
         end do
         call pmf_sander_finalize_preinit(natom,x(lmass),x(lcrd))
-        call pmf_sander_con_init_collisions(ntc,nbonh,ix(iifstwt),ix(iibh),ix(ijbh),x(l50))
+        call pmf_sander_cst_init_collisions(ntc,nbonh,ix(iifstwt),ix(iibh),ix(ijbh),x(l50))
         call pmf_sander_init(natom,x(lmass),x(lcrd))
     end if
 #endif

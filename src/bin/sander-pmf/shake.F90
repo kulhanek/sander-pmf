@@ -134,7 +134,7 @@ subroutine shake(nrr,nbonh,nbona,nbper,ib,jb,igrp,winv,conp, &
 
 #ifdef PMFLIB
          ! skip bonds that are part of BM constraints
-         if( pmf_sander_con_checkatom(i) .or. pmf_sander_con_checkatom(j) ) then
+         if( pmf_sander_cst_checkatom(i) .or. pmf_sander_cst_checkatom(j) ) then
             cycle bonds
          end if
 #endif
