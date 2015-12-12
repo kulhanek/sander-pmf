@@ -388,7 +388,12 @@ ELSE(MPI_ENABLED)
 ENDIF(MPI_ENABLED)
 
 ADD_EXECUTABLE(${TARGET_NAME} ${SANDER_SRC})
-ADD_DEPENDENCIES(${TARGET_NAME} utils_shared pbsa_shared sqm_shared sebomd_shared rism_shared)
+
+IF(HAVE_FFTW3)
+	ADD_DEPENDENCIES(${TARGET_NAME} utils_shared pbsa_shared sqm_shared sebomd_shared rism_shared)
+ELSE(HAVE_FFTW3)
+	ADD_DEPENDENCIES(${TARGET_NAME} utils_shared pbsa_shared sqm_shared sebomd_shared)
+ENDIF(HAVE_FFTW3)	
 
 TARGET_LINK_LIBRARIES(${TARGET_NAME}
         ${SANDER_LIBRARIES}
