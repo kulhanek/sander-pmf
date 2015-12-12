@@ -25,7 +25,7 @@ SET(PBSA_SRC
         dpigmr.F90
         drlcal.F90
         ds2y.F90
-#        dscal.F90
+        dscal.F90
         dsilus.F90
         dslubc.F90
         dslugm.F90
@@ -134,6 +134,9 @@ IF(LIBS_SHARED)
                             OUTPUT_NAME pbsa
                             CLEAN_DIRECT_OUTPUT 1
                             VERSION ${SANDER_PMF_VERSION})
+	TARGET_LINK_LIBRARIES(pbsa_shared
+	        ${FPMF_LIBRARIES}
+	        )                            
     INSTALL(TARGETS pbsa_shared
             DESTINATION lib)
 ENDIF(LIBS_SHARED)
