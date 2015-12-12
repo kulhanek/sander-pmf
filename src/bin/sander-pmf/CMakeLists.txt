@@ -5,13 +5,6 @@
 # program objects --------------------------------------------------------------
 SET(SANDER_SRC
 # -----------------------------------
-        ../lib/random.F90
-        ../lib/nxtsec.F
-        ../lib/veclib.F90
-        ../lib/wallclock.c
-        ../lib/AmberNetcdf.F90
-
-# -----------------------------------
         ../../lib/sebomd/se_deeprec.F90
         ../../lib/sebomd/se_info_from_sander.F90
         ../../lib/sebomd/se_mpi_vars.F90
