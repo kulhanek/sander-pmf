@@ -135,6 +135,7 @@ IF(LIBS_SHARED)
                             CLEAN_DIRECT_OUTPUT 1
                             VERSION ${SANDER_PMF_VERSION})
 	TARGET_LINK_LIBRARIES(pbsa_shared
+			utils
 	        ${FPMF_LIBRARIES}
 	        )                            
     INSTALL(TARGETS pbsa_shared

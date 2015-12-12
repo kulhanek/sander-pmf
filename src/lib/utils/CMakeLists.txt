@@ -9,6 +9,11 @@ SET(UTILS_SRC
         veclib.F90  
         wallclock.c
         AmberNetcdf.F90
+        mexit.F90
+        amopen.F90
+        assert.F90	
+        amflsh.F90
+        sander_bomb.F90
         )
 
 # ------------------------------------------------------------------------------
@@ -30,6 +35,11 @@ IF(LIBS_SHARED)
                             OUTPUT_NAME utils
                             CLEAN_DIRECT_OUTPUT 1
                             VERSION ${SANDER_PMF_VERSION})
+                            
+	TARGET_LINK_LIBRARIES(utils_shared
+	        ${FPMF_LIBRARIES}
+	        )                            
+                            
     INSTALL(TARGETS utils_shared
             DESTINATION lib)
 ENDIF(LIBS_SHARED)

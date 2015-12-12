@@ -486,20 +486,7 @@ subroutine int_legal_range(string,param,lo,hi)
    return
 end subroutine int_legal_range 
 
-!-------------------------------------------------
-!     --- SANDER_BOMB ---
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Print an error message and quit
-subroutine sander_bomb(routine,string1,string2)
-   implicit none
-   character(len=*) routine,string1,string2
 
-   write(6, '(1x,2a)') &
-         'SANDER BOMB in subroutine ', routine
-   write(6, '(1x,a)') string1
-   write(6, '(1x,a)') string2
-   call mexit(6,1)
-end subroutine sander_bomb
 !-------------------------------------------------
 
 subroutine getsqmx(natom,x,atnam,atnum,ncharge,excharge,chgnam,chgatnum)

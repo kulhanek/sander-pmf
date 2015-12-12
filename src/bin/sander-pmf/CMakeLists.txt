@@ -18,7 +18,22 @@ SET(SANDER_SRC
         ../../lib/sebomd/se_corrections.F
         ../../lib/sebomd/sebomd.F
         ../../lib/sebomd/se_init.F90
-
+        ../../lib/sebomd/se_energy.F
+        ../../lib/sebomd/se_doscf.F
+        ../../lib/sebomd/se_edriver.F
+        ../../lib/sebomd/se_pme_setup.F        
+        
+        ../../lib/sqm/qm2_dftb_scf.F90
+        ../../lib/sqm/qm2_dftb_energy.F90 
+        ../../lib/sqm/qm2_dftb_ewald.F90 
+        ../../lib/sqm/qm2_diagonalizer_module.F90                                 
+        ../../lib/sqm/qm2_energy.F90
+        ../../lib/sqm/qm2_get_qm_forces.F90 
+        ../../lib/sqm/qm2_get_qmmm_forces.F90 
+        ../../lib/sqm/qm2_load_params_and_allocate.F90 
+        ../../lib/sqm/qm2_read_nm_and_alloc.F90
+		../../lib/sqm/qm2_scf.F90
+                        
 # -----------------------------------
         abfqmmm_module.F90
         align.F90

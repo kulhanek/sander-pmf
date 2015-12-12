@@ -1,6 +1,6 @@
 #include "copyright.h"
-#include "../include/dprec.fh"
-#include "../include/assert.fh"
+#include "dprec.fh"
+#include "assert.fh"
 
 #ifdef API
 logical function need_to_bail(i, title, ierr)
@@ -58,9 +58,9 @@ subroutine rdparm1(nf)
 
    implicit none
    
-#  include "../lib/nxtsec.h"      
-#  include "../include/md.h"
-#  include "../include/memory.h"
+#  include "nxtsec.h"      
+#  include "md.h"
+#  include "memory.h"
 #  include "box.h"
 #  include "nmr.h"
 #  include "extra_pts.h"
@@ -304,9 +304,9 @@ subroutine rdparm2(x,ix,ih,nf)
    integer ix(*)
    character(len=4) ih(*)
    
-#  include "../lib/nxtsec.h"
-#  include "../include/md.h"
-#  include "../include/memory.h"
+#  include "nxtsec.h"
+#  include "md.h"
+#  include "memory.h"
 #  include "box.h"
 #  include "nmr.h"
 #ifdef LES

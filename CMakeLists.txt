@@ -1,5 +1,5 @@
 # ==============================================================================
-# SANDER 11.0 CMake File - Taken from AMBER 11 distribution archive
+# SANDER 14.0 CMake File - Taken from AMBER 14 distribution archive
 # ==============================================================================
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8 FATAL_ERROR)
@@ -17,7 +17,7 @@ SET(LIBS_STATIC             OFF CACHE BOOL "Should the static version of pmflib 
 # ==============================================================================
 
 # define project name ----------------------------
-SET(SANDER_PMF_VERSION 14.04)
+SET(SANDER_PMF_VERSION 15.05)
 
 # what languages we use --------------------------
 ENABLE_LANGUAGE(C)
@@ -101,7 +101,7 @@ IF(HAVE_FFTW3)
         )
 
     SET(SANDER_LIBRARIES
-        sqm pbsa sebomd rism
+        sqm pbsa sebomd rism utils
         )
     SET(SANDER_DEFS -DNDEBUG -DBINTRAJ -DPMFLIB -DRISMSANDER)
 ELSE(HAVE_FFTW3)
@@ -111,7 +111,7 @@ ELSE(HAVE_FFTW3)
         )
 
     SET(SANDER_LIBRARIES
-        sqm pbsa sebomd
+        sqm pbsa sebomd utils
         )
     SET(SANDER_DEFS -DNDEBUG -DBINTRAJ -DPMFLIB)
 ENDIF(HAVE_FFTW3)

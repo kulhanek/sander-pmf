@@ -23,10 +23,10 @@ SET(SEBOMD_SRC
         se_dipole.F
         se_dmxinter.F
         se_doferm.F
-        se_doscf.F
+#        se_doscf.F
 #        se_edriver.F
         se_elecsr.F
-        se_energy.F
+#        se_energy.F
         se_escf.F
         se_esqr.F
         se_etimer.F
@@ -59,7 +59,7 @@ SET(SEBOMD_SRC
         se_pme_qm_direct.F
         se_pme_qm_recip.F
         se_pme_recip.F
-        se_pme_setup.F
+#        se_pme_setup.F
         se_pmix.F
         se_rdall.F
         se_rdelem.F
@@ -94,6 +94,10 @@ IF(LIBS_SHARED)
                             OUTPUT_NAME sebomd
                             CLEAN_DIRECT_OUTPUT 1
                             VERSION ${SANDER_PMF_VERSION})
+	TARGET_LINK_LIBRARIES(sebomd_shared
+			utils
+	        ${FPMF_LIBRARIES}
+	        )                             
     INSTALL(TARGETS sebomd_shared
             DESTINATION lib)
 ENDIF(LIBS_SHARED)
