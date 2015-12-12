@@ -113,15 +113,16 @@ ENDIF(LIBS_STATIC)
 # create shared library --------------------------------------------------------
 IF(LIBS_SHARED)
     ADD_LIBRARY(sqm_shared SHARED ${SQM_SRC})
+    ADD_DEPENDENCIES(sqm_shared utils_shared pbsa_shared)
     SET_TARGET_PROPERTIES(sqm_shared PROPERTIES
                             OUTPUT_NAME sqm
                             CLEAN_DIRECT_OUTPUT 1
                             VERSION ${SANDER_PMF_VERSION})
-	TARGET_LINK_LIBRARIES(sqm_shared
-			pbsa
-			utils
-	        ${FPMF_LIBRARIES}
-	        )                             
+    TARGET_LINK_LIBRARIES(sqm_shared
+            pbsa
+            utils
+            ${FPMF_LIBRARIES}
+            )                             
     INSTALL(TARGETS sqm_shared
             DESTINATION lib)
 ENDIF(LIBS_SHARED)

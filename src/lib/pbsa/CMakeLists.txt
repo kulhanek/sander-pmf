@@ -130,6 +130,8 @@ ENDIF(LIBS_STATIC)
 # create shared library --------------------------------------------------------
 IF(LIBS_SHARED)
     ADD_LIBRARY(pbsa_shared SHARED ${PBSA_SRC})
+    ADD_DEPENDENCIES(pbsa_shared utils_shared)
+
     SET_TARGET_PROPERTIES(pbsa_shared PROPERTIES
                             OUTPUT_NAME pbsa
                             CLEAN_DIRECT_OUTPUT 1

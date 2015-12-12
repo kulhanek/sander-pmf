@@ -90,14 +90,16 @@ ENDIF(LIBS_STATIC)
 # create shared library --------------------------------------------------------
 IF(LIBS_SHARED)
     ADD_LIBRARY(sebomd_shared SHARED ${SEBOMD_SRC})
+    ADD_DEPENDENCIES(sebomd_shared utils_shared)
+
     SET_TARGET_PROPERTIES(sebomd_shared PROPERTIES
                             OUTPUT_NAME sebomd
                             CLEAN_DIRECT_OUTPUT 1
                             VERSION ${SANDER_PMF_VERSION})
-	TARGET_LINK_LIBRARIES(sebomd_shared
-			utils
-	        ${FPMF_LIBRARIES}
-	        )                             
+    TARGET_LINK_LIBRARIES(sebomd_shared
+            utils
+            ${FPMF_LIBRARIES}
+            )                             
     INSTALL(TARGETS sebomd_shared
             DESTINATION lib)
 ENDIF(LIBS_SHARED)

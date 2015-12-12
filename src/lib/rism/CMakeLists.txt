@@ -75,6 +75,7 @@ ENDIF(LIBS_STATIC)
 # create shared library --------------------------------------------------------
 IF(LIBS_SHARED)
     ADD_LIBRARY(rism_shared SHARED ${RISM_SRC})
+    ADD_DEPENDENCIES(rism_shared utils_shared)
     SET_TARGET_PROPERTIES(rism_shared PROPERTIES
                             OUTPUT_NAME rism
                             CLEAN_DIRECT_OUTPUT 1
