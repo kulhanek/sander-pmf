@@ -2,6 +2,7 @@
 # SANDER CMake File
 # ==============================================================================
 
+ADD_SUBDIRECTORY(utils)
 ADD_SUBDIRECTORY(pbsa)
 ADD_SUBDIRECTORY(sqm)
 ADD_SUBDIRECTORY(sebomd)
