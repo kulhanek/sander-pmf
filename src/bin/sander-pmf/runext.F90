@@ -26,6 +26,11 @@ subroutine runext(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
 #ifdef RISMSANDER
    use sander_rism_interface, only: rismprm, rism_force
 #endif
+
+#ifdef PMFLIB
+   use pmf_sander
+   use nblist, only: a,b,c,alpha,beta,gamma
+#endif
    
    use state
    use sebomd_module, only : sebomd_obj
@@ -78,6 +83,10 @@ subroutine runext(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
    _REAL_ erism
 #endif /*RISMSANDER*/
 
+#if defined PMFLIB
+   _REAL_           :: pmfene
+#endif
+
    ! kulhanek ? do_list_update - is list initialized?
    logical :: do_list_update=.false.
 
@@ -128,6 +137,14 @@ subroutine runext(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
         case(1)
             call force(xx,ix,ih,ipairs,x,fg,ene,ene%vir, &
                     xx(l96), xx(l97), xx(l98),xx(l99),qsetup, do_list_update,n_force_calls)
+#ifdef PMFLIB
+            if( ntb .ne. 0 ) then
+                call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
+            end if
+            call pmf_sander_rstforce(natom,x,fg,ene%pot%tot,pmfene)
+            ene%pot%constraint = ene%pot%constraint + pmfene
+            ene%pot%tot = ene%pot%tot + pmfene
+#endif
         case(2)
             ene%pot%rism = 0.0
 #ifdef RISMSANDER           

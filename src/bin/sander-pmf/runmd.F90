@@ -1747,6 +1747,7 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
     call pmf_sander_force(natom,x,v,f,ener%pot%tot,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
+    ener%pot%total = ener%pot%total + pmfene
 #endif
 
    ! Constant pH transition evaluation for GB CpHMD (not explicit CpHMD)
