@@ -459,7 +459,7 @@
 
       ! Input flag ntmin determines the method of minimization
       select case ( ntmin )
-      case ( 0, 1, 2 )
+      case ( 0, 1, 2, 10 )
          ! no specific output
       case ( LMOD_NTMIN_XMIN, LMOD_NTMIN_LMOD )
          call write_lmod_namelist( )
