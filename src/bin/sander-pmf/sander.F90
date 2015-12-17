@@ -1665,24 +1665,11 @@ subroutine sander()
                x(lcrd), x(lforce), ene, qsetup )
          if (master) call minrit(0,nrp,ntxo,x(lcrd))  ! Write the restart file
 
-! KULHANEK
-        case (10)
-            ! --- Single point calculation
-
-            write (6,*)
-            write (6,*) "  *** SINGLE POINT CALCULATION ***"
-            write (6,*)
-
-            call runext(x,ix,ih,ipairs,x(lcrd),x(lforce),x(lvel), &
-                ix(iibh),ix(ijbh),x(l50),x(lwinv),ix(ibellygp), &
-                x(l95),ene, carrms, qsetup)
-
       case default
          ! invalid ntmin
          ! ntmin input validation occurs in mdread.f
          ASSERT( .false. )
       end select
-      
 
    case (5)
       ! ---carlos modified for reading trajectories (trajene option)
@@ -1697,6 +1684,18 @@ subroutine sander()
          write (6,*) 'error in trajene()'
          call mexit(6,1)
       end if
+
+! KULHANEK
+   case (10)
+      ! --- Single point calculation
+
+      write (6,*)
+      write (6,*) "  *** SINGLE POINT CALCULATION ***"
+      write (6,*)
+
+      call runext(x,ix,ih,ipairs,x(lcrd),x(lforce),x(lvel), &
+           ix(iibh),ix(ijbh),x(l50),x(lwinv),ix(ibellygp), &
+           x(l95),ene, carrms, qsetup)
 
    case default
       ! invalid imin
