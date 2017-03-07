@@ -1621,18 +1621,6 @@ subroutine runmd(xx,ix,ih,ipairs,x,winv,amass,f, &
    iprint = 0
    if( nstep == 0 .or. nstep+1 == nstlim ) iprint = 1
 
-#ifdef PMFLIB
-    curr_temp = ener%kin%tot / fac(1)
-#ifdef MPI
-    call pmf_sander_update_xv_mpi(natom,remd_updated,x,v,curr_temp,remd_temp0)
-#else
-    call pmf_sander_update_xv(natom,remd_updated,x,v,curr_temp,remd_temp0)
-#endif
-    if( remd_updated ) then
-        temp0 = remd_temp0
-    end if
-#endif
-
    if (sebomd_obj%do_sebomd) then
      ! write down atomic charges and density matrix if needed
      sebomd_obj%iflagch = 0
