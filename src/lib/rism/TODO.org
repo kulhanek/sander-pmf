@@ -1,0 +1,98 @@
+* [#B] Clean up centering code.
+centerSolute has allot of debug code - should be easy to clean up, but
+needs careful testing.
+* [#A] Ensure unit cell is set in non-periodic case.
+To simplify code, it would be ideal if the non-periodic (i.e., dilute
+solute) case had its unit cell defined so it can be treated the same
+as the periodic case.
+* DONE [#A] Try particle mesh Ewald (PME) potential.
+CLOSED: [2015-01-28 Wed 15:15]
+* [#A] Add triclinic unit cell support to PME code.
+* [#B] Add periodic LJ cutoff support.
+* DONE [#A] Merge Hung C++ 'smear' code into Amber rism.
+CLOSED: [2014-11-14 Fri 19:03]
+The smear program converts an solute-solvent RDF to an electron
+density map.  
+A simple 'smear' flag could be used.  The only additional input file,
+a 1D water distribution, could be hardcoded. Needs to be extended to
+arbitrary solvent and solute.
+* DONE [#A] Ensure triclinic unit cells work in no-forces sander minimization.
+CLOSED: [2014-11-18 Tue 15:06]
+No-force minimization with sander for PH4+ in a triclinic unit cell
+produced thermodynamic results identical to rism3d.snglpnt, including
+volumetric data.
+* DONE [#A] Attempt to achieve solvent/solute neutrality.
+Several approaches to calculating and applying a potential bias were
+attempted to achieve solute/solvent charge neutrality in the unit
+cell, none of which succeeded. A large bias potential can achieve
+neutrality, but it results in unrealistically high solvent
+concentrations. Also, adding a smeared background charge similarly
+does not result in neutrality.
+
+Appling a bias to all solvent atoms and only atoms in ionic molecules
+was attempted. Besides applying an arbitrary bias, two different
+biases were trialed which calculate the k = 0 contribution to the long
+range term in the Ewald sum (see references below). This did not work
+since the k = 0 term represents a non-vanishing dipole moment which is
+not 'desirable' for the simulation. This seems to be a matter of
+expediency - the physical grounds for dismissing this term are less
+than clear.
+
+k = 0 method #1: See Understanding Molecular Simultation 2E, chapter
+12, p. 303, and eq. F.45 in Appendix F: Mathematical Aspects of
+Ewald Summation (2007).
+k = 0 method #2 : See eq. 6 in Roberts et al 1994
+doi:10.1063/1.467425.
+
+The smeared background charge calcuation was perfomed using eqs. 18-20
+in Kovalenko/Hirata 2000.
+* [#B] Ensure triclinic unit cells work with force minimization in sander.
+* [#B] Output the individual terms in the OZ sum.
+Rationale explained in 2014-10-21 e-mail from Dave.
+h-gamma = sum-over-alpha(c-alpha * chi-alpha-gamma)
+* [#B] Output an easily parsable, multilingual format (YAML, HDF, NetCDF, etc.).
+Libraries which may help:
+https://github.com/jacobwilliams/json-fortran
+https://github.com/josephalevin/fson
+* [#B] Derive convolution algorithm and ensure no incorrect assumptions are made.
+Particularly interested in how how changes in the DCF affect the TCF.
+* DONE [#C] Implement --centering for periodic case.
+CLOSED: [2014-11-20 Thu 15:18]
+Periodic 3D-RISM by default does no centering, while dilute 3D-RISM
+defualts to centering by mass as it did previously. Using various
+centering methods for the periodic case has only been lightly tested.
+* [#C] Ensure that thermodynamic output is correct for periodic case.
+See functions rism3d_* in rism3d_c.F90, such as rism3d_kirkwoodBuff,
+where functions include both LR asymp corrected and uncorrected
+versions. Periodic case should NOT include these corrections.
+* [#C] Get Intel compiler working.
+* [#C] Implement parallelism (MPI + MP or OpenCL).
+* Documentation.
+** [#B] Describe how each component of potential is calculated.
+** [#C] Add Doxygen calls to Makefile.
+** [#C] Document existing periodic-rism changes in file:ChangeLog.org.
+** [#C] Add MathJaX support.
+** [#C] Add BibTeX file for Doxygen citations.
+* Fun
+** Use rotation matrices to calculate the triclinic unit cell axis.
+* Archive                                                           :ARCHIVE:
+** DONE [#A] Ensure triclinic unit cell has correct dimensions in all output formats.
+CLOSED: [2014-10-20 Mon 17:28]
+:PROPERTIES:
+:ARCHIVE_TIME: 2014-10-21 Tue 16:56
+:END:
+The unit cell vectors were being improperly calculated using a Euler
+angle to rotation matrix conversion. The problem seemingly is caused
+by the unclear definition of Euler angle transformations. Code from
+sander was used in place, which is nearly identical to my first
+attempt except I made an error in deriving the z-axis rotation.
+** DONE [#B] Clarify standard output data labels.
+CLOSED: [2014-10-30 Thu 18:04]
+:PROPERTIES:
+:ARCHIVE_TIME: 2014-10-30 Thu 18:07
+:END:
+** DONE [#A] Add uncorrected and corrected total and excess particle counts to std output.
+CLOSED: [2014-10-30 Thu 18:04]
+:PROPERTIES:
+:ARCHIVE_TIME: 2014-10-30 Thu 18:07
+:END:
