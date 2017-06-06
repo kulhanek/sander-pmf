@@ -6,12 +6,14 @@
 SET(UTILS_SRC
         nxtsec.F
         random.F90
-        veclib.F90  
+        veclib.F90
         wallclock.c
         AmberNetcdf.F90
+        ../pbsa/sa_driver.F90
+        ../pbsa/timer.F90
 #        mexit.F90
 #        amopen.F90
-#        assert.F90	
+#        assert.F90
 #        amflsh.F90
 #        sander_bomb.F90
         )

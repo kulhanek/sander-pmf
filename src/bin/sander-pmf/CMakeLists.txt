@@ -35,7 +35,6 @@ SET(SANDER_SRC
         ../../lib/sqm/qm2_load_params_and_allocate.F90 
         ../../lib/sqm/qm2_read_nm_and_alloc.F90
         ../../lib/sqm/qm2_scf.F90
-
 # -----------------------------------
         abfqmmm_module.F90
         align.F90

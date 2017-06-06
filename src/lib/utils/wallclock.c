@@ -16,6 +16,7 @@
 
 static int ncalls=0;
 
+/*
 void wallclock_( double *wallc ){
 
 #  ifdef NO_DETAILED_TIMINGS
@@ -36,6 +37,8 @@ void wallclock_( double *wallc ){
 
 }
 
+*/
+
 void microsec_( int *ig ){
 
 	struct timeval tv;
@@ -48,11 +51,13 @@ void microsec_( int *ig ){
 
 }
 
+/*
 void nwallclock_( int *n ){  
 		/* provides the number of times wallclock was called */
-
+/*
 	*n = ncalls;
 	return;
-
 }
+*/
+
 #endif

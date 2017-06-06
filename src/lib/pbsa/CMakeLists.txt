@@ -4,7 +4,7 @@
 
 # program objects --------------------------------------------------------------
 SET(PBSA_SRC
-        sa_driver.F90
+#        sa_driver.F90
         density.F90
         aug_iccg.F90
         bicg.F90
@@ -102,7 +102,6 @@ SET(PBSA_SRC
         rgroup.F90
         runmd.F90
         runmin.F90
-        sa_driver.F90
         svbksb.F90
         svdcmp.F90
         timer.F90

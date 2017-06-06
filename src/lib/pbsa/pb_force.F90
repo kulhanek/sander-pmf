@@ -239,7 +239,7 @@ contains
 !                 ix(i10),cn1,cn2,xx(l15),x,f,evdw,eelt,epol)
 subroutine pb_force( natom,nres,ntypes,npdec,ipres,iac,ico,natex,cn1,cn2,cg,x,f,enb,eel,eelrf )
 
-   use solvent_accessibility, only : dprob, radi, radip, radip2, radip3, nzratm, &
+   use solvent_accessibility , only : dprob, radi, radip, radip2, radip3, nzratm, &
 #if defined SANDER || defined LIBPBSA
                                      sa_init, sa_driver, sa_free, sa_free_mb
 #else
