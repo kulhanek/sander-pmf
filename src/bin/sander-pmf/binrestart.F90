@@ -13,6 +13,7 @@ module binrestart
    integer, save :: coordVID, velocityVID, cellAngleVID, cellLengthVID
    integer, save :: timeVID, TempVID
    integer, save :: remd_indices_var_id, remd_groups_var_id
+   integer, save :: repidx_var_id, crdidx_var_id
 
    public write_nc_restart, &
           read_nc_restart_box, &
@@ -36,7 +37,7 @@ subroutine write_nc_restart(filename,title,owrite,natom,ntb,first,Coords,Velo,&
                             Time,hasVin&
 #ifdef MPI
                             , temp0, rem, remd_dimension, remd_types, group_num &
-                            , replica_indexes, stagid &
+                            , replica_indexes, stagid, remd_repidx, remd_crdidx &
 #endif
                            )
    use AmberNetcdf_mod
@@ -62,7 +63,7 @@ subroutine write_nc_restart(filename,title,owrite,natom,ntb,first,Coords,Velo,&
    _REAL_, intent(in)                :: temp0
    integer, intent(in)               :: rem, remd_dimension
    integer, intent(in), dimension(:) :: remd_types, group_num, replica_indexes
-   integer, intent(in)               :: stagid
+   integer, intent(in)               :: stagid, remd_repidx, remd_crdidx 
 #  endif
 #ifdef BINTRAJ
    ! Local vars
@@ -81,14 +82,12 @@ subroutine write_nc_restart(filename,title,owrite,natom,ntb,first,Coords,Velo,&
                     title, ncid, timeVID, coordVID, velocityVID, frcVID, &
                     cellLengthVID, cellAngleVID, TempVID)) call mexit(6,1)
 #     ifdef MPI
-      ! MREMD indices
-      if (rem .eq. -1) then
-         ! For now, use indexes only for multid remd
-         if (NC_defineRemdIndices(ncid, remd_dimension, remd_indices_var_id,&
-                                 remd_types, .true.,&
-                                 remd_groupsVID=remd_groups_var_id ))&
-           call mexit(6,1)
-      endif
+      ! REMD indices
+      if (NC_defineRemdIndices(ncid, remd_dimension, remd_indices_var_id,&
+                               repidx_var_id, crdidx_var_id, &
+                               remd_types, .true., (rem .eq. -1), &
+                               remd_groupsVID=remd_groups_var_id )) &
+         call mexit(6,1)
 #     endif
    else
       ! If not the first call, just reopen the existing file
@@ -120,6 +119,11 @@ subroutine write_nc_restart(filename,title,owrite,natom,ntb,first,Coords,Velo,&
 #  ifdef MPI
    ! Write replica temperature, indices
    if (rem.ne.0) then
+      ! Write overall coordinate and replica index
+      call checkNCerror(nf90_put_var(ncid, repidx_var_id, remd_repidx), &
+                        'write overall replica index')
+      call checkNCerror(nf90_put_var(ncid, crdidx_var_id, remd_crdidx), &
+                        'write overall coordinate index')
       ! multi-D remd: Store indices of this replica in each dimension
       if (rem .eq. -1) then
          call checkNCerror(nf90_put_var(ncid, remd_indices_var_id, &
@@ -130,11 +134,13 @@ subroutine write_nc_restart(filename,title,owrite,natom,ntb,first,Coords,Velo,&
                            start = (/ 1 /), count = (/ remd_dimension /)), &
                            'write replica group for each dimension')
       endif
-      if (trxsgld) then
-         call checkNCerror(nf90_put_var(ncid, TempVID, REAL(stagid)), &
-                           'write SGLD replica index')
-      else
-         call checkNCerror(nf90_put_var(ncid, TempVID, temp0), 'write temp0')
+      if (hasTemperature) then
+         if (trxsgld) then
+            call checkNCerror(nf90_put_var(ncid, TempVID, REAL(stagid)), &
+                              'write SGLD replica index')
+        else
+            call checkNCerror(nf90_put_var(ncid, TempVID, temp0), 'write temp0')
+        endif
       endif
    endif
 #  endif

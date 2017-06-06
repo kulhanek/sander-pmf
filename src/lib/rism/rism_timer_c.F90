@@ -30,21 +30,20 @@
 !and  A. Kovalenko, J. Chem. Theory Comput., 6:607-624 (2010). 
 
 #include "../include/dprec.fh"
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!Timer module.  Used by but not limited to RISM.
-!!!-Each timer has parent and an unlimited number of children.
-!!!-If this timer it the top most timer, its parent is NULL.
-!!!-The total time for a timer includes the time from its children.
-!!!-To avoid double counting,
-!!!  +Children start their parent, if it is not running
-!!!  +Children stop their parent, if they started it
-!!!  +The timer must be stopped/started in order to start/stop
-!!!  +No other branch may be running. I.e., a parent may only have one child running.
-!!!-When a timer is destroyed and it is has a parent, the timer is duplicated
-!!! and stored with its parent.  These copies are called 'displaced'. This preserves 
-!!! it for timer summaries.  All duplicates are destroyed when the top level timer 
-!!! is destroyed.
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!> Timer module.  Used by but not limited to RISM.
+!! - Each timer has parent and an unlimited number of children.
+!! - If this timer is the top most timer, its parent is NULL.
+!! - The total time for a timer includes the time from its children.
+!! - To avoid double counting,
+!!   + Children start their parent, if it is not running.
+!!   + Children stop their parent, if they started it.
+!!   + The timer must be stopped/started in order to start/stop.
+!!   + No other branch may be running. I.e., a parent may only have one child running.
+!! - When a timer is destroyed and it is has a parent, the timer is duplicated
+!!  and stored with its parent.  These copies are called 'displaced'. This preserves 
+!!  it for timer summaries.  All duplicates are destroyed when the top level timer 
+!!  is destroyed.
 module rism_timer_c
   use rism_report_c
   implicit none
@@ -336,21 +335,21 @@ contains
     nullify(this%parent%p)
     this%subLevels = 0
     
-    if(associated(this%child))then
+    if (associated(this%child)) then
        do ichild=1, ubound(this%child,1)
-          !remove the parent of each child
+          ! Remove the parent of each child.
           nullify(this%child(ichild)%p%parent%p)
-          !falsify 'startedParent' so we don't have the case where the
-          !child tries to stop a non-existant parent
+          ! Falsify 'startedParent' so we don't have the case where
+          ! the child tries to stop a non-existant parent.
           this%child(ichild)%p%startedParent=.false.
        end do
        deallocate(this%child)
        nullify(this%child)
     end if
-    !displaced children have already had a destroy request.  It is now
-    !safe to get rid of them completely
-    if(associated(this%displacedChild))then
-       do ichild=1, ubound(this%displacedChild,1)
+    ! Displaced children have already had a destroy request. It is now
+    ! safe to get rid of them completely.
+    if (associated(this%displacedChild)) then
+       do ichild = 1, ubound(this%displacedChild, 1)
           call destroy(this%displacedChild(ichild)%p)
           deallocate(this%displacedChild(ichild)%p)
        end do

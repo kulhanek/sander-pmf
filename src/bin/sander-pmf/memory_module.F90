@@ -59,8 +59,9 @@ module memory_module
       polarizability, nmr_work, reff, onereff, group_weight, &
       gb_vdw_radii, gb_p1, gb_p2, gb_p3, gb_p4, &
 !      rborn_max, rborn_min, rborn_ave, rborn_fluct
-! Modified by WJM, YD
+! Modified by WJM, YD, RL
       rborn_max, rborn_min, rborn_ave, rborn_fluct, dampfactor, pol2
+   _REAL_, dimension(:,:), pointer :: polbnd
 !!
 
    integer, dimension(:), pointer :: egb_neighbor_list
@@ -164,6 +165,8 @@ contains
       call set_rank2_pointer(velocity,x(lvel),3,natom) ! 6* when imin/=0 ???
       call set_rank2_pointer(velocity_old,x(lvel2),3,natom) ! 6* when imin/=0 ???
       call set_rank2_pointer(frc,x(lforce),3,natom)
+! by RL
+      call set_rank2_pointer(polbnd,x(lpolbnd),3,natom)
 
       !coor_ref?   x(l45:l45+3*natom*am_nbead+mxvar-1)
       group_weight => x(l60:l60+natom-1)
@@ -294,6 +297,8 @@ contains
       nullify(velocity)
       nullify(velocity_old)
       nullify(frc)
+! by RL
+      nullify(polbnd)
 
       !coor_ref?   x(l45:l45+3*natom*am_nbead+mxvar-1)
       nullify(group_weight)

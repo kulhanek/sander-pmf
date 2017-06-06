@@ -1,3 +1,5 @@
+!>TODO Describe module.
+!!
 module rism_parm
   !initprmtop :: set to .true. if this is a new file
   logical, private :: initprmtop

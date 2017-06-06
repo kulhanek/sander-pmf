@@ -53,14 +53,14 @@ integer, private, parameter                 :: &
             backsassel = 26, &  ! DECOMP -ene sas sel
             backsasind = 27, &  ! DECOMP  ene sas ind
             backsasdir = 28     ! DECOMP  ene sas dir
-                                               
-integer, private, dimension(ndectype)       :: ndecind 
+
+integer, private, dimension(ndectype)       :: ndecind
 !  index into the dec array
 
-integer, private                            :: ndecno  
+integer, private                            :: ndecno
 !  length of the dec array minus 1
 
-_REAL_,  private, dimension(:), allocatable :: dec     
+_REAL_,  private, dimension(:), allocatable :: dec
 !  stores decomposition values
 
 contains
@@ -174,18 +174,18 @@ end subroutine deallocate_real_decomp
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine decpair here]
 subroutine decpair(nty,nat1,nat2,fval)
-   
+
    ! Accumulates contributions fval into ENE_XXX_SEL/IND/DIR,
    !   where XXX stands for EGB, VDW, EEL or
    !   INT in the case of bond energies
-   
+
    ! Holger Gohlke
    !   12.11.2001
-   
+
    use memory_module, only : nres, npdec
 
    implicit none
-   
+
    _REAL_  fval,hfval
    integer nty, ntype
    integer nat1, nat2
@@ -201,7 +201,7 @@ subroutine decpair(nty,nat1,nat2,fval)
    ! mjhsieh: warnings eliminator
    nssel = -1; nsdir = -1; nsind = -1
    nbsel = -1; nbind = -1; nbdir = -1
-   
+
    hfval = 0.5d0 * fval
 
    if(nty < 0) then
@@ -254,9 +254,9 @@ subroutine decpair(nty,nat1,nat2,fval)
       write(6,'(a,i6)') 'Wrong input for ntype: ',ntype
       call mexit(6,1)
    end if  ! (ntype == 1)
-   
+
    ! --- Determine if side or back and if prot or lig
-   
+
    isside1 = .true.
    isprot1 = .true.
    nres1 = jgroup(nat1)
@@ -280,14 +280,14 @@ subroutine decpair(nty,nat1,nat2,fval)
       isside2 = .false.
       nres2 = nres2 - nres
    end if
-   
+
    ! --- Echo result
-   
+
    !      write(6,*) nat1,nres1,isside1,isprot1, &
    !                 nat2,nres2,isside2,isprot2
-   
+
    ! --- Decompose
-   
+
    if (nres1 == nres2) then
       !       --- self-energy of residue
       if (isside1) then
@@ -328,9 +328,9 @@ subroutine decpair(nty,nat1,nat2,fval)
          end if
       end if
    end if  ! (nres1 == nres2)
-   
+
    ! --- Accumulate results
-   
+
    if(nind1 == 0 .or. nind2 == 0) then
       write(6,'(a)') 'NIND1 or NIND2 wrong in DECPAIR.'
       write(6,'(a,i6)') 'NTYPE = ',ntype
@@ -357,25 +357,25 @@ subroutine decpair(nty,nat1,nat2,fval)
       dec(nind1 + ndecno) = dec(nind1 + ndecno) + hfval
       dec(nind2 + ndecno) = dec(nind2 + ndecno) + hfval
    end if
-   
+
    return
-end subroutine decpair 
+end subroutine decpair
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine decangle here]
 subroutine decangle(nat1,nat2,nat3,fval)
-   
+
    ! Accumulates contributions fval into ENE_INT_SEL/IND,
    !   for ANGLE energies
-   
+
    ! Holger Gohlke
    !   12.11.2001
-   
+
    use memory_module, only : nres
 
    implicit none
-   
+
    _REAL_  fval,hfval
    integer nat1, nat2, nat3
    integer nres1, nres2, nres3
@@ -391,9 +391,9 @@ subroutine decangle(nat1,nat2,nat3,fval)
    nbsel = ndecind(backintsel)
    nbind = ndecind(backintind)
    nbdir = 0
-   
+
    ! --- Determine if side or back and if prot or lig
-   
+
    isside1 = .true.
    nres1 = iabs(jgroup(nat1))
    if(nres1 > nres) then
@@ -414,15 +414,15 @@ subroutine decangle(nat1,nat2,nat3,fval)
       isside3 = .false.
       nres3 = nres3 - nres
    end if
-   
+
    ! --- Echo result
-   
+
    !      write(6,*) nat1,nres1,isside1,
    !     +           nat2,nres2,isside2,
    !     +           nat3,nres3,isside3
-   
+
    ! --- Decompose
-   
+
    if ((nres1 == nres2) .and. (nres1 == nres3)) then
       !       --- self-energy of residue
       if (isside1) then
@@ -458,9 +458,9 @@ subroutine decangle(nat1,nat2,nat3,fval)
          nind3 = nbind
       end if
    end if  ! ((nres1 == nres2) .and. (nres1 == nres3))
-   
+
    ! --- Accumulate results
-   
+
    if(nind1 == 0 .or. nind2 == 0 .or. nind3 == 0) then
       write(6,'(a)') 'NIND1 or NIND2 or NIND3 wrong in DECPAIR.'
       write(6,'(9i6)') nat1,nres1,isside1, &
@@ -480,25 +480,25 @@ subroutine decangle(nat1,nat2,nat3,fval)
       dec(nind2 + ndecno) = dec(nind2 + ndecno) + hfval
       dec(nind3 + ndecno) = dec(nind3 + ndecno) + hfval
    end if
-   
+
    return
-end subroutine decangle 
+end subroutine decangle
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine decphi here]
 subroutine decphi(nat1,nat2,nat3,nat4,fval)
-   
+
    ! Accumulates contributions fval into ENE_INT_SEL/IND,
    !   for PHI energies
-   
+
    ! Holger Gohlke
    !   12.11.2001
-   
+
    use memory_module, only : nres
 
    implicit none
-   
+
    _REAL_  fval,hfval
    integer nat1, nat2, nat3, nat4
    integer nres1, nres2, nres3, nres4
@@ -514,9 +514,9 @@ subroutine decphi(nat1,nat2,nat3,nat4,fval)
    nbsel = ndecind(backintsel)
    nbind = ndecind(backintind)
    nbdir = 0
-   
+
    ! --- Determine if side or back and if prot or lig
-   
+
    isside1 = .true.
    nres1 = iabs(jgroup(nat1))
    if(nres1 > nres) then
@@ -544,16 +544,16 @@ subroutine decphi(nat1,nat2,nat3,nat4,fval)
       isside4 = .false.
       nres4 = nres4 - nres
    end if
-   
+
    ! --- Echo result
-   
+
    !      write(6,*) nat1,nres1,isside1,
    !     +           nat2,nres2,isside2,
    !     +           nat3,nres3,isside3,
    !     +           nat4,nres4,isside4
-   
+
    ! --- Decompose
-   
+
    if ((nres1 == nres2) .and. &
          (nres1 == nres3) .and. &
          (nres1 == nres4)) then
@@ -601,9 +601,9 @@ subroutine decphi(nat1,nat2,nat3,nat4,fval)
          nind4 = nbind
       end if
    end if  !  ((nres1 == nres2) .and.
-   
+
    ! --- Accumulate results
-   
+
    if(nind1 == 0 .or. nind2 == 0 .or. &
          nind3 == 0 .or. nind4 == 0) then
       write(6,'(a)') &
@@ -629,24 +629,24 @@ subroutine decphi(nat1,nat2,nat3,nat4,fval)
       dec(nind3 + ndecno) = dec(nind3 + ndecno) + hfval
       dec(nind4 + ndecno) = dec(nind4 + ndecno) + hfval
    end if
-   
+
    return
-end subroutine decphi 
+end subroutine decphi
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine decsasa here]
 subroutine decsasa(nty,nat1,nat2,nat3,fval)
-   
+
    ! Accumulates contributions fval into ENE_SAS_SEL/IND/DIR
-   
+
    ! Holger Gohlke
    !   12.11.2001
-   
+
    use memory_module, only : npdec, nres
 
    implicit none
-   
+
    _REAL_  fval,hfval,addfval
    integer nty, ntype
    integer nat1, nat2, nat3
@@ -671,9 +671,9 @@ subroutine decsasa(nty,nat1,nat2,nat3,fval)
    nbsel = ndecind(backsassel)
    nbind = ndecind(backsasind)
    nbdir = ndecind(backsasdir)
-   
+
    ! --- Check NTYPE
-   
+
    if(nty == 0 .or. abs(nty) >= 4) then
       write(6,'(a,i6)') 'Wrong input for NTYPE: ',nty
       call mexit(6,1)
@@ -684,9 +684,9 @@ subroutine decsasa(nty,nat1,nat2,nat3,fval)
       pairwise = .false.
       ntype = nty
    end if
-   
+
    ! --- Determine if side or back and if prot or lig
-   
+
    isside1 = .true.
    isprot1 = .true.
    nres1 = jgroup(nat1)
@@ -726,9 +726,9 @@ subroutine decsasa(nty,nat1,nat2,nat3,fval)
          end if
       end if
    end if
-   
+
    ! --- Echo result
-   
+
    !      if(ntype.eq.1) then
    !        write(6,*) nat1,nres1,isside1, isprot1, fval
    !      else if(ntype.eq.2) then
@@ -741,7 +741,7 @@ subroutine decsasa(nty,nat1,nat2,nat3,fval)
    !                   nat3,nres3,isside3, isprot3, &
    !                   fval
    !      end if
-   
+
    ! --- Decompose
    !     here: nat1 solely determines if sidechain or backbone
 
@@ -809,11 +809,11 @@ subroutine decsasa(nty,nat1,nat2,nat3,fval)
             end if
          end if
       end if
-      
+
    end if
-   
+
    ! --- Accumulate results
-   
+
    if((ntype == 1 .and. nres1 > 0) .or. &
       (ntype == 2 .and. nres1 > 0 .and. nres2 > 0) .or. &
       (ntype == 3 .and. &
@@ -854,24 +854,24 @@ subroutine decsasa(nty,nat1,nat2,nat3,fval)
          end if
       end if
    end if  ! ((ntype == 1 .and. nres1 > 0) .or.
-   
+
    return
-end subroutine decsasa 
+end subroutine decsasa
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine checkdec here]
 subroutine checkdec(idecomp)
-   
+
    ! Sums contents in ENE_XXX_SEL/IND/DIR
-   
+
    ! Holger Gohlke
    !   13.11.2001
-   
+
    use memory_module, only : npdec, nres
 
    implicit none
-   
+
    integer, intent(in) :: idecomp
 
    _REAL_ &
@@ -905,7 +905,7 @@ subroutine checkdec(idecomp)
    nssassel = ndecind(sidesassel)
    nssasind = ndecind(sidesasind)
    nssasdir = ndecind(sidesasdir)
-                                 
+
    nbintsel = ndecind(backintsel)
    nbintind = ndecind(backintind)
    nbvdwsel = ndecind(backvdwsel)
@@ -920,7 +920,7 @@ subroutine checkdec(idecomp)
    nbsassel = ndecind(backsassel)
    nbsasind = ndecind(backsasind)
    nbsasdir = ndecind(backsasdir)
-   
+
    esintsel = 0.0d0
    esintind = 0.0d0
    esvdwsel = 0.0d0
@@ -988,9 +988,9 @@ subroutine checkdec(idecomp)
       ebsasind = ebsasind + dec(nbsasind + i)
       ebsasdir = ebsasdir + dec(nbsasdir + i)
    end do
-   
+
    ! --- Output total energies (w/ rest)
-   
+
    write(6,300)
    write(6,350) esintsel + esintind + ebintsel + ebintind + &
                 dec(nsintsel+ndecno) + dec(nsintind+ndecno) + &
@@ -1019,36 +1019,36 @@ subroutine checkdec(idecomp)
                 dec(nssasdir+ndecno) + &
                 dec(nbsassel+ndecno) + dec(nbsasind+ndecno) + &
                 dec(nbsasdir+ndecno)
-   
+
    ! --- Output self energies (w/o rest)
-   
+
    write(6,302)
    write(6,350) esintsel + ebintsel
    write(6,360) esvdwsel + ebvdwsel, &
                 eseelsel + ebeelsel
    write(6,370) espolsel + ebpolsel, &
                 essassel + ebsassel
-   
+
    ! --- Output indirect energies (w/o rest)
-   
+
    write(6,304)
    write(6,350) esintind + ebintind
    write(6,360) esvdwind + ebvdwind, &
                 eseelind + ebeelind
    write(6,370) espolind + ebpolind, &
                 essasind + ebsasind
-   
+
    ! --- Output direct energies (w/o rest)
-   
+
    write(6,306)
    write(6,350) 0.0d0    ! No direct interactions for internal energies
    write(6,360) esvdwdir + ebvdwdir, &
                 eseeldir + ebeeldir
    write(6,370) espoldir + ebpoldir, &
                 essasdir + ebsasdir
-   
+
    ! --- Output rest energies
-   
+
    write(6,308)
    write(6,350) dec(nsintsel+ndecno) + dec(nsintind+ndecno) + &
                 dec(nbintsel+ndecno) + dec(nbintind+ndecno)
@@ -1068,9 +1068,9 @@ subroutine checkdec(idecomp)
                 dec(nssasdir+ndecno) + &
                 dec(nbsassel+ndecno) + dec(nbsasind+ndecno) + &
                 dec(nbsasdir+ndecno)
-   
+
    write(6,'(/)')
-   
+
    300 format(/ /20x,'CHECK DECOMP - TOTAL ENERGIES (w/ REST)',/)
    302 format(/ /20x,'CHECK DECOMP - SELF ENERGIES (w/o REST)',/)
    304 format(/ /20x,'CHECK DECOMP - INDIRECT ENERGIES (w/o REST)',/)
@@ -1079,24 +1079,24 @@ subroutine checkdec(idecomp)
    350 format(1x,'INTERNAL= ',f13.4)
    360 format(1x,'VDWAALS = ',f13.4,2x,'EEL     = ',f13.4)
    370 format(1x,'EGB     = ',f13.4,2x,'ESURF   = ',f13.4)
-   
+
    return
-end subroutine checkdec 
+end subroutine checkdec
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine printdec here]
 subroutine printdec(ix)
-   
+
    ! Outputs contents in ENE_XXX_SEL/IND/DIR with respect to residues
-   
+
    ! Holger Gohlke
    !   13.11.2001
-   
+
    use memory_module, only : i02, ibellygp, nres
 
    implicit none
-   
+
    _REAL_  energy
    dimension energy(5)
 
@@ -1106,13 +1106,13 @@ subroutine printdec(ix)
    integer nbsel, nbind, nbdir
    dimension nssel(5), nsind(5), nsdir(5)
    dimension nbsel(5), nbind(5), nbdir(5)
-   
+
    ipresst  = i02
    igst     = ibellygp
 
    nssel(1) = ndecind(sideintsel)
    nsind(1) = ndecind(sideintind)
-   nsdir(1) = 0                       
+   nsdir(1) = 0
    nssel(2) = ndecind(sidevdwsel)
    nsind(2) = ndecind(sidevdwind)
    nsdir(2) = ndecind(sidevdwdir)
@@ -1125,10 +1125,10 @@ subroutine printdec(ix)
    nssel(5) = ndecind(sidesassel)
    nsind(5) = ndecind(sidesasind)
    nsdir(5) = ndecind(sidesasdir)
-                                      
+
    nbsel(1) = ndecind(backintsel)
    nbind(1) = ndecind(backintind)
-   nbdir(1) = 0                       
+   nbdir(1) = 0
    nbsel(2) = ndecind(backvdwsel)
    nbind(2) = ndecind(backvdwind)
    nbdir(2) = ndecind(backvdwdir)
@@ -1141,9 +1141,9 @@ subroutine printdec(ix)
    nbsel(5) = ndecind(backsassel)
    nbind(5) = ndecind(backsasind)
    nbdir(5) = ndecind(backsasdir)
-   
+
    ! --- Output total energies
-   
+
    write(6,300)
    write(6,350)
    write(6,355)
@@ -1162,9 +1162,9 @@ subroutine printdec(ix)
          write(6,360) i+1,(energy(j),j=1,5)
       end if
    end do
-   
+
    ! --- Output sidechain energies
-   
+
    write(6,302)
    write(6,350)
    write(6,355)
@@ -1183,9 +1183,9 @@ subroutine printdec(ix)
          write(6,362) i+1,(energy(j),j=1,5)
       end if
    end do
-   
+
    ! --- Output backbone energies
-   
+
    write(6,304)
    write(6,350)
    write(6,355)
@@ -1204,9 +1204,9 @@ subroutine printdec(ix)
          write(6,364) i+1,(energy(j),j=1,5)
       end if
    end do
-   
+
    write(6,'(/)')
-   
+
    300 format(/ /20x,'PRINT DECOMP - TOTAL ENERGIES',/)
    302 format(/ /20x,'PRINT DECOMP - SIDECHAIN ENERGIES',/)
    304 format(/ /20x,'PRINT DECOMP - BACKBONE ENERGIES',/)
@@ -1215,25 +1215,25 @@ subroutine printdec(ix)
    360 format('TDC',1x,i6,5(1x,f9.3))
    362 format('SDC',1x,i6,5(1x,f9.3))
    364 format('BDC',1x,i6,5(1x,f9.3))
-   
+
    return
-end subroutine printdec 
+end subroutine printdec
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine printpdec here]
 subroutine printpdec(ix)
-   
+
    ! Outputs contents in ENE_XXX_SEL/IND/DIR with
    !   respect to pairwise decomp
-   
+
    ! Holger Gohlke
    !   29.11.2001
-   
+
    use memory_module, only : i02, ibellygp, npdec, nres
 
    implicit none
-   
+
    _REAL_  energy
    dimension energy(5)
 
@@ -1244,13 +1244,13 @@ subroutine printpdec(ix)
    integer ntmp
    dimension nssel(5), nsind(5), nsdir(5)
    dimension nbsel(5), nbind(5), nbdir(5)
-   
+
    ipresst  = i02
    igst     = ibellygp
 
    nssel(1) = ndecind(sideintsel)
    nsind(1) = ndecind(sideintind)
-   nsdir(1) = 0                       
+   nsdir(1) = 0
    nssel(2) = ndecind(sidevdwsel)
    nsind(2) = ndecind(sidevdwind)
    nsdir(2) = ndecind(sidevdwdir)
@@ -1263,10 +1263,10 @@ subroutine printpdec(ix)
    nssel(5) = ndecind(sidesassel)
    nsind(5) = ndecind(sidesasind)
    nsdir(5) = ndecind(sidesasdir)
-                                      
+
    nbsel(1) = ndecind(backintsel)
    nbind(1) = ndecind(backintind)
-   nbdir(1) = 0                       
+   nbdir(1) = 0
    nbsel(2) = ndecind(backvdwsel)
    nbind(2) = ndecind(backvdwind)
    nbdir(2) = ndecind(backvdwdir)
@@ -1281,7 +1281,7 @@ subroutine printpdec(ix)
    nbdir(5) = ndecind(backsasdir)
 
    ! --- Output total energies
-   
+
 print *, dec(186)
    write(6,300)
    write(6,350)
@@ -1311,9 +1311,9 @@ print *, dec(186)
          end do
       end if
    end do
-   
+
    ! --- Output sidechain energies
-   
+
    write(6,302)
    write(6,350)
    write(6,355)
@@ -1338,9 +1338,9 @@ print *, dec(186)
          end do
       end if
    end do
-   
+
    ! --- Output backbone energies
-   
+
    write(6,304)
    write(6,350)
    write(6,355)
@@ -1365,9 +1365,9 @@ print *, dec(186)
          end do
       end if
    end do
-   
+
    write(6,'(/)')
-   
+
    300 format(/ /20x,'PRINT PAIR DECOMP - TOTAL ENERGIES',/)
    302 format(/ /20x,'PRINT PAIR DECOMP - SIDECHAIN ENERGIES',/)
    304 format(/ /20x,'PRINT PAIR DECOMP - BACKBONE ENERGIES',/)
@@ -1377,8 +1377,8 @@ print *, dec(186)
    360 format('TDC',1x,i7,'->',i7,5(1x,f9.3))
    362 format('SDC',1x,i7,'->',i7,5(1x,f9.3))
    364 format('BDC',1x,i7,'->',i7,5(1x,f9.3))
-   
+
    return
-end subroutine printpdec 
+end subroutine printpdec
 
 end module decomp

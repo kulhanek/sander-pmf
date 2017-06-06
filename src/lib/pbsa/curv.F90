@@ -12,7 +12,7 @@ subroutine curv(l,m,n,h,hx,hy,hz,x1,y1,z1,i0,j0,k0,x,y,z,phi,t, xyy,xzz,xyz)
    integer l,m,n,i0,j0,k0
    _REAL_  h,hx,hy,hz,x1,y1,z1,x(0:l+1), y(0:m+1), z(0:n+1),&
            phi(0:l+1,0:m+1,0:n+1),t(3,3),xyy,xzz,xyz
-   
+
    !Local variables:
    _REAL_ ph0,phx,phy,phz,phxx,phyy,phzz,phxy,phxz,phyz,phieps,&
           tmp1,tmp2,tmp3,tmp
@@ -45,5 +45,5 @@ subroutine curv(l,m,n,h,hx,hy,hz,x1,y1,z1,i0,j0,k0,x,y,z,phi,t, xyy,xzz,xyz)
    xyz = -tmp/phieps
 
    return
-end subroutine curv 
+end subroutine curv
 

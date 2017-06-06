@@ -81,7 +81,7 @@ subroutine runmin(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
 
    !     ----- EVALUATE SOME CONSTANTS -----
 
-   if (imin /= 5 .and. master) call myopen(MDINFO_UNIT,mdinfo,'U','F','W')
+   if ( imin /= 5 ) call myopen(MDINFO_UNIT,mdinfo,'U','F','W')
    fmin = 0.0d0
    nr = nrp
    n = 3*nr
@@ -138,15 +138,13 @@ subroutine runmin(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
 
    ! reset pb-related flags
 
-   if(master)then
-      if ( igb == 10 .or. ipb >= 1 ) then
-         if ( mod(n_force_calls,npbgrid) == 0 .and. n_force_calls /= maxcyc ) pbgrid = .true.
-         if ( mod(n_force_calls,ntpr) == 0 .or. n_force_calls ==maxcyc ) pbprint = .true.
-         if ( mod(n_force_calls,nsnbr) == 0 .and. n_force_calls /=maxcyc ) ntnbr = 1
-         if ( mod(n_force_calls,nsnba) == 0 .and. n_force_calls /=maxcyc ) ntnba = 1
-         npbstep = n_force_calls
-      end if
-   endif
+   if ( igb == 10 .or. ipb >= 1 ) then
+      if ( mod(n_force_calls,npbgrid) == 0 .and. n_force_calls /= maxcyc ) pbgrid = .true.
+      if ( mod(n_force_calls,ntpr) == 0 .or. n_force_calls ==maxcyc ) pbprint = .true.
+      if ( mod(n_force_calls,nsnbr) == 0 .and. n_force_calls /=maxcyc ) ntnbr = 1
+      if ( mod(n_force_calls,nsnba) == 0 .and. n_force_calls /=maxcyc ) ntnba = 1
+      npbstep = n_force_calls
+   end if
 #ifdef MPI
    call MPI_BCAST(     ntpr,        1,MPI_INTEGER,0,CommSANDER,ier); REQUIRE(ier==0)
    call MPI_BCAST(  npbstep,BC_PB_MDI,MPI_INTEGER,0,CommSANDER,ier); REQUIRE(ier==0)
@@ -164,16 +162,14 @@ subroutine runmin(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
    !     ----- PRINT THE INTERMEDIATE RESULTS -----
    !           ih(m04) = atom names
 
-   call report_min_progress( n_force_calls, rms, fg, ene, ih(m04) )  
+   call report_min_progress( n_force_calls, rms, fg, ene, ih(m04) )
 
-   if (master) then
-      write(6,'(//,a)') '  Maximum number of minimization cycles reached.'
-      close(unit=MDINFO_UNIT)
-   end if
+   write(6,'(//,a)') '  Maximum number of minimization cycles reached.'
+   close(unit=MDINFO_UNIT)
 
    !     ----- WRITE THE FINAL RESULTS -----
 
-   call report_min_results( n_force_calls, rms, x, fg, ene, ih(m04), xx, ix, ih )  
+   call report_min_results( n_force_calls, rms, x, fg, ene, ih(m04), xx, ix, ih )
    carrms = rms
 
 

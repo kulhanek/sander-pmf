@@ -265,17 +265,11 @@ subroutine runmin(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
    ! reset pb-related flags
    if(master)then
       if ( igb == 10 .or. ipb /= 0 ) then
-         !if ( mod(n_force_calls,npbgrid) == 0 .and. n_force_calls /= maxcyc ) pbgrid = .true.
-         !if ( mod(n_force_calls,ntpr) == 0 .or. n_force_calls == maxcyc ) pbprint = .true.
-         !if ( mod(n_force_calls,nsnbr) == 0 .and. n_force_calls /= maxcyc ) ntnbr = 1
-         !if ( mod(n_force_calls,nsnba) == 0 .and. n_force_calls /= maxcyc ) ntnba = 1
          if ( mod(n_force_calls,npbgrid) == 0 ) pbgrid = .true.
          if ( ntpr > 0 .and. mod(n_force_calls,ntpr) == 0 ) pbprint = .true.
          if ( mod(n_force_calls,nsnbr) == 0 ) ntnbr = 1
          if ( mod(n_force_calls,nsnba) == 0 ) ntnba = 1
          npbstep = n_force_calls
-        !write(6,*) 'inside runmin', npbgrid, ntpr, nsnbr, nsnba
-        !write(6,*) 'inside runmin', n_force_calls, pbgrid, pbprint, ntnbr, ntnba
       end if
    endif
 
@@ -296,7 +290,7 @@ subroutine runmin(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
    
    ! Restart file
    ixdump = .false.
-   if (ntwr /= 0 .and. mod(n_force_calls,ntwr) == 0) ixdump = .true.
+   if ( mod(n_force_calls,ntwr) == 0) ixdump = .true.
    
    ! Trajectory
    ! DRR - Dont write traj during post-processing.
@@ -316,6 +310,10 @@ subroutine runmin(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
 !       if (mod(n_force_calls,ntwr) == 0) sebomd_obj%pdmx = 1
 !       if (n_force_calls == maxcyc) sebomd_obj%pdmx = 1
 !    endif
+     sebomd_obj%iflagbo = 0
+     if (sebomd_obj%ntwb /= 0) then
+        if (mod(n_force_calls,sebomd_obj%ntwb) == 0) sebomd_obj%iflagbo = 1
+     endif
    endif
    
    call force(xx,ix,ih,ipairs,x,fg,ene,ene%vir, &
@@ -804,10 +802,14 @@ subroutine runmin(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
      if (sebomd_obj%ntwc /= 0) then
         if (mod(n_force_calls,sebomd_obj%ntwc) == 0) sebomd_obj%iflagch = 1
      endif
-     sebomd_obj%pdmx = 0
-     if (sebomd_obj%pdump /= 0) then
-        if (mod(n_force_calls,ntwr) == 0) sebomd_obj%pdmx = 1
-        if (n_force_calls == maxcyc) sebomd_obj%pdmx = 1
+!    sebomd_obj%pdmx = 0
+!    if (sebomd_obj%pdump /= 0) then
+!       if (mod(n_force_calls,ntwr) == 0) sebomd_obj%pdmx = 1
+!       if (n_force_calls == maxcyc) sebomd_obj%pdmx = 1
+!    endif
+     sebomd_obj%iflagbo = 0
+     if (sebomd_obj%ntwb /= 0) then
+        if (mod(n_force_calls,sebomd_obj%ntwb) == 0) sebomd_obj%iflagbo = 1
      endif
    endif
 

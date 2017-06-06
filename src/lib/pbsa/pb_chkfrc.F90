@@ -40,7 +40,7 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
    _REAL_ crn(3,20), crn1(3), crn2(3)
 
    if ( nfocus /= 1 ) then
-      print *, "nfocus must be 1"
+      write(6,'(a)') "PB Bomb in pb_chkfrc: nfocus must be 1"
       call mexit(6,0)
    end if
 
@@ -57,11 +57,11 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
    crd(1:3*natom) = x(1:3*natom)
    call amrset_gen(rand_gen,ig)
    if ( rotopt == 1 ) then
-      call crcl(ncrcl,nsph,theta,psi)   
+      call crcl(ncrcl,nsph,theta,psi)
       sxangle = TWOPI/nrotx
       nrot = nrotx*ncrcl
    else
-      call crcl(mcrcl,msph,theta,psi)   
+      call crcl(mcrcl,msph,theta,psi)
       sxangle = TWOPI/mrotx
       nrot = mrot
    end if
@@ -99,7 +99,7 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
          call rotate(natom,ycrd,3,psi(k))
       else
          call amrand_gen(rand_gen,randval)
-         do while ( randval == ZERO ) 
+         do while ( randval == ZERO )
             call amrand_gen(rand_gen,randval)
          end do
          ! rotate wrt the main axis (z axis)
@@ -127,7 +127,7 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
          call translate(natom,zcrd,dsplc)
          x(1:3*natom) = zcrd(1:3*natom)
          fg(1:3*natom) = ZERO
-            
+
 !        write(300,*) '--------------------------------'
 !        write(300,*) 'rotation',s,k,'translation',j
 !        write(300,*) natom
@@ -140,7 +140,7 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
 !           write(300,'(3f12.7)') zcrd(m+1),zcrd(m+2),zcrd(m+3)
 !        end if
 !        cycle
-      
+
 !        do n = 1, natom
 !           m = 3*(n-1)
 !           write(301,'(3f20.15)') zcrd(m+1),zcrd(m+2),zcrd(m+3)
@@ -163,7 +163,6 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
          if ( nfopt == 1 ) then
             ! only for cg test
             do n = 1, 3
-!              print *, l, k, j, n
                x(1:3*natom) = zcrd(1:3*natom)
                do m = 20, 35
                   i = (m-1)*3+n
@@ -184,9 +183,9 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
                call force(xx,ix,ih,ipairs,x,f,ene(23),vir,r_stack,i_stack, &
                           xx(l96),xx(l97),xx(l98),do_list_update)
                enem = ene(23)
-               nf(n) = -(enep-enem)/(TWO*delta) 
+               nf(n) = -(enep-enem)/(TWO*delta)
             end do
-         elseif ( nfopt == 2 ) then 
+         elseif ( nfopt == 2 ) then
             do m = 1, natom
                do n = 1, 3
                   i = (m-1)*3+n
@@ -204,10 +203,10 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
                   call force(xx,ix,ih,ipairs,x,f,ene(23),vir,r_stack,i_stack, &
                              xx(l96),xx(l97),xx(l98),do_list_update)
                   enem = ene(23)
-                  nf(i) = -(enep-enem)/(TWO*delta) 
+                  nf(i) = -(enep-enem)/(TWO*delta)
                end do
             end do
-         else 
+         else
          end if
 
          ! rotate back force
@@ -233,7 +232,7 @@ subroutine chkfrc(xx,ix,ih,ipairs,x,fg,ene,r_stack,i_stack, &
 
          ! print out energy
          n_force_calls = n_force_calls + 1
-         call report_min_progress( n_force_calls, rms, fg, aene, ih(m04) )  
+         call report_min_progress( n_force_calls, rms, fg, aene, ih(m04) )
       end do
    end do
 
@@ -388,9 +387,9 @@ subroutine writefile(natom,l,k,j,fg,nf, &
 
    tf = tf + fg
    tfsq = tfsq+fg*fg
-   tnf = tnf + nf 
+   tnf = tnf + nf
    tnfsq = tnfsq+nf*nf
-   
+
    write(6,'(a)') '--------------------------------'
    write(6,'(a,i12,i12,a,i12)') 'rotation',l,k,' translation',j
    write(6,'(a)') 'analytical force'
@@ -439,7 +438,7 @@ subroutine writesummary(natom,nrot,ntrns, &
    do m = 1, natom
       write(6,'(3f20.10)') tfsq(1,m),tfsq(2,m),tfsq(3,m)
    end do
-   
+
    if ( nfopt /= 0 ) then
       tnf = tnf*wt
       tnfsq = sqrt(tnfsq*wt-tnf*tnf)
@@ -463,7 +462,7 @@ subroutine get_arccrn(natom,crd,r,idx,prob,crn1,crn2)
 
    ! Passed
    integer natom, idx(3)
-   _REAL_ crd(3,natom) 
+   _REAL_ crd(3,natom)
    _REAL_ prob, r(natom)
    _REAL_ crn1(3), crn2(3)
 
@@ -473,7 +472,7 @@ subroutine get_arccrn(natom,crd,r,idx,prob,crn1,crn2)
    _REAL_ p1(3), p2(3), q1(3), q2(3), p(3), d(3)
    _REAL_ u(3,3), v(3,3), w(3), b(3), t(3)
    _REAL_ TOL, wmax, thresh, h
- 
+
    a1 = crd(1:3,idx(1)); a2 = crd(1:3,idx(2)); a3 = crd(1:3,idx(3))
    p1 = a2 - a1; p2 = a3 - a1
    q1 = (a1+a2)*HALF; q2 = (a1+a3)*HALF
@@ -498,7 +497,7 @@ subroutine get_arccrn(natom,crd,r,idx,prob,crn1,crn2)
 !  print *, "u2",u(1,2), u(2,2), u(3,2)
 !  print *, "u3",u(1,3), u(2,3), u(3,3)
 !  print *, "b",b(1), b(2), b(3)
-  
+
    mp = 3; np = 3
    m = 3; n = 3
    TOL = 1.d-5

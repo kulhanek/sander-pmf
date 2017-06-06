@@ -6,7 +6,7 @@
 #ifdef MPI
 subroutine getcor(nr,x,v,f,ntx,box,irest,tt,temp0,writeflag,solvph)
 #else
-subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
+subroutine getcor(nr,x,v,f,ntx,box,irest,tt,writeflag)
 #endif
    
    !     --- reads initial coords, vel, and box for MD.
@@ -34,15 +34,14 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
 
    implicit none
 #  include "ew_cntrl.h"
-   integer lun,nr,ntx
+   integer lun,nr,ntx,irest
    _REAL_ x(*),v(*),f(*),box(3),tt,ltemp0
 #ifdef MPI
    _REAL_ temp0,solvph
-   integer irest
 #endif
    
    logical form, writeflag
-   _REAL_ fvar(7),a,b,c,alpha,beta,gamma
+   _REAL_ fvar(7),a,b,c,alpha,beta,gamma,input_time
    integer i,ivar,ifld(7)
    character(len=4) ihol(1)
    integer natom,nr3,ier,ibead
@@ -60,7 +59,7 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
 
    ! Netcdf Restart
    if (NC_checkRestart(inpcrd)) then
-      call read_nc_restart(inpcrd,title1,ntx,nr,x,v,ltemp0,tt)
+      call read_nc_restart(inpcrd,title1,ntx,nr,x,v,ltemp0,input_time)
       ! ntx=1 No Velocity Read, set to 0.0 
       if (ntx == 1) v(1:nr3) = 0.d0
 #ifdef MPI
@@ -74,8 +73,10 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
 #endif
       if (writeflag) then
          write(6,9008) title1
-         write(6,9009) tt
+         write(6,9009) input_time
       end if
+      ! If restarting, set the time from input_time
+      if (irest == 1) tt = input_time
       return
    endif
 
@@ -89,13 +90,13 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
       
       read(lun,'(a80)') line_test
       if( line_test(6:6) == ' ' ) then ! this is an old, i5 file
-        read(line_test,9010) natom,tt,ltemp0
+        read(line_test,9010) natom,input_time,ltemp0
       elseif( line_test(7:7) == ' ' ) then ! sander 7/8/9/10 large system format...
-        read(line_test,9011) natom,tt,ltemp0
+        read(line_test,9011) natom,input_time,ltemp0
       elseif( line_test(8:8) == ' ' ) then ! Sander 11 - 1 mil+ format
-        read(line_test,9012) natom,tt,ltemp0
+        read(line_test,9012) natom,input_time,ltemp0
       else                   ! assume amber 11 VERY large system format. 10 mil+
-        read(line_test,9013,err=666) natom,tt,ltemp0
+        read(line_test,9013,err=666) natom,input_time,ltemp0
       end if
       ! See how many words were in the first line. If there were 3, that means
       ! one of them was the temperature (or pH). If that was the case, allow pH
@@ -114,7 +115,8 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
       if(rem > 0 .and. rem < 4 .and. ltemp0 > 0 .and. irest==1) temp0 = ltemp0
       if(rem == 4 .and. nwords == 3 .and. irest==1) solvph = ltemp0
 #endif
-
+      ! If restarting, set the time from input_time
+      if (irest == 1) tt = input_time
       
       if(natom == nr) then
          read(lun,9028,end=667,err=668) (x(i),i=1,natom*3)
@@ -134,7 +136,7 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
          end do
          if (writeflag) then
             write(6,9008) title1
-            write(6,9009) tt
+            write(6,9009) input_time
          end if
          close(lun, iostat=ier)
          return
@@ -145,7 +147,7 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
       read(lun,9028,end=669,err=670) (v(i),i=1,nr3)
       if (writeflag) then
          write(6,9008) title1
-         write(6,9009) tt
+         write(6,9009) input_time
       end if
       close(lun, iostat=ier)
       return
@@ -166,7 +168,7 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
             v(i) = 0.d0
          end do
          write(6,9008) title1
-         write(6,9009) tt
+         write(6,9009) input_time
          close(lun, iostat=ier)
          return
       end if
@@ -181,22 +183,23 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
          read(lun,end=1000,err=1000) (x(i),i = 1,nr3)
          read(lun) (f(i),i = 1,nr3)
          write(6,9008) title1
-         write(6,9009) tt
+         write(6,9009) input_time
          close(lun, iostat=ier)
          return
       end if
       
       read(lun) title1
-      read(lun) natom,tt
+      read(lun) natom,input_time
       if(natom /= nr) then
          write(6,9118)
          call mexit(6, 1)
       end if
+      if (irest == 1) tt = input_time
       read(lun,end=1000,err=1000) (x(i),i = 1,nr3)
       read(lun,end=1010,err=1010) (v(i),i = 1,nr3)
       if(ntx < 6) then
          write(6,9008) title1
-         write(6,9009) tt
+         write(6,9009) input_time
          close(lun, iostat=ier)
          return
       end if
@@ -234,7 +237,7 @@ subroutine getcor(nr,x,v,f,ntx,box,tt,writeflag)
    end if
    
    write(6,9008) title1
-   write(6,9009) tt
+   write(6,9009) input_time
    close(lun, iostat=ier)
    return
 

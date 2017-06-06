@@ -1,7 +1,7 @@
 !<compile=optimized>
 
-!The 3D-RISM-KH software found here is copyright (c) 2010 by Andriy Kovalenko,
-!Tyler Luchko and David A. Case.
+!The 3D-RISM-KH software found here is copyright (c) 2014 by Andriy Kovalenko,
+!Tyler Luchko, Igor Omelyan, and David A. Case.
 !
 !This program is free software: you can redistribute it and/or modify it
 !under the terms of the GNU General Public License as published by the Free
@@ -32,21 +32,20 @@
 !4) I. Omelyan and A. Kovalenko, J. Chem. Phys., 139, 244106 (2013).
 
 #include "../include/dprec.fh"
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!Object for force-coordinate-extrapolation (FCE) multiple time step (MTS).
-!!!
-!!!N total previous frames are held in memory for both position and
-!!!solvation force.  When we are extrapolating the force for a given
-!!!time step we first express the current position as a linear
-!!!combination of the previous steps:
-!!!
-!!!  R^(N+1) ~ \sum^N_i a_i R^i
-!!!
-!!!the a_i that best satisfy this equation are then used to calculate
-!!!an approximation of the solvation:
-!!!
-!!!  F^(N+1) ~ \sum^N_i a_i F^i
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!> Object for force-coordinate-extrapolation (FCE) multiple time step (MTS).
+!! 
+!! N total previous frames are held in memory for both position and
+!! solvation force.  When we are extrapolating the force for a given
+!! time step we first express the current position as a linear
+!! combination of the previous steps:
+!! 
+!!   R^(N+1) ~ \sum^N_i a_i R^i
+!! 
+!! the a_i that best satisfy this equation are then used to calculate
+!! an approximation of the solvation:
+!! 
+!!   F^(N+1) ~ \sum^N_i a_i F^i
 module fce_c
   implicit none
   type fce
@@ -75,6 +74,14 @@ module fce_c
 
      ! Note that no weighting (weigh=0) are performed for trans=0 but
      ! selecting (if nbasis>nbase) and sorting (if sort/=0) are possible
+
+     !ifreq   :: the extended to best basic mapping list will be
+     !           updated every ifreq impulsive step (ifreq >= 1)
+
+     !ntfrcor :: 0-no net force correction
+     !        ::/=0-perform net force correction
+     ! Note that the net force is not equal to zero due to the approximate
+     ! character of the individual extrapolation of force acting on each atom
       
      !enormsw ::  0-no minimization of the norms of the solutions
      !        ::/=0-minimization with enormsw-weight
@@ -83,38 +90,61 @@ module fce_c
      !
      ! 0-no coordinate transformation at force extrapolation (very fast
      !   but not precise, can be used only for small outer time steps
-     !   which do not exceed 200 fs) [default, not recommended for
-     !   larger spacing]
+     !   which do not exceed 200 fs) [default, not recommended for larger
+     !   spacing and solvent molecules greater than 10 A in size]
      !
      ! 1-transformation with respect to the first basic point, while
      !   selecting according to the position of the current coordinate
      !   [recommended for large steps up to order of several picoseconds,
-     !    because fast and precise]
+     !    because fast and precise, but for small macromolecules only]
      !
      ! 2-transformation with respect to the first basic point, while
      !   selecting according to the position of the current coordinate,
      !   i.e. like trans=1, but now using the normal equations method
      !   for the linear least squares coordinate deviation minimization
      !   instead of the QR decomposition approach as in the cases
-     !   trans=0,1, and 3. Moreover, the normal equations method is
-     !   is complemeted here by the weight minimization of the norms
-     !   of the solutions. Note that if the weight of such additional
-     !   minimization enormsw=0 then trans=2 is mathematically equivalent
+     !   trans = 0 and 1. Moreover, the normal equations method is
+     !   complemeted here by the e-minimization of the norm of the
+     !   solutions and the ifreq-scheme to accelerate the calculations.
+     !   Note that if enormsw=0 and ifreq=1, then trans=2 is equivalent
      !   to trans=1. However, an extra precision can be reached when
-     !   enormsw accepts small positive values. Note also that within
-     !   the QR decomposition method an additional norm solution
-     !   minimization is possible only when fcenbase is larger than
-     !   the number of the solute degrees of freedom. The case trans=3
-     !   is recommended (in conjunction with weigh=0, see below, to reduce
-     !   costs) especcialy for huge outer steps and moderate fcenbase
+     !   enormsw accepts small positive values and a significant speedup
+     !   can be observed if ifreq >> 1, especially at a large number of
+     !   fcenbase (several hundreds). The case trans=2 is recommended
+     !   as the best choice for relatively small macromolecules, since
+     !   it gives the possibility to apply huge outer steps (up to ten
+     !   picoseconds).
+     
+     ! 3-Same as 2 above (place holder / buffer)
+
+     ! 4-no normalization, transformation, selecting, sorting, and 
+     !   balancing, but with individual force extrapolation and 
+     !   possible cutting-off of the neighbours relatively to each
+     !   current atom [default for the original AMBER11 version]
+
+     ! 5-individual transformation and selecting with respect to the
+     !   current coordinate of each atom using a neighbouring scheme
+     !   compemented by the e-minimization and ifreq-scheme as well
+     !   as all other developed techniques. It is recommended for large
+     !   macromolecules of greater than 10 A in size and can be used
+     !   with huge outer steps (up to order of several picoseconds).
      !
-     ! 3-transformation and selecting with respect to the current coordinate
-     !   [most precise but time expensive, not recommended for large nbasis]
+     ! 6-individual transformation and selecting with respect to the
+     !   post coordinate of each atom using a neighbouring scheme
+     !   compemented by the e-minimization and the full ifreq-support.
+     !   It is recommended for large macromolecules and can be used
+     !   with huge outer steps (up to order of several picoseconds).
+     !   It appears to be better than the above case trans=5 (partial
+     !   ifreq-support version) because can be exploited with larger
+     !   number (up to N~100-200) of basic points providing a higher
+     !   accuracy (with nearly the same computational efforts as the
+     !   trans=5-version at N~30), but may require more memory. Note
+     !   that at any values of ifreq, both the approaches have the
+     !   same scheme for building the index mask which maps the
+     !   extended set to the best subset and differ in the way of 
+     !   constructing the transformation matrix. At ifreq=1, these
+     !   two approaches are equivalent.
      !
-     ! 4-no normalization, coordinate transformation, weighting, selecting,
-     !   and sorting, but with individual force extrapolation and possible
-     !   cutting-off the neighbours relatively to each current atom [default
-     !   for the original AMBER11 version]
      !
 
      !nsample :: number of samples collected
@@ -146,11 +176,30 @@ module fce_c
      !scoord :: transformed coordinates (dimensions:natom:nbasis)
      _REAL_,pointer :: sforce(:,:,:) => NULL(), scoord(:,:,:) => NULL()
 
+     ! Additional pointers which are necessary for trans=2,3,5, and 6
+
+     _REAL_,pointer :: Ad(:,:) => NULL()
+     integer,pointer :: irdd(:,:) => NULL()
+     integer,pointer :: ipvs(:) => NULL()
+
+     _REAL_,pointer :: Ads(:,:,:) => NULL()
+     integer,pointer :: ipvss(:,:) => NULL()
+
+     integer,pointer :: tscuts(:,:) => NULL()
+     _REAL_,pointer :: coordps(:,:,:) => NULL()
+     _REAL_,pointer :: srwrwr2d(:,:) => NULL()
+
+     _REAL_,pointer :: sfis(:,:,:,:) => NULL()
+
      !! coeff :: the a_i coefficients in the above equation
      _REAL_, pointer :: coeff(:,:) => NULL()
 
-     integer :: nbase=-1, weigh=-1, trans=-1, sort=-1
-    _REAL_   :: enormsw=-1.d0
+     integer :: nbase=-1, weigh=-1, trans=-1, sort=-1, ifreq=-1, ntfrcor=-1
+     integer :: bwrtunit=1117, cstep=0
+
+     _REAL_  :: enormsw=-1.d0
+
+!    integer :: paddings
 
   end type fce
 
@@ -162,12 +211,13 @@ module fce_c
 !!!public subroutines and functions
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 public fce_new, fce_destroy, fce_update, fce_forcea, fce_forceb, fce_forcebm, &
-       fce_forcec, fce_force, fce_estimate, fce_transformi
+       fce_forcesa, fce_forcesan, fce_force, fce_transformi, fce_estimate, &
+       fce_wrtbasis, fce_readbasis
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!private subroutines and functions
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-private nlist
+private nlist, selects, hsort
 
 contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -185,12 +235,15 @@ contains
 !!!   weigh  :: weighted minimization flag
 !!!   trans  :: transforming coordinate flag
 !!!   sort   :: sorting flag
+!!!   ifreq  :: extended to basic maping list updating frequency
+!!!   ntfrcor:: net force correction flag (for individual extrapolation)
 !!!   enormsw:: solution norm minimization weight
 !!!   crd :: coordinate orientation method. 0-position, 1-distance, 2-xyz distance
 !!!   cut :: cut off distance for dependence
 !!!   o_mpicomm :: (optional) MPI communicator
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine fce_new_std(this,natom,nbasis,nbase,crd,weigh,trans,sort,enormsw,cut,o_mpicomm)
+  subroutine fce_new_std(this,natom,nbasis,nbase,crd,weigh,trans,sort,ifreq, &
+                         ntfrcor,enormsw,cut,o_mpicomm)
     use safemem
     implicit none
 #ifdef MPI
@@ -198,7 +251,7 @@ contains
 #endif /*MPI*/
     type(fce),intent(inout) :: this
     integer, intent(in) :: natom, nbasis, crd
-    integer, intent(in) :: nbase, weigh, trans, sort
+    integer, intent(in) :: nbase, weigh, trans, sort, ifreq, ntfrcor
     _REAL_, intent(in) :: cut, enormsw
     integer, optional, intent(in) :: o_mpicomm
     integer :: err
@@ -222,6 +275,8 @@ contains
        this%weigh = weigh
        this%trans = trans
        this%sort  = sort
+       this%ifreq = ifreq
+       this%ntfrcor = ntfrcor
        this%enormsw = enormsw
 
        this%crd = crd
@@ -233,6 +288,10 @@ contains
 
        this%sforce => safemem_realloc(this%sforce,3,natom,nbasis,.false.)
        this%scoord => safemem_realloc(this%scoord,3,natom,nbasis,.false.)
+
+       this%Ad => safemem_realloc(this%Ad,nbase+1,nbase+1,.false.)
+       this%irdd => safemem_realloc(this%irdd,natom,nbase,.false.)
+       this%ipvs => safemem_realloc(this%ipvs,nbase+1,.false.)
 
        this%coeff => safemem_realloc(this%coeff,3,natom,.false.)
     end if
@@ -262,6 +321,14 @@ contains
     if(err /=0) call rism_report_error&
          ("FCE: could not broadcast SORT")
 
+    call mpi_bcast(this%ifreq,1,mpi_integer,0,this%mpicomm,err)
+    if(err /=0) call rism_report_error&
+         ("FCE: could not broadcast IFREQ")
+
+    call mpi_bcast(this%ntfrcor,1,mpi_integer,0,this%mpicomm,err)
+    if(err /=0) call rism_report_error&
+         ("FCE: could not broadcast NTFRCOR")
+
     call mpi_bcast(this%enormsw,1,mpi_double_precision,0,this%mpicomm,err)
     if(err /=0) call rism_report_error&
          ("FCE: could not broadcast ENORMSW")
@@ -282,6 +349,10 @@ contains
        this%sforce => safemem_realloc(this%sforce,3,this%natom,this%nbasis,.false.)
        this%scoord => safemem_realloc(this%scoord,3,this%natom,this%nbasis,.false.)
 
+       this%Ad => safemem_realloc(this%Ad,this%nbase+1,this%nbase+1,.false.)
+       this%irdd => safemem_realloc(this%irdd,this%natom,this%nbase,.false.)
+       this%ipvs => safemem_realloc(this%ipvs,this%nbase+1,.false.)
+
        this%coeff => safemem_realloc(this%coeff,3,this%natom,.false.)
     end if
 
@@ -290,8 +361,41 @@ contains
 #endif /*MPI*/
 
     !set local atom range for this process
-    this%atom0 = this%natom/this%mpisize*this%mpirank+1
-    this%atomF = min(int(this%natom*dble(this%mpirank+1)/dble(this%mpisize)),this%natom)
+!!  this%atom0 = this%natom/this%mpisize*this%mpirank+1
+!!  this%atomF = min(int(this%natom*dble(this%mpirank+1)/dble(this%mpisize)),this%natom)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! A new scheme for distribution of all processors among atoms
+! (this avoids dublications inherent in the previous approach)
+
+    this%atom0 = idnint(dble(this%natom)/this%mpisize)*this%mpirank+1
+
+    if(this%mpirank+1.lt.this%mpisize) then
+
+    this%atomF = idnint(dble(this%natom)/this%mpisize)*(this%mpirank+1)
+
+    else
+
+    this%atomF = this%natom
+
+    end if
+
+! Make the memory used as small as possible
+
+    if(trans.eq.6) then        ! If GSFE
+
+    this%Ads => safemem_realloc(this%Ads,this%atomF-this%atom0+1,this%nbase+1,this%nbase+1,.false.)
+    this%ipvss => safemem_realloc(this%ipvss,this%atomF-this%atom0+1,this%nbase+1,.false.)
+
+    this%tscuts => safemem_realloc(this%tscuts,this%atomF-this%atom0+1,this%natom)
+    this%coordps => safemem_realloc(this%coordps,this%atomF-this%atom0+1,3,this%natom)
+    this%srwrwr2d => safemem_realloc(this%srwrwr2d,this%atomF-this%atom0+1,this%natom)
+
+    this%sfis => safemem_realloc(this%sfis,3,3,this%atomF-this%atom0+1,this%nbase,.false.)
+
+    end if
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   end subroutine fce_new_std
 
@@ -308,8 +412,9 @@ contains
 
     this%nbase = -1
     this%weigh = -1
-    this%trans = -1
     this%sort  = -1
+    this%ifreq = -1
+    this%ntfrcor = -1
     this%enormsw = -1.d0
 
     this%crd = -1
@@ -321,6 +426,25 @@ contains
 
     err = safemem_dealloc(this%sforce)
     err = safemem_dealloc(this%scoord)
+
+    err = safemem_dealloc(this%Ad)
+    err = safemem_dealloc(this%irdd)
+    err = safemem_dealloc(this%ipvs)
+
+    if(this%trans.eq.6) then
+
+    err = safemem_dealloc(this%Ads)
+    err = safemem_dealloc(this%ipvss)
+
+    err = safemem_dealloc(this%tscuts)
+    err = safemem_dealloc(this%coordps)
+    err = safemem_dealloc(this%srwrwr2d)
+
+    err = safemem_dealloc(this%sfis)
+
+    end if
+
+    this%trans = -1
 
   end subroutine fce_destroy
 
@@ -397,7 +521,7 @@ contains
 !!!  sforce : transformed forces
 !!!  scoord : transformed coordinates
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine fce_transformi(this,force,coord,sforce,scoord)
+  subroutine fce_transformi(this)
 
     use safemem
     implicit none
@@ -407,8 +531,6 @@ contains
 #endif
 
     type(fce), intent(inout) :: this
-    _REAL_, intent(in) :: force(3,this%natom), coord(3,this%natom)
-    _REAL_ :: sforce(3,this%natom), scoord(3,this%natom)
 
     integer :: lswork, infos
    _REAL_, pointer :: swork(:)=>NULL()
@@ -664,7 +786,7 @@ contains
           rar(isa)=rrr(isa)
           end do
 
-! Now perform sorting of the selected minimal values in the descending order
+! Now perform sorting of the selected minimal values in the ascending order
 
           call hsort(this%nbase-1,rar,irs)
 
@@ -809,10 +931,11 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! 1-transformation with respect to the first basic point, while
      !   selecting according to the position of the current coordinate
-     !   with sorting (if sort/=0) (recommended, because fast and precise)
+     !   with sorting (if sort/=0) (recommended, because fast and precise,
+     !   but for relatively small solvent molecules)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine fce_forceb(this,force,coord,sforce,scoord)
+  subroutine fce_forceb(this,force,coord)
 
     use safemem
     implicit none
@@ -825,8 +948,7 @@ contains
     _REAL_, intent(out) :: force(3,this%natom)
     _REAL_, intent(in) :: coord(3,this%natom)
 
-    _REAL_, intent(out) :: sforce(3,this%natom)
-    _REAL_, intent(out) :: scoord(3,this%natom)
+    _REAL_ :: sforce(3,this%natom),scoord(3,this%natom)
 
     integer :: iatm,jatm,id,err
 
@@ -996,7 +1118,7 @@ contains
           rar(isa)=rrr(isa)
           end do
 
-! Now perform sorting of the selected minimal values in the descending order
+! Now perform sorting of the selected minimal values in the ascending order
 
           call hsort(this%nbase-1,rar,irs)
 
@@ -1246,10 +1368,11 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! 2-like trans=1 but within the normal equations method complemeted
-     !   by the weight minimization of the norms of the solutions
+     !   by the e-minimization of the norm of the solutions as well as by
+     !   the ifreq-scheme to speed up the calculations
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine fce_forcebm(this,force,coord,sforce,scoord)
+  subroutine fce_forcebm(this,force,coord,iupdate,idirom)
 
     use safemem
     implicit none
@@ -1262,8 +1385,7 @@ contains
     _REAL_, intent(out) :: force(3,this%natom)
     _REAL_, intent(in) :: coord(3,this%natom)
 
-    _REAL_, intent(out) :: sforce(3,this%natom)
-    _REAL_, intent(out) :: scoord(3,this%natom)
+    _REAL_ :: sforce(3,this%natom),scoord(3,this%natom)
 
     integer :: iatm,jatm,id,err
 
@@ -1286,9 +1408,30 @@ contains
     integer :: isa,jsa,iisa,jjsa
 
      DOUBLE PRECISION hmu(4,4),ddd,q0,q1,q2,q3,fis(3,3),wjjj(4)
-     DOUBLE PRECISION xiii1,xiii2,xiii3,fiii1,fiii2,fiii3,rwrwr2
+     DOUBLE PRECISION xiii1,xiii2,xiii3,fiii1,fiii2,fiii3
+
+    integer :: iupdate,idirom,ifreqs=0
+
+    save ifreqs
 
      N = this%nsample
+
+     NN=this%nbase+1
+
+! Description of Lapack DSYSV variables
+
+          LDA = NN
+          LDB = NN
+
+    if(iupdate.eq.0) ifreqs=0
+
+! Calculating the current number of steps after the last updating
+
+       if(ifreqs.eq.this%ifreq*(ifreqs/this%ifreq)) then
+       idirom=0
+       else
+       idirom=idirom+1
+       end if
 
 ! The transformation of the curent coordinate with respect to the first
 ! basic point is performed by minimization of the distance between them
@@ -1374,6 +1517,10 @@ contains
    scoord(3,iatm)=fis(1,3)*coord(1,iatm)+fis(2,3)*coord(2,iatm)+fis(3,3)*coord(3,iatm)
        end do
 
+! Forming the extended coordinate set (every ifreq steps only)
+
+          if(ifreqs.eq.this%ifreq*(ifreqs/this%ifreq)) then
+
 ! No selecting and sorting if nbasis=nbase and sort=0
 
           if(this%nbasis.eq.this%nbase.and.this%sort.eq.0) then
@@ -1430,7 +1577,7 @@ contains
           rar(isa)=rrr(isa)
           end do
 
-! Now perform sorting of the selected minimal values in the descending order
+! Now perform sorting of the selected minimal values in the ascending order
 
           call hsort(this%nbase-1,rar,irs)
 
@@ -1481,29 +1628,7 @@ contains
 
           end if
 
-! Zero-order force approximation
-
-          do iatm = this%atom0, this%atomF
-          do id=1,3
-          sforce(id,iatm) = 0.d0
-          end do
-          end do
-
-          NN=this%nbase+1
-
-          if(NN.gt.1) then
-
-! High-order force extrapolation
-
-          LDA = NN
-          LDB = NN
-          NRHS = 1
-
-! Solve the linear least-square problem with or without weighting
-
 ! Using multiprocessor technique to fill in the symmetric matrix elements
-
-          if(this%weigh.eq.0) then
 
           do isa=1,NN-1
           iisa=ird(isa)
@@ -1524,6 +1649,59 @@ contains
     call mpi_allreduce(MPI_IN_PLACE,A,NN*NN,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
 #endif
 
+! Complemented minimization of the norms of the solutions with enormsw-weight
+
+          do isa=1,NN-1
+          A(isa,isa)=A(isa,isa)+this%enormsw
+          end do
+
+! Using Lagrange method to normalize the solutions
+
+          do isa=1,NN-1
+          A(isa,NN)=-1.d0
+          end do
+          A(NN,NN)=0.d0
+
+! Compute the factorization of the symmetric matrix A
+! using the Bunch-Kaufman diagonal pivoting method
+
+          LWORK = -1   ! First query the optimal workspace
+          WORK => safemem_realloc(WORK,1,.false.)
+          call DSYTRF( 'U', NN, A, LDA, IPIV, WORK, LWORK, INFO )
+          LWORK = INT(WORK(1))
+          WORK => safemem_realloc(WORK,LWORK,.false.)
+
+! Perform the actual calculations
+
+          call DSYTRF( 'U', NN, A, LDA, IPIV, WORK, LWORK, INFO )
+ 
+          if(INFO.ne.0) then
+          print *,INFO
+          stop 'Message from DSYTRF'
+          end if
+
+! Put in memory the best subset indexes and the factorized matrix (if ifreq > 1)
+
+          if(this%ifreq.ne.1) then
+          this%irdd(1,:)=ird(:)
+          this%ipvs=IPIV
+          this%Ad=A
+          end if
+                
+          else
+
+! Take them from memory (if ifreq > 1)
+
+          if(this%ifreq.ne.1) then
+          ird(:)=this%irdd(1,:)
+          IPIV=this%ipvs
+          A=this%Ad
+          end if
+
+          end if
+
+! Solve the linear least-square problem 
+
           do isa=1,NN-1
           iisa=ird(isa)
           B(isa,1)=0.d0
@@ -1539,113 +1717,30 @@ contains
     call mpi_allreduce(MPI_IN_PLACE,B,NN,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
 #endif
 
-          else
-
-          A=0.d0
-
-          do isa=1,NN-1
-          iisa=ird(isa)
-          do jsa=isa,NN-1
-          jjsa=ird(jsa)
-
-       do iatm = this%atom0, this%atomF
-       do jatm = iatm+1, this%natom
-
-          rwrwr2=sum((scoord(1:3,iatm)-scoord(1:3,jatm))**2)
-
-          if(rwrwr2 < this%cut) then
-
-          A(isa,jsa)=A(isa,jsa)+( &
-                      (this%scoord(1,iatm,iisa)-this%scoord(1,jatm,iisa))* &
-                      (this%scoord(1,iatm,jjsa)-this%scoord(1,jatm,jjsa))+ &
-                      (this%scoord(2,iatm,iisa)-this%scoord(2,jatm,iisa))* &
-                      (this%scoord(2,iatm,jjsa)-this%scoord(2,jatm,jjsa))+ &
-                      (this%scoord(3,iatm,iisa)-this%scoord(3,jatm,iisa))* &
-                      (this%scoord(3,iatm,jjsa)-this%scoord(3,jatm,jjsa)))/rwrwr2
-
-          end if
-
-          end do
-          end do
-
-          A(isa,jsa)=A(isa,jsa)/((this%natom*(this%natom-1))/2)
-
-          end do
-          end do
-
-#ifdef MPI
-    call mpi_allreduce(MPI_IN_PLACE,A,NN*NN,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
-#endif
-
-          B=0.d0
-
-          do isa=1,NN-1
-          iisa=ird(isa)
-       do iatm = this%atom0, this%atomF
-       do jatm = iatm+1, this%natom
-
-          rwrwr2=sum((scoord(1:3,iatm)-scoord(1:3,jatm))**2)
-
-          if(rwrwr2 < this%cut) then
-
-          B(isa,1)=B(isa,1)+( &
-                    (scoord(1,iatm)-scoord(1,jatm))* &
-                    (this%scoord(1,iatm,iisa)-this%scoord(1,jatm,iisa))+ &
-                    (scoord(2,iatm)-scoord(2,jatm))* &
-                    (this%scoord(2,iatm,iisa)-this%scoord(2,jatm,iisa))+ &
-                    (scoord(3,iatm)-scoord(3,jatm))* &
-                    (this%scoord(3,iatm,iisa)-this%scoord(3,jatm,iisa)))/rwrwr2
-
-          end if
-
-          end do
-          end do
-
-          B(isa,1)=B(isa,1)/((this%natom*(this%natom-1))/2)
-
-          end do
-
-#ifdef MPI
-    call mpi_allreduce(MPI_IN_PLACE,B,NN,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
-#endif
-
-          end if
-
-! Complemented minimization of the norms of the solutions with enormsw-weight
-
-          do isa=1,NN-1
-          A(isa,isa)=A(isa,isa)+this%enormsw
-          end do
-
 ! Using Lagrange method to normalize the solutions
-
-          do isa=1,NN-1
-          A(isa,NN)=-1.d0
-          end do
-          A(NN,NN)=0.d0
 
           B(NN,1)=-1.d0
 
 ! Solving the extended system of linear equations
+! using the factorization computed above by DSYTRF
 
-! First query the optimal workspace
-
-          LWORK = -1
-          WORK => safemem_realloc(WORK,1,.false.)
-          call DSYSV( 'U', NN, NRHS, A, LDA, IPIV, B, LDB, WORK, LWORK, INFO )
-          LWORK = INT(WORK(1))
-          WORK => safemem_realloc(WORK,LWORK,.false.)
-
-! Perform the actual calculations
-
-          call DSYSV( 'U', NN, NRHS, A, LDA, IPIV, B, LDB, WORK, LWORK, INFO )
+          CALL DSYTRS( 'U', NN, NRHS, A, LDA, IPIV, B, LDB, INFO )
 
           if(INFO.ne.0) then
           print *,INFO
-          stop 'Message from DSYSV'
+          stop 'Message from DSYTRS'
           end if
 
-! Extrapolate the forces in the transformed space
+! Zero-order force approximation
+
+          do iatm = this%atom0, this%atomF
+          do id=1,3
+          sforce(id,iatm) = 0.d0
+          end do
+          end do
+
+! High-order force approximation by extrapolating 
+! the forces in the transformed space
 
           do iatm = this%atom0, this%atomF
           do isa=1,NN-1
@@ -1656,8 +1751,6 @@ contains
           end do
           end do
 
-          end if
-
 ! Performing the inverse transformation to obtain the extrapolated forces
 ! in the usual coordinates
 
@@ -1667,17 +1760,31 @@ contains
     force(3,iatm)=fis(3,1)*sforce(1,iatm)+fis(3,2)*sforce(2,iatm)+fis(3,3)*sforce(3,iatm)
           end do
 
+! Current number of calls to this subroutine after the last updating
+
+      if(iupdate.eq.0) iupdate=1
+      ifreqs=ifreqs+1
+
     err = safemem_dealloc(swork)
     err = safemem_dealloc(WORK)
 
   end subroutine fce_forcebm
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     ! 3-transformation and selecting with respect to the current coordinate
-     !   (most precise but time-expensive, not recommended for large nbasis)
+!
+! The super advanced force extrapolation method (partial ifreq-support)
+!
+! It includes all the techniques: normalization, neighbouring transformation
+! with weighting, basic set extension, selection with possible sorting,
+! as well as balancing and netforce correction
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     ! 5-individual transformation and selecting with respect to the
+     !   current coordinate of each atom using a neighbouring scheme
+     !   (recommended for large macromolecules of greater than 10 A)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine fce_forcec(this,force,coord,sforce,scoord)
+  subroutine fce_forcesa(this,force,coord,forcnetr,iupdate,idirom)
 
     use safemem
     implicit none
@@ -1690,113 +1797,302 @@ contains
     _REAL_, intent(out) :: force(3,this%natom)
     _REAL_, intent(in) :: coord(3,this%natom)
 
-    _REAL_, intent(out) :: sforce(3,this%natom)
-    _REAL_, intent(out) :: scoord(3,this%natom)
+     integer :: N, NN, NNd
+     integer :: iatm,jatm,jatms,isa,jsa,iisa,jjsa,err
 
-    integer :: iatm,jatm,id,err
+    !LAPACK DSYSV variables
+     integer :: NRHS=1, LDA, LDB, LWORK, INFO
+     integer, pointer :: IPIV(:)=>NULL()
+    _REAL_, pointer :: WORK(:)=>NULL()
 
-    !LAPACK variables
-    integer :: M, N, NN, NRHS=1, LDA, LDB, LWORK, RANK, INFO
-    integer, pointer :: JPVT(:)=>NULL()
-
-    integer :: lswork, infos
-   _REAL_, pointer :: swork(:)=>NULL()
-
-    !uncertainties of input coordinates in A and B are assumed
-    !to be negligible small
+    !uncertainties of input coordinates in A and B are negligible
+    _REAL_, pointer :: A(:,:)=>NULL(), B(:,:)=>NULL()
     _REAL_ :: RCOND=0.d0
-    _REAL_, pointer :: A(:,:)=>NULL(), B(:,:)=>NULL(), work(:)=>NULL()
+
+    !LAPACK DSYEV variables
+     integer :: lswork, infos
+    _REAL_, pointer :: swork(:)=>NULL()
+
+     DOUBLE PRECISION hmu(4,4),ddd,q0,q1,q2,q3,fis(3,3),wjjj(4)
+     DOUBLE PRECISION xiii(3),fiii(3),fiiid(3,this%natom)
+     DOUBLE PRECISION hmud(this%nbasis,4,4)
+
+    _REAL_ :: thsscoord(3),sscoord(3),cmu(4,4)=0.d0
+
+    !Selection and sortion arrays
+     integer :: irr(this%nbasis),ird(this%nbase),irs(this%nbase)
     _REAL_ :: rrr(this%nbasis),rar(this%nbase)
 
-    integer :: irr(this%nbasis),ird(this%nbase),irs(this%nbase)
+     DOUBLE PRECISION rwrwr2,rwrwr2d(this%natom)
 
-    integer :: isa,jsa,is1,iisap1
+    _REAL_ :: forcnet(3),forcnetr,forcorgd,forcorgs=0.d0,forcors=0.d0
 
-     DOUBLE PRECISION hmu(4,4),ddd,q0,q1,q2,q3,fis(3,3),wjjj(4),rweight
-     DOUBLE PRECISION xiii1,xiii2,xiii3,fiii1,fiii2,fiii3,rwrwr2
+     integer :: tscut(this%natom),iupdate,idirom,ifreqs=0
 
-#ifdef MPI
-     DOUBLE PRECISION hmus(this%nbasis,4,4)
-     integer inum,jsad(this%mpisize)
-#endif
+     save ifreqs,forcorgs,forcors
 
-     N = this%nsample
+       N = this%nsample   ! Current number of samples (NNd.le.N.le.this%nbasis)
 
-! Transform each basic force-coordinate pairs with respect to the current
-! point by minimization of the distance between them and that point
+       NNd = this%nbase   ! Number of the best basic points
 
-#ifdef MPI
+       NN=NNd+1           ! Number of linear equations
 
-! Summing up the quaternion matrix over atoms across the processes
+! Description of Lapack DSYSV variables and memory
 
-       hmus=0.d0
+          LDA = NN
+          LDB = NN
+
+          A=>safemem_realloc(A,NN,NN,.false.)
+          B=>safemem_realloc(B,NN,1,.false.)
+          IPIV=>safemem_realloc(IPIV,NN,.false.)
+
+   if(iupdate.eq.0) ifreqs=0
+
+! Calculating the current number of steps after the last updating
+
+       if(ifreqs.eq.this%ifreq*(ifreqs/this%ifreq)) then
+       idirom=0
+       else
+       idirom=idirom+1
+       end if
+
+! Using multiprocessing to perform the individual force extrapolation
+! for each separate atom of the solvent macromolecule
+
        do iatm = this%atom0, this%atomF
-       fiii1=coord(1,iatm)
-       fiii2=coord(2,iatm)
-       fiii3=coord(3,iatm)
-       do isa=1,N
-       xiii1=this%coord(1,iatm,isa)
-       xiii2=this%coord(2,iatm,isa)
-       xiii3=this%coord(3,iatm,isa)
-       ddd=(xiii1+fiii1)**2+(xiii2+fiii2)**2+(xiii3+fiii3)**2
-       hmus(isa,1,1)=hmus(isa,1,1)+((xiii1-fiii1)**2+(xiii2-fiii2)**2+ &
-                          (xiii3-fiii3)**2)
-       hmus(isa,1,2)=hmus(isa,1,2)+2.d0*(xiii2*fiii3-xiii3*fiii2)
-       hmus(isa,1,3)=hmus(isa,1,3)+2.d0*(xiii3*fiii1-xiii1*fiii3)
-       hmus(isa,1,4)=hmus(isa,1,4)+2.d0*(xiii1*fiii2-xiii2*fiii1)
-       hmus(isa,2,2)=hmus(isa,2,2)+(ddd-2.d0*(xiii1*fiii1+fiii1*xiii1))
-       hmus(isa,2,3)=hmus(isa,2,3)     -2.d0*(xiii1*fiii2+fiii1*xiii2)
-       hmus(isa,2,4)=hmus(isa,2,4)     -2.d0*(xiii1*fiii3+fiii1*xiii3)
-       hmus(isa,3,3)=hmus(isa,3,3)+(ddd-2.d0*(xiii2*fiii2+fiii2*xiii2))
-       hmus(isa,3,4)=hmus(isa,3,4)     -2.d0*(xiii2*fiii3+fiii2*xiii3)
-       hmus(isa,4,4)=hmus(isa,4,4)+(ddd-2.d0*(xiii3*fiii3+fiii3*xiii3))
-       end do
+
+! Definition of the list of neighbours for each current atom
+
+       tscut=0
+ 
+       do jatm = 1,this%natom
+       fiiid(:,jatm)=coord(:,jatm)-coord(:,iatm)
+       rwrwr2=sum(fiiid(1:3,jatm)**2)
+       if(rwrwr2<this%cut.and.jatm.ne.iatm) then
+       tscut(1)=tscut(1)+1
+       tscut(tscut(1)+1)=jatm
+       rwrwr2d(tscut(1)+1)=1.d0/rwrwr2
+       end if
        end do
 
-! Collecting the partial sums from different processes and placing the
-! result into the same quaternion matrix known for all processors
+! Forming the extended coordinate set (every ifreq steps only)
 
-    call mpi_allreduce(MPI_IN_PLACE,hmus,this%nbasis*16,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
+       if(ifreqs.eq.this%ifreq*(ifreqs/this%ifreq)) then
 
-       do isa=1,N
-
-       hmu(:,:)=hmus(isa,:,:)
-
-#else
-
-! Summing up the quaternion matrix over atoms in the single process mode
+! Finding the optimal rotational transformation which minimizes the
+! distances between the molecule in the current state and previous 
+! positions from the extended coordinate set
 
        do isa=1,N
+
        hmu=0.d0
-       do iatm = 1, this%natom
-       fiii1=coord(1,iatm)
-       fiii2=coord(2,iatm)
-       fiii3=coord(3,iatm)
-       xiii1=this%coord(1,iatm,isa)
-       xiii2=this%coord(2,iatm,isa)
-       xiii3=this%coord(3,iatm,isa)
-       ddd=(xiii1+fiii1)**2+(xiii2+fiii2)**2+(xiii3+fiii3)**2
-       hmu(1,1)=hmu(1,1)+((xiii1-fiii1)**2+(xiii2-fiii2)**2+ &
-                          (xiii3-fiii3)**2)
-       hmu(1,2)=hmu(1,2)+2.d0*(xiii2*fiii3-xiii3*fiii2)
-       hmu(1,3)=hmu(1,3)+2.d0*(xiii3*fiii1-xiii1*fiii3)
-       hmu(1,4)=hmu(1,4)+2.d0*(xiii1*fiii2-xiii2*fiii1)
-       hmu(2,2)=hmu(2,2)+(ddd-2.d0*(xiii1*fiii1+fiii1*xiii1))
-       hmu(2,3)=hmu(2,3)     -2.d0*(xiii1*fiii2+fiii1*xiii2)
-       hmu(2,4)=hmu(2,4)     -2.d0*(xiii1*fiii3+fiii1*xiii3)
-       hmu(3,3)=hmu(3,3)+(ddd-2.d0*(xiii2*fiii2+fiii2*xiii2))
-       hmu(3,4)=hmu(3,4)     -2.d0*(xiii2*fiii3+fiii2*xiii3)
-       hmu(4,4)=hmu(4,4)+(ddd-2.d0*(xiii3*fiii3+fiii3*xiii3))
+
+! Summing up the corresponding quaternion matrix over the neighbours atoms
+
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       fiii(:)=fiiid(:,jatm)
+
+       xiii(:)=this%coord(:,jatm,isa)-this%coord(:,iatm,isa)
+
+       ddd=sum((xiii(1:3)+fiii(1:3))**2)
+
+       cmu(1,1)=sum((xiii(1:3)-fiii(1:3))**2)
+       cmu(1,2)=2.d0*(xiii(2)*fiii(3)-xiii(3)*fiii(2))
+       cmu(1,3)=2.d0*(xiii(3)*fiii(1)-xiii(1)*fiii(3))
+       cmu(1,4)=2.d0*(xiii(1)*fiii(2)-xiii(2)*fiii(1))
+       cmu(2,2)=ddd-4.d0*xiii(1)*fiii(1)
+       cmu(2,3)=-2.d0*(xiii(1)*fiii(2)+xiii(2)*fiii(1))
+       cmu(2,4)=-2.d0*(xiii(1)*fiii(3)+xiii(3)*fiii(1))
+       cmu(3,3)=ddd-4.d0*xiii(2)*fiii(2)
+       cmu(3,4)=-2.d0*(xiii(2)*fiii(3)+xiii(3)*fiii(2))
+       cmu(4,4)=ddd-4.d0*xiii(3)*fiii(3)
+
+       hmu=hmu+cmu*rwrwr2d(jatms)
+
        end do
 
-#endif
+       hmud(isa,:,:)=hmu(:,:) ! Put it in memory to avoid further recalculation
 
-! The problem is reduced to find eigenvalues and eigenvectors
-! of the corresponding quaternion symmetric matrices
+! The problem is reduced to find eigenvalues of the quaternion matrice
 
-! First query the optimal workspace
+       lswork = -1      ! First query the optimal workspace
+       swork => safemem_realloc(swork,1,.false.)
+       CALL  DSYEV( 'N', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
+       lswork = INT(swork(1))
+       swork => safemem_realloc(swork,lswork,.false.)
 
-       lswork = -1
+! Now solve the eigenproblem
+
+       CALL  DSYEV( 'N', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
+
+       if(infos.ne.0) then
+       print *,infos
+       stop 'Message from DSYEV'
+       end if
+
+! The minimal eigenvalue will correspond to the desired distance
+
+       if(this%nbasis.gt.this%nbase.or.this%sort.ne.0) rrr(isa)=wjjj(1)
+
+       end do
+
+! Carrying out the selection and possible sorting of the extended set
+! to obtain the best basic subset
+
+! No selecting and sorting if nbasis=nbase and sort=0
+
+          if(this%nbasis.eq.this%nbase.and.this%sort.eq.0) then
+
+          do isa=1,this%nbase
+          ird(isa)=isa
+          end do
+
+          end if
+
+! Select the first nbase minimal values among all N=nsample elements
+! if N > nbase (note that nbase <= nsample <= nbasis). In other words,
+! choose the best transformed force-coordinates pairs.
+
+          if(this%nbasis.gt.this%nbase.and.this%sort.ne.0) then
+
+          do isa=1,N
+          irr(isa)=isa
+          end do
+
+          if(N.gt.this%nbase) then
+
+          call selects(this%nbase,N,rrr,irr)
+
+          if(this%nbase.ne.1) then
+
+          do isa=1,this%nbase-1
+          rar(isa)=rrr(isa)
+          end do
+
+! Now perform sorting of the selected minimal values in the ascending order
+
+          call hsort(this%nbase-1,rar,irs)
+
+          end if
+
+          irs(this%nbase)=this%nbase
+
+          do isa=1,this%nbase
+          ird(isa)=irr(irs(isa))
+          end do
+
+          end if
+
+! On the beginning when N=nsample=nbase perform only sorting because
+! then selecting is not necessary
+
+          if(N.eq.this%nbase) then
+
+          call hsort(N,rrr,ird)
+
+          end if
+
+          end if
+
+! Only select the first nbase minimal values among all N=nsample elements
+! if N > nbase without sorting (sort=0)
+
+          if(this%nbasis.gt.this%nbase.and.this%sort.eq.0) then
+
+          do isa=1,N
+          irr(isa)=isa
+          end do
+
+          if(N.gt.this%nbase) call selects(this%nbase,N,rrr,irr)
+
+          do isa=1,this%nbase
+          ird(isa)=irr(isa)
+          end do
+
+          end if
+
+! If sort/=0, perform sorting even for nbasis=nbase, i.e. when selecting
+! is not necessary
+
+          if(this%nbasis.eq.this%nbase.and.this%sort.ne.0) then
+
+          call hsort(this%nbase,rrr,ird)
+
+          end if
+
+! Put in memory the best subset indexes (if ifreq > 1)
+
+         if(this%ifreq.ne.1) then
+         do isa=1,NNd
+         this%irdd(iatm,isa)=ird(isa)
+         end do
+         end if
+
+         else
+
+! Take from memory the best subset indexes (if ifreq > 1)
+
+         if(this%ifreq.ne.1) then
+         do isa=1,NNd
+         ird(isa)=this%irdd(iatm,isa)
+         end do
+         end if
+
+         end if
+ 
+! Having the best subset, each basic force-coordinate pairs will now be
+! rotationally transformed with respect to the current position to
+! minimize the distance between them and that point and thus to
+! improve the quality of the force extrapolation
+
+       do isa=1,NNd
+
+       iisa=ird(isa)    ! Mapping from the extended set to the best subset
+
+! Using the already calculated quaternion matrices
+
+       if(ifreqs.eq.this%ifreq*(ifreqs/this%ifreq)) then
+
+       hmu(:,:)=hmud(iisa,:,:)
+
+       else
+
+! Calculate the quaternion matrices for the new position if ifreq > 1
+
+       hmu=0.d0
+
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       fiii(:)=fiiid(:,jatm)
+
+       xiii(:)=this%coord(:,jatm,iisa)-this%coord(:,iatm,iisa)
+
+       ddd=sum((xiii(1:3)+fiii(1:3))**2)
+
+       cmu(1,1)=sum((xiii(1:3)-fiii(1:3))**2)
+       cmu(1,2)=2.d0*(xiii(2)*fiii(3)-xiii(3)*fiii(2))
+       cmu(1,3)=2.d0*(xiii(3)*fiii(1)-xiii(1)*fiii(3))
+       cmu(1,4)=2.d0*(xiii(1)*fiii(2)-xiii(2)*fiii(1))
+       cmu(2,2)=ddd-4.d0*xiii(1)*fiii(1)
+       cmu(2,3)=-2.d0*(xiii(1)*fiii(2)+xiii(2)*fiii(1))
+       cmu(2,4)=-2.d0*(xiii(1)*fiii(3)+xiii(3)*fiii(1))
+       cmu(3,3)=ddd-4.d0*xiii(2)*fiii(2)
+       cmu(3,4)=-2.d0*(xiii(2)*fiii(3)+xiii(3)*fiii(2))
+       cmu(4,4)=ddd-4.d0*xiii(3)*fiii(3)
+
+       hmu=hmu+cmu*rwrwr2d(jatms)
+
+       end do
+
+       end if
+
+! The problem is reduced to find eigenvalues as well as eigenvectors
+! of the obtained symmetrical quaternion matrices
+
+       lswork = -1      ! First query the optimal workspace
        swork => safemem_realloc(swork,1,.false.)
        CALL  DSYEV( 'V', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
        lswork = INT(swork(1))
@@ -1830,31 +2126,342 @@ contains
        fis(3,2)=2.d0*( q0*q1+q2*q3)
        fis(3,3)=q0**2+q3**2-q1**2-q2**2
 
-! Perform the coordinate and force transformations
+! Perform the coordinate transformation of each relative neigbour position
 
-       do iatm = 1, this%natom
-    this%scoord(1,iatm,isa)=fis(1,1)*this%coord(1,iatm,isa)+fis(2,1)*this%coord(2,iatm,isa)+fis(3,1)*this%coord(3,iatm,isa)
-    this%scoord(2,iatm,isa)=fis(1,2)*this%coord(1,iatm,isa)+fis(2,2)*this%coord(2,iatm,isa)+fis(3,2)*this%coord(3,iatm,isa)
-    this%scoord(3,iatm,isa)=fis(1,3)*this%coord(1,iatm,isa)+fis(2,3)*this%coord(2,iatm,isa)+fis(3,3)*this%coord(3,iatm,isa)
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       xiii(:)=(this%coord(:,jatm,iisa)-this%coord(:,iatm,iisa))* &
+                dsqrt(rwrwr2d(jatms))
+
+       this%scoord(1,jatm,iisa)=sum(fis(1:3,1)*xiii(1:3))
+       this%scoord(2,jatm,iisa)=sum(fis(1:3,2)*xiii(1:3))
+       this%scoord(3,jatm,iisa)=sum(fis(1:3,3)*xiii(1:3))
+
        end do
+
+! Perform the force transformation for the current atom
+
+    this%sforce(1,iatm,iisa)=sum(fis(1:3,1)*this%force(1:3,iatm,iisa))
+    this%sforce(2,iatm,iisa)=sum(fis(1:3,2)*this%force(1:3,iatm,iisa))
+    this%sforce(3,iatm,iisa)=sum(fis(1:3,3)*this%force(1:3,iatm,iisa))
+
+       end do
+
+! Solve the linear least-square problem in the transformed space
+
+       A=0.d0
+       B=0.d0
+
+! Filling in the corresponding elements of symmetric matrix A and vector B
+
+          do jatms=2,tscut(1)+1
+          jatm = tscut(jatms)
+
+          sscoord(:)=fiiid(:,jatm)*dsqrt(rwrwr2d(jatms))
+
+          do isa=1,NN-1
+
+          iisa=ird(isa)
+
+          B(isa,1)=B(isa,1)+sum(sscoord(1:3)*this%scoord(1:3,jatm,iisa))
+
+          thsscoord(:)=this%scoord(:,jatm,iisa)
+
+          do jsa=isa,NN-1
+
+          jjsa=ird(jsa)
+
+          A(isa,jsa)=A(isa,jsa)+sum(thsscoord(1:3)*this%scoord(1:3,jatm,jjsa))
+
+          end do
+          end do
+
+          end do
+
+! Renormalization of the matrices on the number of neighbours
+
+          A=A/tscut(1)
+          B=B/tscut(1)
+
+! Balancing minimization of the norms of the solutions with enormsw-weight
+
+          do isa=1,NN-1
+          A(isa,isa)=A(isa,isa)+this%enormsw
+          end do
+
+! Using Lagrange method to normalize the solutions
+
+          do isa=1,NN-1
+          A(isa,NN)=-1.d0
+          end do
+          A(NN,NN)=0.d0
+
+          B(NN,1)=-1.d0
+
+! Solving the extended system of linear equations
+
+          LWORK = -1      ! First query the optimal workspace
+          WORK => safemem_realloc(WORK,1,.false.)
+          call DSYSV( 'U', NN, NRHS, A, LDA, IPIV, B, LDB, WORK, LWORK, INFO )
+          LWORK = INT(WORK(1))
+          WORK => safemem_realloc(WORK,LWORK,.false.)
+
+! Perform the actual calculations
+
+          call DSYSV( 'U', NN, NRHS, A, LDA, IPIV, B, LDB, WORK, LWORK, INFO )
+          if(INFO.ne.0) then
+          print *,INFO
+          stop 'Message from DSYSV'
+          end if
+
+! Extrapolate the forces in the transformed space
+
+          force(:,iatm) = 0.d0     ! Zero-order force approximation
+
+! High-order force extrapolation
+
+          do isa=1,NN-1
+          iisa=ird(isa)
+
+          force(:,iatm) = force(:,iatm)+B(isa,1)*this%sforce(:,iatm,iisa)
+
+          end do
+
+          end do
+
+! Calculate the net force
+
+       forcnet=0.d0
+
+       forcorgd=0.d0
+
+! Summing up the partial forces and their squared values over atoms
+ 
+       do iatm = this%atom0, this%atomF
+
+       forcnet(:)=forcnet(:)+force(:,iatm)
+
+       forcorgd=forcorgd+sum(force(1:3,iatm)**2)
+
+       end do
+
+#ifdef MPI
+
+! Collecting the partial sums from different processes and placing
+! the result into the same variables known for all processors
+
+    call mpi_allreduce(MPI_IN_PLACE,forcnet,3,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
+    call mpi_allreduce(MPI_IN_PLACE,forcorgd,1,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
+
+#endif
+
+! Evaluate the correcting force
+
+       forcnet(:)=forcnet(:)/this%natom
+
+! Accumulate the squared correcting and initial forces per atom
+
+       forcors=forcors+sum(forcnet(1:3)**2)
+
+       forcorgs=forcorgs+forcorgd/this%natom
+
+! Calculate the ratio of averaged correcting to initial forces
+
+       forcnetr=dsqrt(forcors/forcorgs)
+
+! Perform the net force correction
+
+       if(this%ntfrcor.ne.0) then
 
        do iatm = this%atom0, this%atomF
-    this%sforce(1,iatm,isa)=fis(1,1)*this%force(1,iatm,isa)+fis(2,1)*this%force(2,iatm,isa)+fis(3,1)*this%force(3,iatm,isa)
-    this%sforce(2,iatm,isa)=fis(1,2)*this%force(1,iatm,isa)+fis(2,2)*this%force(2,iatm,isa)+fis(3,2)*this%force(3,iatm,isa)
-    this%sforce(3,iatm,isa)=fis(1,3)*this%force(1,iatm,isa)+fis(2,3)*this%force(2,iatm,isa)+fis(3,3)*this%force(3,iatm,isa)
+       force(:,iatm)=force(:,iatm)-forcnet(:)
        end do
+
+       end if
+
+! Current number of calls to this subroutine after the last updating
+
+      if(iupdate.eq.0) iupdate=1
+      ifreqs=ifreqs+1
+
+    err = safemem_dealloc(A)
+    err = safemem_dealloc(B)
+    err = safemem_dealloc(IPIV)
+    err = safemem_dealloc(WORK)
+    err = safemem_dealloc(swork)
+
+  end subroutine fce_forcesa
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+! The super advanced force extrapolation method with full ifreq-support
+!
+! It includes all the techniques: normalization, neighbouring transformation
+! with weighting, basic set extension, selection with possible sorting,
+! as well as balancing, netforce correction, and full ifreq-technique
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     ! 6-individual transformation and selecting with respect to the
+     !   post-coordinate of each atom using a neighbouring scheme
+     !   (recommended for large macromolecules and large basic set)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine fce_forcesan(this,force,coord,forcnetr,iupdate,idirom)
+
+    use safemem
+    implicit none
+
+#ifdef MPI
+      include 'mpif.h'
+#endif
+
+    type(fce), intent(inout) :: this
+    _REAL_, intent(out) :: force(3,this%natom)
+    _REAL_, intent(in) :: coord(3,this%natom)
+
+    _REAL_ :: sforce(3,this%natom),scoord(3,this%natom)
+    _REAL_ :: coordp(3,this%natom)
+
+     integer :: N, NN, NNd
+     integer :: iatm,jatm,jatms,isa,jsa,iisa,err
+
+    !LAPACK DSYSV variables
+     integer :: NRHS=1, LDA, LDB, LWORK, INFO
+     integer :: IPIV(this%nbase+1)
+    _REAL_, pointer :: WORK(:)=>NULL()
+
+    !uncertainties of input coordinates in A and B are negligible
+    _REAL_ :: A(this%nbase+1,this%nbase+1),B(this%nbase+1,1)
+    _REAL_ :: RCOND=0.d0
+
+    !LAPACK DSYEV variables
+     integer :: lswork, infos
+    _REAL_, pointer :: swork(:)=>NULL()
+
+     DOUBLE PRECISION hmu(4,4),ddd,q0,q1,q2,q3,fis(3,3),wjjj(4)
+     DOUBLE PRECISION xiii(3),fiii(3),fiiid(3,this%natom)
+     DOUBLE PRECISION hmud(this%nbasis,4,4)
+
+    _REAL_ :: tscoords(3),thsscoord(3),cmu(4,4)=0.d0
+
+    !Selection and sortion arrays
+     integer :: irr(this%nbasis),ird(this%nbase),irs(this%nbase)
+    _REAL_ :: rrr(this%nbasis),rar(this%nbase)
+
+     DOUBLE PRECISION rwrwr2,rwrwr2d(this%natom)
+
+    _REAL_ :: forcnet(3),forcnetr,forcorgd,forcorgs=0.d0,forcors=0.d0
+
+     integer :: tscut(this%natom),iupdate,idirom,ifreqs=0
+
+     save ifreqs,forcorgs,forcors
+
+       N = this%nsample   ! Current number of samples (NNd.le.N.le.this%nbasis)
+
+       NNd = this%nbase   ! Number of the best basic points
+
+       NN=NNd+1           ! Number of linear equations
+
+! Description of Lapack DSYSV variables
+
+          LDA = NN
+          LDB = NN
+
+   if(iupdate.eq.0) ifreqs=0
+
+! Calculating the current number of steps after the last updating
+
+       if(ifreqs.eq.this%ifreq*(ifreqs/this%ifreq)) then
+       idirom=0
+       else
+       idirom=idirom+1
+       end if
+
+! Using multiprocessing to perform the individual force extrapolation
+! for each separate atom of the solvent macromolecule
+
+       do iatm = this%atom0, this%atomF
+
+! Forming the extended coordinate set (every ifreq steps only)
+
+       if(ifreqs.eq.this%ifreq*(ifreqs/this%ifreq)) then
+
+! Definition of the list of neighbours for each current atom
+
+       tscut=0
+ 
+       do jatm = 1,this%natom
+       fiiid(:,jatm)=coord(:,jatm)-coord(:,iatm)
+       rwrwr2=sum(fiiid(1:3,jatm)**2)
+       if(rwrwr2<this%cut.and.jatm.ne.iatm) then
+       tscut(1)=tscut(1)+1
+       tscut(tscut(1)+1)=jatm
+       rwrwr2d(tscut(1)+1)=1.d0/rwrwr2
+       end if
+       end do
+
+! Finding the optimal rotational transformation which minimizes the
+! distances between the molecule in the current post-state and
+! previous positions from the extended coordinate set
+
+       do isa=1,N
+
+       hmu=0.d0
+
+! Summing up the corresponding quaternion matrix over the neighbours atoms
+
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       fiii(:)=fiiid(:,jatm)
+
+       xiii(:)=this%coord(:,jatm,isa)-this%coord(:,iatm,isa)
+
+       ddd=sum((xiii(1:3)+fiii(1:3))**2)
+
+       cmu(1,1)=sum((xiii(1:3)-fiii(1:3))**2)
+       cmu(1,2)=2.d0*(xiii(2)*fiii(3)-xiii(3)*fiii(2))
+       cmu(1,3)=2.d0*(xiii(3)*fiii(1)-xiii(1)*fiii(3))
+       cmu(1,4)=2.d0*(xiii(1)*fiii(2)-xiii(2)*fiii(1))
+       cmu(2,2)=ddd-4.d0*xiii(1)*fiii(1)
+       cmu(2,3)=-2.d0*(xiii(1)*fiii(2)+xiii(2)*fiii(1))
+       cmu(2,4)=-2.d0*(xiii(1)*fiii(3)+xiii(3)*fiii(1))
+       cmu(3,3)=ddd-4.d0*xiii(2)*fiii(2)
+       cmu(3,4)=-2.d0*(xiii(2)*fiii(3)+xiii(3)*fiii(2))
+       cmu(4,4)=ddd-4.d0*xiii(3)*fiii(3)
+
+       hmu=hmu+cmu*rwrwr2d(jatms)
+
+       end do
+
+       hmud(isa,:,:)=hmu(:,:) ! Put it in memory to avoid further recalculation
+
+! The problem is reduced to find eigenvalues of the quaternion matrice
+
+       lswork = -1      ! First query the optimal workspace
+       swork => safemem_realloc(swork,1,.false.)
+       CALL  DSYEV( 'N', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
+       lswork = INT(swork(1))
+       swork => safemem_realloc(swork,lswork,.false.)
+
+! Now solve the eigenproblem
+
+       CALL  DSYEV( 'N', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
+
+       if(infos.ne.0) then
+       print *,infos
+       stop 'Message from DSYEV'
+       end if
+
+! The minimal eigenvalue will correspond to the desired minimal distance
 
        if(this%nbasis.gt.this%nbase.or.this%sort.ne.0) rrr(isa)=wjjj(1)
 
        end do
 
-       do iatm = 1, this%natom
-       scoord(1,iatm)=coord(1,iatm)
-       scoord(2,iatm)=coord(2,iatm)
-       scoord(3,iatm)=coord(3,iatm)
-       end do
-
-! No selecting and sorting if nbasis=nbase and sort=0
+! Carrying out the selection and possible sorting of the extended set
+! to obtain the best basic subset
 
           if(this%nbasis.eq.this%nbase.and.this%sort.eq.0) then
 
@@ -1884,7 +2491,7 @@ contains
           rar(isa)=rrr(isa)
           end do
 
-! Now perform sorting of the selected minimal values in the descending order
+! Now perform sorting of the selected minimal values in the ascending order
 
           call hsort(this%nbase-1,rar,irs)
 
@@ -1935,199 +2542,395 @@ contains
 
           end if
 
-! The nearest pair
+! Having the best subset, each basic force-coordinate pairs 
+! will now be rotationally transformed accordingly
 
-          is1=ird(1)
+       do isa=1,NNd
 
-! Zero-order force approximation
+       iisa=ird(isa)    ! Mapping from the extended set to the best subset
 
-          do iatm = this%atom0, this%atomF
-          do id=1,3
-          sforce(id,iatm) = this%sforce(id,iatm,is1)
-          end do
-          end do
+! Using the already calculated quaternion matrices
 
-          NN=this%nbase-1
+       hmu(:,:)=hmud(iisa,:,:)
 
-          if(NN.gt.0) then
+! The problem is reduced to find eigenvalues as well as eigenvectors
+! of the obtained symmetrical quaternion matrices
 
-! High-order force extrapolation
+       lswork = -1      ! First query the optimal workspace
+       swork => safemem_realloc(swork,1,.false.)
+       CALL  DSYEV( 'V', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
+       lswork = INT(swork(1))
+       swork => safemem_realloc(swork,lswork,.false.)
 
-          JPVT=>safemem_realloc(JPVT,NN,.false.)
-          JPVT=0
+! Now solve the eigenproblem
 
-! Solve the linear least-square problem with or without weighting
+       CALL  DSYEV( 'V', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
 
-          if(this%weigh.eq.0) then
+       if(infos.ne.0) then
+       print *,infos
+       stop 'Message from DSYEV'
+       end if
 
-          M = 3 * this%natom
-          LDA = M
-          LDB = max(M,NN)
+! Define the 4-dimensional quaternion corresponding to the smallest eigenvalue
 
-          A=>safemem_realloc(A,M,NN,.false.)
-          B=>safemem_realloc(B,max(NN,M),1,.false.)
+       q0=hmu(1,1)
+       q1=hmu(2,1)
+       q2=hmu(3,1)
+       q3=hmu(4,1)
 
-! Using multiprocessor technique to fill in the matrix elements
+! Determine the rotational matrix in 3-dimensional space
 
-#ifdef MPI
+       fis(1,1)=q0**2+q1**2-q2**2-q3**2
+       fis(1,2)=2.d0*(-q0*q3+q1*q2)
+       fis(1,3)=2.d0*( q0*q2+q1*q3)
+       fis(2,1)=2.d0*( q0*q3+q1*q2)
+       fis(2,2)=q0**2+q2**2-q1**2-q3**2
+       fis(2,3)=2.d0*(-q0*q1+q2*q3)
+       fis(3,1)=2.d0*(-q0*q2+q1*q3)
+       fis(3,2)=2.d0*( q0*q1+q2*q3)
+       fis(3,3)=q0**2+q3**2-q1**2-q2**2
+
+! Perform the coordinate transformation of each relative neigbour position
+
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       xiii(:)=(this%coord(:,jatm,iisa)-this%coord(:,iatm,iisa))* &
+                dsqrt(rwrwr2d(jatms))
+
+       this%scoord(1,jatm,isa)=sum(fis(1:3,1)*xiii(1:3))
+       this%scoord(2,jatm,isa)=sum(fis(1:3,2)*xiii(1:3))
+       this%scoord(3,jatm,isa)=sum(fis(1:3,3)*xiii(1:3))
+
+       end do
+
+! Perform the force transformation for the current atom
+
+       this%sforce(1,iatm,isa)=sum(fis(1:3,1)*this%force(1:3,iatm,iisa))
+       this%sforce(2,iatm,isa)=sum(fis(1:3,2)*this%force(1:3,iatm,iisa))
+       this%sforce(3,iatm,isa)=sum(fis(1:3,3)*this%force(1:3,iatm,iisa))
+
+! Remember the transformation matrices
+
+       this%sfis(:,:,iatm-this%atom0+1,isa)=fis(:,:)
+
+       end do
+
+! Solve the linear least-square problem 
+
           A=0.d0
+
+! Filling in the corresponding elements of symmetric matrix A
+
+          do jatms=2,tscut(1)+1
+          jatm = tscut(jatms)
+
+          do isa=1,NN-1
+
+          thsscoord(:)=this%scoord(:,jatm,isa)
+
+          do jsa=isa,NN-1
+
+          A(isa,jsa)=A(isa,jsa)+sum(thsscoord(1:3)*this%scoord(1:3,jatm,jsa))
+
+          end do
+          end do
+
+          end do
+
+! Renormalization of the matrices on the number of neighbours
+
+          A=A/tscut(1)
+
+! Balancing minimization of the norms of the solutions with enormsw-weight
+
+          do isa=1,NN-1
+          A(isa,isa)=A(isa,isa)+this%enormsw
+          end do
+
+! Using Lagrange method to normalize the solutions
+
+          do isa=1,NN-1
+          A(isa,NN)=-1.d0
+          end do
+          A(NN,NN)=0.d0
+
+! Compute the factorization of the symmetric matrix A
+! using the Bunch-Kaufman diagonal pivoting method
+
+          LWORK = -1   ! First query the optimal workspace
+          WORK => safemem_realloc(WORK,1,.false.)
+          call DSYTRF( 'U', NN, A, LDA, IPIV, WORK, LWORK, INFO )
+          LWORK = INT(WORK(1))
+          WORK => safemem_realloc(WORK,LWORK,.false.)
+
+! Perform the actual calculations
+
+          call DSYTRF( 'U', NN, A, LDA, IPIV, WORK, LWORK, INFO )
+ 
+          if(INFO.ne.0) then
+          print *,INFO
+          stop 'Message from DSYTRF'
+          end if
+
+! Put in memory the best subset indexes and factorized matrix (if ifreq > 1)
+
+       if(this%ifreq.ne.1) then
+       this%irdd(iatm,:)=ird(:)
+       this%ipvss(iatm-this%atom0+1,:)=IPIV(:)
+       this%Ads(iatm-this%atom0+1,:,:)=A(:,:)
+       end if
+
+! Put in memory other necessary quantities (if ifreq > 1)
+
+     if(this%ifreq.ne.1) then
+     this%tscuts(iatm-this%atom0+1,:)=tscut(:)
+     this%coordps(iatm-this%atom0+1,:,:)=coord(:,:)
+     this%srwrwr2d(iatm-this%atom0+1,:)=rwrwr2d(:)
+     end if
+
+! On the beginning of each current frequency interval
+! the post-state coincides with the current one
+
+       fis=0.d0
+       fis(1,1)=1.d0
+       fis(2,2)=1.d0
+       fis(3,3)=1.d0
+
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       scoord(:,jatm)=(coord(:,jatm)-coord(:,iatm))*dsqrt(rwrwr2d(jatms))
+
+       end do
+
+       else
+
+! Get from memory the necessary quantities (if ifreq > 1)
+
+     if(this%ifreq.ne.1) then
+     tscut(:)=this%tscuts(iatm-this%atom0+1,:)
+     coordp(:,:)=this%coordps(iatm-this%atom0+1,:,:)
+     rwrwr2d(:)=this%srwrwr2d(iatm-this%atom0+1,:)
+     end if
+
+! The transformation of the curent coordinate with respect to the post-
+! state is performed by minimization of the distance between them
+
+       hmu=0.d0
+
+! Summing up the corresponding quaternion matrix over the neighbours atoms
+
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       fiii(:)=coordp(:,jatm)-coordp(:,iatm)
+
+       xiii(:)=coord(:,jatm)-coord(:,iatm)
+
+       ddd=sum((xiii(1:3)+fiii(1:3))**2)
+
+       cmu(1,1)=sum((xiii(1:3)-fiii(1:3))**2)
+       cmu(1,2)=2.d0*(xiii(2)*fiii(3)-xiii(3)*fiii(2))
+       cmu(1,3)=2.d0*(xiii(3)*fiii(1)-xiii(1)*fiii(3))
+       cmu(1,4)=2.d0*(xiii(1)*fiii(2)-xiii(2)*fiii(1))
+       cmu(2,2)=ddd-4.d0*xiii(1)*fiii(1)
+       cmu(2,3)=-2.d0*(xiii(1)*fiii(2)+xiii(2)*fiii(1))
+       cmu(2,4)=-2.d0*(xiii(1)*fiii(3)+xiii(3)*fiii(1))
+       cmu(3,3)=ddd-4.d0*xiii(2)*fiii(2)
+       cmu(3,4)=-2.d0*(xiii(2)*fiii(3)+xiii(3)*fiii(2))
+       cmu(4,4)=ddd-4.d0*xiii(3)*fiii(3)
+
+       hmu=hmu+cmu*rwrwr2d(jatms)
+
+       end do
+
+! The problem is reduced to find eigenvalues and eigenvectors
+! of the quaternion symmetric matrice
+
+       lswork = -1      ! First query the optimal workspace
+       swork => safemem_realloc(swork,1,.false.)
+       CALL  DSYEV( 'V', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
+       lswork = INT(swork(1))
+       swork => safemem_realloc(swork,lswork,.false.)
+
+! Now solve the eigenproblem
+
+       CALL  DSYEV( 'V', 'U', 4, hmu, 4, wjjj, swork, lswork, infos )
+
+       if(infos.ne.0) then
+       print *,infos
+       stop 'Message from DSYEV'
+       end if
+
+! Define the 4-dimensional quaternion corresponding to the smallest eigenvalue
+
+       q0=hmu(1,1)
+       q1=hmu(2,1)
+       q2=hmu(3,1)
+       q3=hmu(4,1)
+
+! Determine the rotational matrix in 3-dimensional space
+
+       fis(1,1)=q0**2+q1**2-q2**2-q3**2
+       fis(1,2)=2.d0*(-q0*q3+q1*q2)
+       fis(1,3)=2.d0*( q0*q2+q1*q3)
+       fis(2,1)=2.d0*( q0*q3+q1*q2)
+       fis(2,2)=q0**2+q2**2-q1**2-q3**2
+       fis(2,3)=2.d0*(-q0*q1+q2*q3)
+       fis(3,1)=2.d0*(-q0*q2+q1*q3)
+       fis(3,2)=2.d0*( q0*q1+q2*q3)
+       fis(3,3)=q0**2+q3**2-q1**2-q2**2
+
+! Perform the coordinate transformation of each relative neigbour position
+
+       do jatms=2,tscut(1)+1
+       jatm = tscut(jatms)
+
+       xiii(:)=(coord(:,jatm)-coord(:,iatm))*dsqrt(rwrwr2d(jatms))
+
+       scoord(1,jatm)=sum(fis(1:3,1)*xiii(1:3))
+       scoord(2,jatm)=sum(fis(1:3,2)*xiii(1:3))
+       scoord(3,jatm)=sum(fis(1:3,3)*xiii(1:3))
+
+       end do
+
+! Take from memory the best subset indexes and factorized matrix (if ifreq > 1)
+
+     if(this%ifreq.ne.1) then
+     ird(:)=this%irdd(iatm,:)
+     IPIV(:)=this%ipvss(iatm-this%atom0+1,:)
+     A(:,:)=this%Ads(iatm-this%atom0+1,:,:)
+     end if
+
+       end if
+
           B=0.d0
 
-          jsa=3*(this%atom0-1)
-#else
-          jsa=0
-#endif
+! Filling in the corresponding elements of vector B
 
-          do iatm = this%atom0, this%atomF
-          B(jsa+1:jsa+3,1)=scoord(:,iatm)-this%scoord(:,iatm,is1)
-          do isa=1,NN
-          iisap1=ird(isa+1)
-          A(jsa+1:jsa+3,isa)=this%scoord(:,iatm,iisap1)-this%scoord(:,iatm,is1)
+          do jatms=2,tscut(1)+1
+          jatm = tscut(jatms)
+
+          do isa=1,NN-1
+
+! First reproduce the transformed coordinate set via the rotational matrices
+
+          iisa=ird(isa)    
+          xiii(:)=(this%coord(:,jatm,iisa)-this%coord(:,iatm,iisa))* &
+                   dsqrt(rwrwr2d(jatms))
+
+          tscoords(1)=sum(this%sfis(1:3,1,iatm-this%atom0+1,isa)*xiii(1:3))
+          tscoords(2)=sum(this%sfis(1:3,2,iatm-this%atom0+1,isa)*xiii(1:3))
+          tscoords(3)=sum(this%sfis(1:3,3,iatm-this%atom0+1,isa)*xiii(1:3))
+
+! Calculate the vector B
+
+          B(isa,1)=B(isa,1)+sum(scoord(1:3,jatm)*tscoords(1:3))
+
           end do
-          jsa=jsa+3
+
           end do
 
-#ifdef MPI
-    call mpi_allreduce(MPI_IN_PLACE,A,M*NN,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
-    call mpi_allreduce(MPI_IN_PLACE,B,LDB,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
-#endif
+! Renormalization of the vector on the number of neighbours
 
-          !first determine the amount of memory required
-          LWORK=-1
-          WORK => safemem_realloc(work,1,.false.)
-          call dgelsy(M,NN,NRHS,A,LDA,B,LDB,JPVT,RCOND,RANK,WORK,LWORK,INFO)
+          B=B/tscut(1)
 
-          !perform the calculation
-          LWORK=WORK(1)
-          WORK => safemem_realloc(WORK,LWORK,.false.)
-          call dgelsy(M,NN,NRHS,A,LDA,B,LDB,JPVT,RCOND,RANK,WORK,LWORK,INFO)
+! Using Lagrange method to normalize the solutions
+
+          B(NN,1)=-1.d0
+
+! Solving the extended system of linear equations
+! using the factorization computed above by DSYTRF
+
+          CALL DSYTRS( 'U', NN, NRHS, A, LDA, IPIV, B, LDB, INFO )
 
           if(INFO.ne.0) then
           print *,INFO
-          stop 'Message from DGELSY'
-          end if
-
-          else
-
-          jsa=0
-
-#ifdef MPI
-
-          jsad=0
-          do iatm = this%atom0, this%atomF
-          do jatm = iatm+1, this%natom
-          rwrwr2=sum((scoord(1:3,iatm)-scoord(1:3,jatm))**2)
-          if(rwrwr2 < this%cut) then
-          jsa=jsa+3
-          end if
-          end do
-          end do
-
-    call MPI_Gather(jsa,1,MPI_INTEGER,jsad,1,MPI_INTEGER,0,this%mpicomm,err);
-
-      if(this%mpirank == 0) then
-      do inum=2,this%mpisize
-      jsad(inum)=jsad(inum-1)+jsad(inum)
-      end do
-      end if
-
-    call mpi_allreduce(MPI_IN_PLACE,jsad,this%mpisize,MPI_INTEGER,MPI_SUM,this%mpicomm,err)
-
-      if(this%mpirank == 0) jsa=0
-      do inum=1,this%mpisize-1
-      if(this%mpirank == inum) jsa=jsad(inum)
-      end do
-
-          M=jsad(this%mpisize)
-#else
-          M = 3 * ((this%natom*(this%natom-1))/2)
-#endif
-
-          LDA = M
-          LDB = max(M,NN)
-
-          A=>safemem_realloc(A,M,NN,.false.)
-          B=>safemem_realloc(B,max(NN,M),1,.false.)
-
-          A=0.d0
-          B=0.d0
-
-          do iatm = this%atom0, this%atomF
-          do jatm = iatm+1, this%natom
-
-          rwrwr2=sum((scoord(1:3,iatm)-scoord(1:3,jatm))**2)
-
-! Use cutting for weighting
-
-          if(rwrwr2 < this%cut) then
-
-          rweight=1.d0/dsqrt(rwrwr2)
-
-          B(jsa+1:jsa+3,1) = rweight*(&
-                             scoord(:,iatm)-this%scoord(:,iatm,is1) &
-                            -scoord(:,jatm)+this%scoord(:,jatm,is1))
-          do isa=1,NN
-          iisap1=ird(isa+1)
-          A(jsa+1:jsa+3,isa) = rweight*(&
-                          this%scoord(:,iatm,iisap1)-this%scoord(:,iatm,is1) &
-                         -this%scoord(:,jatm,iisap1)+this%scoord(:,jatm,is1))
-          end do
-          jsa=jsa+3
-          end if
-          end do
-          end do
-
-#ifdef MPI
-    call mpi_allreduce(MPI_IN_PLACE,A,M*NN,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
-    call mpi_allreduce(MPI_IN_PLACE,B,LDB,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
-#else
-          M=jsa
-#endif
-
-          !first determine the amount of memory required
-          LWORK=-1
-          WORK => safemem_realloc(work,1,.false.)
-          call dgelsy(M,NN,NRHS,A,LDA,B,LDB,JPVT,RCOND,RANK,WORK,LWORK,INFO)
-
-          !perform the calculation
-          LWORK=WORK(1)
-          WORK => safemem_realloc(WORK,LWORK,.false.)
-          call dgelsy(M,NN,NRHS,A,LDA,B,LDB,JPVT,RCOND,RANK,WORK,LWORK,INFO)
-
-          if(INFO.ne.0) then
-          print *,INFO
-          stop 'Message from DGELSY'
-          end if
-
+          stop 'Message from DSYTRS'
           end if
 
 ! Extrapolate the forces in the transformed space
 
-          do iatm = this%atom0, this%atomF
-          do isa=1,NN
-          iisap1=ird(isa+1)
-          do id=1,3
-          sforce(id,iatm) = sforce(id,iatm)+&
-          B(isa,1)*(this%sforce(id,iatm,iisap1)-this%sforce(id,iatm,is1))
-          end do
-          end do
+          sforce(:,iatm) = 0.d0     ! Zero-order force approximation
+
+! High-order force approximation by extrapolating 
+! the forces in the transformed space
+
+          do isa=1,NN-1
+
+          sforce(:,iatm) = sforce(:,iatm)+B(isa,1)*this%sforce(:,iatm,isa)
+
           end do
 
-          end if
+! Performing the inverse transformation to obtain the extrapolated forces
+! in the usual coordinates
 
-          do iatm = this%atom0, this%atomF
-          force(1,iatm)=sforce(1,iatm)
-          force(2,iatm)=sforce(2,iatm)
-          force(3,iatm)=sforce(3,iatm)
+    force(1,iatm)=fis(1,1)*sforce(1,iatm)+fis(1,2)*sforce(2,iatm)+fis(1,3)*sforce(3,iatm)
+    force(2,iatm)=fis(2,1)*sforce(1,iatm)+fis(2,2)*sforce(2,iatm)+fis(2,3)*sforce(3,iatm)
+    force(3,iatm)=fis(3,1)*sforce(1,iatm)+fis(3,2)*sforce(2,iatm)+fis(3,3)*sforce(3,iatm)
+
           end do
 
-    err = safemem_dealloc(A)
-    err = safemem_dealloc(B)
-    err = safemem_dealloc(WORK)
-    err = safemem_dealloc(JPVT)
+! Calculate the net force
+
+       forcnet=0.d0
+
+       forcorgd=0.d0
+
+! Summing up the partial forces and their squared values over atoms
+ 
+       do iatm = this%atom0, this%atomF
+
+       forcnet(:)=forcnet(:)+force(:,iatm)
+
+       forcorgd=forcorgd+sum(force(1:3,iatm)**2)
+
+       end do
+
+#ifdef MPI
+
+! Collecting the partial sums from different processes and placing
+! the result into the same variables known for all processors
+
+    call mpi_allreduce(MPI_IN_PLACE,forcnet,3,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
+    call mpi_allreduce(MPI_IN_PLACE,forcorgd,1,MPI_DOUBLE_PRECISION,MPI_SUM,this%mpicomm,err)
+
+#endif
+
+! Evaluate the correcting force
+
+       forcnet(:)=forcnet(:)/this%natom
+
+! Accumulate the squared correcting and initial forces per atom
+
+       forcors=forcors+sum(forcnet(1:3)**2)
+
+       forcorgs=forcorgs+forcorgd/this%natom
+
+! Calculate the ratio of averaged correcting to initial forces
+
+       forcnetr=dsqrt(forcors/forcorgs)
+
+! Perform the net force correction
+
+       if(this%ntfrcor.ne.0) then
+
+       do iatm = this%atom0, this%atomF
+       force(:,iatm)=force(:,iatm)-forcnet(:)
+       end do
+
+       end if
+
+! Current number of calls to this subroutine after the last updating
+
+      if(iupdate.eq.0) iupdate=1
+      ifreqs=ifreqs+1
+
     err = safemem_dealloc(swork)
+    err = safemem_dealloc(WORK)
 
-  end subroutine fce_forcec
+  end subroutine fce_forcesan
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! 4-no normalization, coordinate transformation, weighting, selecting,
@@ -2259,7 +3062,7 @@ end subroutine nlist
 !      end of the outer time interval                                  !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine fce_estimate(this,force,coord,sforce,scoord,forcem,deviat)
+  subroutine fce_estimate(this,force,coord,forcem,deviat,forcnetr,iupdate,idirom)
     implicit none
 
 #ifdef MPI
@@ -2269,13 +3072,15 @@ end subroutine nlist
     type(fce), intent(inout) :: this
     _REAL_, intent(in) :: force(3,this%natom), coord(3,this%natom)
 
-    _REAL_, intent(out) :: sforce(3,this%natom), scoord(3,this%natom)
-
     _REAL_ forcem(3,this%natom),stforce(3,this%natom),sas,sasa
+
+    _REAL_ :: forcnetr
 
     DOUBLE PRECISION deviat
 
      integer :: iaa
+
+     integer :: iupdate,idirom
 
 #ifdef MPI
     _REAL_ ssas,ssasa
@@ -2295,13 +3100,17 @@ end subroutine nlist
 
        if(this%trans.eq.0) call fce_forcea(this,forcem,coord)
 
-       if(this%trans.eq.1) call fce_forceb(this,forcem,coord,sforce,scoord)
+       if(this%trans.eq.1) call fce_forceb(this,forcem,coord)
 
-       if(this%trans.eq.2) call fce_forcebm(this,forcem,coord,sforce,scoord)
+       if(this%trans.eq.2) call fce_forcebm(this,forcem,coord,iupdate,idirom)
 
-       if(this%trans.eq.3) call fce_forcec(this,forcem,coord,sforce,scoord)
+       if(this%trans.eq.3) call fce_forcebm(this,forcem,coord,iupdate,idirom)
 
        if(this%trans.eq.4) call fce_force(this,forcem,coord)
+
+       if(this%trans.eq.5) call fce_forcesa(this,forcem,coord,forcnetr,iupdate,idirom)
+
+       if(this%trans.eq.6) call fce_forcesan(this,forcem,coord,forcnetr,iupdate,idirom)
 
 ! Summing up the exact 3D-RISM forces from different processes and
 ! making the result to be known for all processors
@@ -2343,10 +3152,6 @@ end subroutine nlist
        end if
 
 end subroutine fce_estimate
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-end module fce_c
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -2454,7 +3259,7 @@ end module fce_c
         if(j.le.k)l=i
       endif
       goto 1
-      END
+end subroutine selects
 !  (C) Copr. 1986-92 Numerical Recipes Software
 
 !************************************************************************
@@ -2549,5 +3354,84 @@ end module fce_c
       end if
       list(j)=k
    60 continue
-      return
-      end
+end subroutine hsort
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+subroutine fce_readbasis(this)
+  implicit none
+  type(fce),intent(inout) :: this
+  integer :: i, j, k
+  character(80) :: buf
+
+  !#ifdef MPI
+  !  include 'mpif.h'
+
+  if(this%mpirank == 0) then
+     
+     open(unit=this%bwrtunit,FILE='fcecoord.rst',STATUS='OLD')
+     open(unit=this%bwrtunit+1,FILE='fceforce.rst',STATUS='OLD')
+
+     read(this%bwrtunit,*) this%nsample, this%cstep
+     read(this%bwrtunit+1,*) buf
+
+     do i=1,this%nbasis
+        
+        read(this%bwrtunit,*) buf
+        read(this%bwrtunit+1,*) buf
+        
+        do j=1,this%natom
+           read(this%bwrtunit,*) this%coord(1,j,i), this%coord(2,j,i), this%coord(3,j,i)
+           read(this%bwrtunit+1,*) this%force(1,j,i), this%force(2,j,i), this%force(3,j,i)
+        enddo
+
+     enddo
+
+     close(this%bwrtunit)
+     close(this%bwrtunit+1)
+     
+  end if
+
+  !#else
+
+  !#endif
+
+end subroutine fce_readbasis
+
+subroutine fce_wrtbasis(this, cstepInInterval)
+  implicit none
+  type(fce),intent(inout) :: this
+  integer :: cstepInInterval, i, j, k
+
+!#ifdef MPI
+!  include 'mpif.h'
+
+  if(this%mpirank == 0) then
+ 
+     open(unit=this%bwrtunit,FILE='fcecoord.rst')
+     open(unit=this%bwrtunit+1,FILE='fceforce.rst')
+
+     write(this%bwrtunit,'(I5,A1,I10)') this%nsample, " ", cstepInInterval
+     write(this%bwrtunit+1,'(I5,A1,I10)') this%nsample, " ", cstepInInterval
+
+     do i=1,this%nbasis
+        write(this%bwrtunit,'(A2,I5)') "# ", i
+        write(this%bwrtunit+1,'(A2,I5)') "# ", i
+        do j=1,this%natom
+           write(this%bwrtunit,'(F12.5,A1,F12.5,A1,F12.5)') this%coord(1,j,i), " ", this%coord(2,j,i), " ", this%coord(3,j,i)
+           write(this%bwrtunit+1,'(F12.5,A1,F12.5,A1,F12.5)') this%force(1,j,i), " ", this%force(2,j,i), " ", this%force(3,j,i)
+        enddo
+     enddo
+
+     close(this%bwrtunit)
+     close(this%bwrtunit+1)
+
+  endif
+
+!#else
+
+!#endif
+
+end subroutine fce_wrtbasis
+  
+end module fce_c

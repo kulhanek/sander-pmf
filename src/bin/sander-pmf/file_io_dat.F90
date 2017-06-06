@@ -44,6 +44,7 @@ character(len=MAX_FN_LEN), save :: amdlog    ! Log file for accelerated MD
 character(len=MAX_FN_LEN), save :: scaledMDlog    ! Log file for scaled MD
 character(len=MAX_FN_LEN), save :: cph_dump  ! dump of CpHMD statistics
 character(len=MAX_FN_LEN), save :: sechgname ! dump of atomic charges in SEBOMD
+character(len=MAX_FN_LEN), save :: seboname  ! dump of bond orders in SEBOMD
 #ifdef RISMSANDER
 character(len=MAX_FN_LEN), save :: rismcrdfil
 character(len=MAX_FN_LEN), save :: rismfrcfil
@@ -88,6 +89,7 @@ integer, parameter :: scaledMDLOG_UNIT = 78
 integer, parameter :: SCHLEGEL_UNIT = 80 ! EVB
 integer, parameter :: PIMD_UNIT = 277
 integer, parameter :: SECHGUNIT = 31
+integer, parameter :: SEBOUNIT = 33
 #ifdef RISMSANDER
 integer, parameter :: RISMCRD_UNIT = 90
 integer, parameter :: RISMFRC_UNIT = 91
@@ -111,6 +113,7 @@ character(len=80), save :: title1
 logical, save :: mdin_ewald
 logical, save :: mdin_pb
 logical, save :: mdin_amoeba
+logical, save :: mdin_pol_gauss
 #ifdef APBS
 logical, save :: mdin_apbs
 logical, save :: sp_apbs
@@ -171,6 +174,7 @@ subroutine initialize_fnames
    evbin = 'evbin'
    evbout = 'evbout'
    sechgname = 'sebomd.chg'
+   seboname = 'sebomd.bnd'
    inptraj = 'inptraj'
    pimdout = 'pimdout'
 #ifdef RISMSANDER

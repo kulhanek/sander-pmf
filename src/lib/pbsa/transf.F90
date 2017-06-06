@@ -5,28 +5,25 @@
 !+ [Enter a one-line description of subroutine transf here]
 subroutine transf(l,m,n,h,hx,hy,hz,xi,yi,zi,i0,j0,k0,x,y,z,phi, t)
    implicit none
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  transf defines a local coordinate transfomation matrix    *                                 *
    !       *                                                            *
    !       **************************************************************
-   
+
    !Passed variables:
    integer l,m,n,i0,j0,k0
    _REAL_ h,hx,hy,hz,xi,yi,zi,x(0:l+1),y(0:m+1), z(0:n+1),&
           phi(0:l+1,0:m+1,0:n+1),t(3,3)
-   
+
    !Local variables:
-  
+
    _REAL_ ph0,phx,phy,phz,phxx,phyy,phzz,phxy,phxz,phyz,t11,t12,&
           t13,tp1,t21,t22,t23,tp2,t31,t32,t33,tp3
 
    call grtopr(l,m,n,x,y,z,h,hx,hy,hz,xi,yi,zi,i0,j0,k0,phi,1,1,0, &
-         ph0,phx,phy,phz,phxx,phyy,phzz,phxy,phxz,phyz)
-   !       print *,xi,yi,zi
-   !       print *,'transf',ph0
-   !       print *,phx,phy,phz,phxx,phyy,phzz,phxy,phxz,phyz
+      ph0,phx,phy,phz,phxx,phyy,phzz,phxy,phxz,phyz)
 
    if (phx == 0.0 .and. phz == 0) then
 
@@ -115,8 +112,4 @@ subroutine transf(l,m,n,h,hx,hy,hz,xi,yi,zi,i0,j0,k0,x,y,z,phi, t)
       t(3,3) = t33/tp3
    end if  ! (phx == 0.0 .and. phz == 0)
 
-   return
-end subroutine transf 
-
-! ----- End of transf()
-
+end subroutine transf

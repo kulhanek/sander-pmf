@@ -35,7 +35,7 @@ subroutine qm2_print_info
   ! -------------------------
   ! Print references (papers)
   ! -------------------------
-  call qm_print_ref(.true.,1, 1, qmmm_nml%qmtheory%DFTB)
+  call qm_print_ref(.true.,1, 1, qmmm_nml%qmtheory)
 
   ! -------------------------------------------------------
   ! Information on spin state and number of occupied levels
@@ -107,7 +107,7 @@ subroutine qm2_print_info
         else if (qmmm_nml%qmtheory%RM1) then
            reference_index = rm1_ref_index(qmmm_struct%qm_type_id(i))
         endif
-        call qm_print_ref(.false., reference_index, qmmm_struct%qm_type_id(i), qmmm_nml%qmtheory%DFTB)
+        call qm_print_ref(.false., reference_index, qmmm_struct%qm_type_id(i), qmmm_nml%qmtheory)
      end do
      if (qmmm_nml%qmtheory%PM3MAIS) then
         write(6,'(a)') '| QMMM: MAIS Ref: M.I. BERNAL-URUCHURTU et al. CPL 330, 118 (2000)'
@@ -523,7 +523,7 @@ end subroutine qm_print_dyn_mem
 
 !------------------------------------------------------------------------------
 
-subroutine qm_print_ref(amber_papers, ref_index, atomic_number, isDFTB)
+subroutine qm_print_ref(amber_papers, ref_index, atomic_number, qmtheory)
 !This routine prints the reference corresponding to ref_index
 !The idea here is that in the parameter list a paper index is
 !given to each parameter set and the relevant reference can
@@ -534,12 +534,13 @@ subroutine qm_print_ref(amber_papers, ref_index, atomic_number, isDFTB)
 !================================================
 
   use ElementOrbitalIndex, only : elementSymbol
+  use qmmm_qmtheorymodule, only : qmTheoryType
   implicit none
 
 !Passed in
       logical, intent(in) :: amber_papers
       integer, intent(in) :: ref_index, atomic_number
-      logical, intent(in) :: isDFTB
+      type(qmTheoryType), intent(in) :: qmtheory
 
       if (amber_papers) then
         !First we print info about the QM/MM implementation.
@@ -548,12 +549,30 @@ subroutine qm_print_ref(amber_papers, ref_index, atomic_number, isDFTB)
          write(6,'("| QMMM: R.C. Walker, M.F. Crowley and D.A. Case, J. COMP. CHEM. 29:1019, 2008")')
 
          !Next if we are doing DFTB also print the DFTB paper.
-         if (isDFTB) then
+         if (qmtheory%DFTB) then
            write(6,'()')
            write(6,'("| QMMM: DFTB Calculation - Additional citation for AMBER DFTB QMMM Run:")')
            write(6,'("| QMMM:   Seabra, G.M., Walker, R.C. et al., J. PHYS. CHEM. A., 111, 5655, (2007)")')
            write(6,'()')
          endif
+
+         if (qmtheory%DFTB3) then
+           write(6,'("| QMMM: DFTB3 - Additional citation to follow. Implementation by:")')
+           write(6,'("| QMMM:   A.W. Goetz")')
+           write(6,'("| QMMM:")')
+           write(6,'("| QMMM: DFTB3 method citation: ")')
+           write(6,'("| QMMM:   M. Gaus, Q. Cui, M. Elstner, J. CHEM. THEORY COMPUT. 7, 931 (2011)")')
+           write(6,'("| QMMM:")')
+           write(6,'("| QMMM: DFTB3 dispersion correction [D3(BJ)] and halogen correction not available.")')
+           write(6,'()')
+         endif
+
+         if (qmtheory%DFTB) then
+           write(6,'("| QMMM: Please cite also the appropriate references for the DFTB parameters")')
+           write(6,'("| QMMM: that you are using (see the manual and www.dftb.org).")')
+           write(6,'()')
+         endif
+
       else
         !Reference 1 - Most MNDO parameters
         !M.J.S. DEWAR, W. THIEL, JACS., 99, 4899, (1977)

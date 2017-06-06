@@ -229,6 +229,9 @@ module qmmm_nml_module
      _REAL_  :: chg_lambda
 
      !! DFTB Options
+     ! path to parameter files
+     character(len=256) :: dftb_slko_path
+     
      ! Maximum number of SCC iterations before resetting Broyden (default: 70 )
      integer :: dftb_maxiter    
 
@@ -518,6 +521,7 @@ end subroutine delete_qmmm_nml_type
     write(6,'(a,e10.2)') 'dftb_telec                 = ', self%dftb_telec
     write(6,'(a,e10.2)') 'dftb_telec_step            = ', self%dftb_telec_step
     write(6,'(2a)')      'dftb_3rd_order             = ', trim(self%dftb_3rd_order)
+    write(6,'(2a)')      'dftb_slko_path             = ', trim(self%dftb_slko_path)
     write(6,'(a,l)')     'qmqm_analyt                = ', self%qmqm_analyt
     write(6,'(a,l)')     'tight_p_conv               = ', self%tight_p_conv
     write(6,'(a,l)')     'printcharges               = ', self%printcharges

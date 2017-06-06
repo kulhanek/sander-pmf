@@ -38,6 +38,9 @@ module amd_mod
   _REAL_, save              :: E_dih_boost ! Dihedral boost energy in kcal/mol
   _REAL_, save              :: E_total_boost ! Total Potential boost energy in kcal/mol
 
+!GaMD
+  integer, save             :: igamd
+
 contains
 
 !*******************************************************************************

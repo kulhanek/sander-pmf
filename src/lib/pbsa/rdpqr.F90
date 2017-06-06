@@ -4,13 +4,13 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ A mimic of the lite version of Amber rdparm1 for use with pqr reading
 subroutine rdpqr1(nf)
-   
+
    use memory_module
    use parms, only : numbnd, numang, nptra, nphb, nimprp, nttyp
    use pbsa_lib, only : get_num_tokens, get_token
 
    implicit none
-   
+
 #  include "../include/md.h"
 #  include "box.h"
 
@@ -18,7 +18,7 @@ subroutine rdpqr1(nf)
    integer nhparm
    integer numextra
    integer mbona,mtheta,mphia
-   
+
    ! local variables
 
    character(len=1024) :: line
@@ -64,7 +64,7 @@ subroutine rdpqr1(nf)
 
       read(nf, '(a)', iostat=outcome) line
 
-      ! flawless reading 
+      ! flawless reading
 
       if ( outcome == 0 ) then
 
@@ -113,12 +113,12 @@ subroutine rdpqr1(nf)
          /' NUMANG = ',i7,' NPTRA  = ',i7,' NATYP = ',i7,' NPHB   = ',i7, &
          /' IFBOX  = ',i7,' NMXRS  = ',i7,' IFCAP = ',i7,' NEXTRA = ',i7 &
          ,/' NCOPY  = ',i7/)
-   
-   nttyp = ntypes*(ntypes+1)/2
-   
-   return 
 
-end subroutine rdpqr1 
+   nttyp = ntypes*(ntypes+1)/2
+
+   return
+
+end subroutine rdpqr1
 
 !=======================================================================
 
@@ -157,7 +157,7 @@ subroutine rdpqr2(nf, natom, igraph)
    integer nf
    integer natom
    character(len=4) igraph(natom)
-   
+
    ! local variables
 
    logical :: chainopt = .false.
@@ -176,13 +176,13 @@ subroutine rdpqr2(nf, natom, igraph)
    100 format(/80(1h-)/,'   3.  ATOMIC COORDINATES, CHARGES, AND RADII FROM PQR INPUT',/80(1h-)/)
 
    i = 0 ! atom sequence number counter
-   do 
+   do
 
       ! read one line into buffer
 
       read(nf, '(a)', iostat=outcome) line
 
-      ! flawless reading 
+      ! flawless reading
 
       if ( outcome == 0 ) then
 
@@ -227,9 +227,9 @@ subroutine rdpqr2(nf, natom, igraph)
             ! Here we assume the plain P.Q.R. order in the format.
 
             if ( chainopt ) read(line, *) tag, atmnum, igraph(i), resid, chainid, resnum, &
-                                          acrd(1,i), acrd(2,i), acrd(3,i), acrg(i), radi(i) 
+                                          acrd(1,i), acrd(2,i), acrd(3,i), acrg(i), radi(i)
             if ( .not. chainopt ) read(line, *) tag, atmnum, igraph(i), resid, resnum, &
-                                          acrd(1,i), acrd(2,i), acrd(3,i), acrg(i), radi(i) 
+                                          acrd(1,i), acrd(2,i), acrd(3,i), acrg(i), radi(i)
 
             write(6,'(a6,i6,a8,a8,i6,f10.3,f10.3,f10.3,f15.6,f15.6)')&
                 tag(1:6), i, igraph(i)(1:4), resid(1:4), resnum,&
@@ -254,12 +254,12 @@ subroutine rdpqr2(nf, natom, igraph)
 
    end do ! go to the next line
 
-   write(6,'(a)') 
+   write(6,'(a)')
    write(6,'(a,2i6)') ' The total number of atom entries read is ', i, natom
-   write(6,'(a)') ' There is no internal checking imposed.' 
+   write(6,'(a)') ' There is no internal checking imposed.'
    write(6,'(a)') ' It is assumed that the last two columns are in the order of charges and radii '
-   write(6,'(a)') 
+   write(6,'(a)')
 
    return
 
-end subroutine rdpqr2 
+end subroutine rdpqr2

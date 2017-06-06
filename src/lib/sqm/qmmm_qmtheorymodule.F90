@@ -27,6 +27,7 @@ module qmmm_qmtheorymodule
      logical PDDGMNDO
      logical PM3CARB1
      logical PM3ZNB
+     logical DFTB3
      logical DFTB
      logical RM1
      logical PDDGPM3_08
@@ -35,6 +36,7 @@ module qmmm_qmtheorymodule
      logical DISPERSION_HYDROGENPLUS ! This is the DH+ correction (dispersion and hydrogen bond)
      logical PM3MAIS
      logical EXTERN         !External interface to ADF/GAMESS/Gaussian/TeraChem
+     logical QUICKHF        !Interface to the Quick quantum chemistry package (HF only)
      logical SEBOMD         !External interface to SEBOMD: full QM calculation (no QM/MM)
   end type qmTheoryType
   
@@ -91,6 +93,7 @@ contains
     self%PDDGMNDO   = .false.
     self%PM3CARB1   = .false.
     self%PM3ZNB     = .false.
+    self%DFTB3      = .false.
     self%DFTB       = .false.
     self%RM1        = .false.
     self%PDDGPM3_08 = .false.
@@ -99,6 +102,7 @@ contains
     self%DISPERSION_HYDROGENPLUS = .false.
     self%PM3MAIS    = .false.
     self%EXTERN     = .false.
+    self%QUICKHF    = .false.
     self%SEBOMD     = .false.
     
     select case (Upcase(qm_theory))
@@ -126,8 +130,11 @@ contains
        self%PM3CARB1 = .true.
     case ('PM3ZNB', 'PM3-ZNB', 'PM3_ZNB', 'PM3/ZNB', 'ZNB')
        self%PM3ZNB = .true.
-    case ('DFTB', 'SCCDFTB', 'SCC-DFTB', 'SCC_DFTB')
+    case ('DFTB', 'SCCDFTB', 'SCC-DFTB', 'SCC_DFTB', 'DFTB2')
        self%DFTB = .true.
+    case ('DFTB3')
+       self%DFTB3 = .true.
+       self%DFTB  = .true.
     case ('RM1')
        self%RM1 = .true.
     case ('PM3-PDDG08', 'PM3PDDG08', 'PM3_PDDG08', 'PDDG-PM308', 'PDDGPM308', 'PDDG_PM308', &
@@ -145,12 +152,19 @@ contains
        self%PM3MAIS = .true.
     case ('EXTERN')
        self%EXTERN = .true.
+    case ('HF')
+       self%QUICKHF = .true.
+
+       ! CHECK
+!       write(6, '(a)') '| Selection of Quick HF active.'
+       ! END CHECK
+
     case ('SEBOMD')
        self%SEBOMD = .true.
     case default
        call sander_bomb('qmtheorymodule:SetQmTheoryType','Unknown method specified for qm_theory', &
             'Valid options are: PM3, AM1, RM1, MNDO, PM3-PDDG, PM3-PDDG_08, MNDO-PDDG, PM3-CARB1, '&
-            //'PM3-ZNB, PM3-MAIS, AM1-D*, AM1-DH+, MNDO/D, AM1/D, PM6, PM6-D, PM6-DH+, DFTB, '&
+            //'PM3-ZNB, PM3-MAIS, AM1-D*, AM1-DH+, MNDO/D, AM1/D, PM6, PM6-D, PM6-DH+, DFTB, DFTB2, DFTB3 '&
             //'SEBOMD (full QM) and EXTERN (external)')
     end select
 
@@ -183,6 +197,8 @@ contains
        qmTheoryString = 'PM3/CARB1'
     else if (self%PM3ZNB) then
        qmTheoryString = 'PM3/ZNB'
+    else if (self%DFTB3) then     ! needs to come first, for DFTB3 both %DFTB3 and %DFTB are true
+       qmTheoryString = 'DFTB3'
     else if (self%DFTB) then
        qmTheoryString = 'DFTB'
     else if (self%RM1) then
@@ -195,6 +211,8 @@ contains
        qmTheoryString = 'PM3-MAIS'
     else if (self%EXTERN) then
        qmTheoryString = 'EXTERN'
+    else if (self%QUICKHF) then
+       qmTheoryString = 'HF'
     else if (self%SEBOMD) then
        qmTheoryString = 'SEBOMD'
     end if
@@ -221,11 +239,13 @@ contains
     call mpi_bcast(self%PM3CARB1  , 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%PM3ZNB    , 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%DFTB      , 1, mpi_logical, 0, commsander, ier)
+    call mpi_bcast(self%DFTB3     , 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%RM1       , 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%PDDGPM3_08, 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%PM6       , 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%PM3MAIS   , 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%EXTERN    , 1, mpi_logical, 0, commsander, ier)
+    call mpi_bcast(self%QUICKHF   , 1, mpi_logical, 0, commsander, ier)
     call mpi_bcast(self%SEBOMD    , 1, mpi_logical, 0, commsander, ier)
 
   end subroutine BroadcastQmTheoryType

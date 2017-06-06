@@ -172,6 +172,7 @@ subroutine read_qmmm_nm_and_alloc( igb, ih, ix, x, cut, use_pme, ntb, qmstep, &
                                        !     'PA' == Do 3rd order, Proton Affinities parameterization
                                        !     'PR' ==               Phosphate reactions parameterization
                                        !     'READ' == read the parameters from a user-specified file (TO IMPLEMENT)
+   character(len=256) :: dftb_slko_path
    _REAL_ :: r_switch_lo    !Lower bound of the QM/MM switching function
    _REAL_ :: r_switch_hi    !Upper bound of the QM/MM switching function
    integer :: qmmm_switch   !0           Turn off QM/MM switching function 
@@ -261,7 +262,7 @@ subroutine read_qmmm_nm_and_alloc( igb, ih, ix, x, cut, use_pme, ntb, qmstep, &
                    writepdb, qmmm_int, adjust_q, diag_routine, &
                    density_predict, fock_predict, &
                    fockp_d1, fockp_d2, fockp_d3, fockp_d4, idc, divpb, &
-                   dftb_maxiter, dftb_disper, dftb_3rd_order, dftb_chg, &
+                   dftb_maxiter, dftb_disper, dftb_3rd_order, dftb_slko_path, dftb_chg, &
                    dftb_telec, dftb_telec_step, printbondorders, &
                    qmmm_switch, r_switch_lo, r_switch_hi, damp, vshift, &
 #ifdef OPENMP
@@ -391,6 +392,7 @@ subroutine read_qmmm_nm_and_alloc( igb, ih, ix, x, cut, use_pme, ntb, qmstep, &
    dftb_telec_step  = 0.0d0
    chg_lambda  = 1.0d0
    dftb_3rd_order   = 'NONE'
+   dftb_slko_path = ''
 
    !ABFQMMM
    abfqmmm      = 0
@@ -496,6 +498,7 @@ subroutine read_qmmm_nm_and_alloc( igb, ih, ix, x, cut, use_pme, ntb, qmstep, &
       dftb_telec = options%dftb_telec
       dftb_telec_step = options%dftb_telec_step
       dftb_3rd_order = options%dftb_3rd_order
+      dftb_slko_path = options%dftb_slko_path
       abfqmmm = options%abfqmmm
       hot_spot = options%hot_spot
       min_heavy_mass = options%min_heavy_mass
@@ -1175,6 +1178,7 @@ subroutine read_qmmm_nm_and_alloc( igb, ih, ix, x, cut, use_pme, ntb, qmstep, &
       qmmm_nml%dftb_3rd_order = dftb_3rd_order
    endif
 
+   qmmm_nml%dftb_slko_path = dftb_slko_path
    qmmm_nml%dftb_maxiter   = dftb_maxiter
    qmmm_nml%dftb_disper      = dftb_disper
    qmmm_nml%dftb_chg         = dftb_chg
@@ -1647,7 +1651,6 @@ subroutine read_qmmm_nm_and_alloc( igb, ih, ix, x, cut, use_pme, ntb, qmstep, &
  
 
 ! --- END CHECK FOR LIMITATIONS ---
-
   return
 
 end subroutine read_qmmm_nm_and_alloc

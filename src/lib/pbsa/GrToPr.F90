@@ -6,7 +6,7 @@ subroutine grtopr(l,m,n,x,y,z,h,hx,hy,hz,xx,yy,zz,i0,j0,k0,qg,inf1,inf2,inf3, &
       q0,qx,qy,qz,qxx,qyy,qzz,qxy,qxz,qyz)
    implicit none
    integer,parameter :: nq = 27
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  GrToPr find:                                              *
@@ -109,7 +109,6 @@ subroutine grtopr(l,m,n,x,y,z,h,hx,hy,hz,xx,yy,zz,i0,j0,k0,qg,inf1,inf2,inf3, &
             do k1 = k0-1, k0+1
                if (i1 < 1 .or. j1 < 1 .or. k1 < 1 &
                      .or. i1 > l .or. j1 > m .or. k1 > n) goto 55
-
                nsub = nsub + 1
                w1(1, nsub)  = 1.0
                w1(2, nsub)  = x(i1) - xx
@@ -315,5 +314,5 @@ subroutine grtopr(l,m,n,x,y,z,h,hx,hy,hz,xx,yy,zz,i0,j0,k0,qg,inf1,inf2,inf3, &
    end if
 
    return
-end subroutine grtopr 
+end subroutine grtopr
 

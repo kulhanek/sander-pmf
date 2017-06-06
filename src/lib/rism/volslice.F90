@@ -135,6 +135,24 @@ contains
           end do
           write(unit,'(a)')
        end do
+    elseif(plane .eq. "yz")then
+       do i=1,npos(2)
+          do j=1,npos(3)
+             write(unit,'(1p,e16.8e3,1x,e16.8e3,1x,e16.8e3)') dxorigin(2)+(i-1)*delta(2),&
+                  dxorigin(3)+(j-1)*delta(3),&
+                  data(index,i,j)
+          end do
+          write(unit,'(a)')
+       end do
+    elseif(plane .eq. "zx")then
+       do i=1,npos(1)
+          do j=1,npos(3)
+             write(unit,'(1p,e16.8e3,1x,e16.8e3,1x,e16.8e3)') dxorigin(1)+(i-1)*delta(1),&
+                  dxorigin(3)+(j-1)*delta(3),&
+                  data(i,index,j)
+          end do
+          write(unit,'(a)')
+       end do
     end if
     close(unit)
   end subroutine writeslice

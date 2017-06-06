@@ -21,21 +21,21 @@ subroutine getcor(nr,x,v,f,ntx,box,mytime)
    ! Passed variable
    integer filenum,nr,ntx
    _REAL_ x(*),v(*),f(*),box(3),mytime
-   
+
    ! Local variables
    logical isascii
    _REAL_ fvar(7),a,b,c,alpha,beta,gamma
    integer i,ivar,ifld(7),ihol(1)
    integer natom,nr3,ier
    character(len=256) testbuffer
-   
+
    nr3 = 3*nr
    filenum = 9
-   
+
    write(6,9108)
-   
+
    isascii = (ntx == 1 .or. ntx == 5 .or. ntx == 7 )
-   
+
    ! open the restart file
    if(isascii)then
       call myopen(filenum,inpcrd,'O','F','R')
@@ -121,7 +121,7 @@ subroutine getcor(nr,x,v,f,ntx,box,mytime)
          close(filenum, iostat=ier)
          return
       case (6) ! BINARY
-         ! X, V and BOX(1..3) are read unformatted; in other respects, 
+         ! X, V and BOX(1..3) are read unformatted; in other respects,
          ! this is the same as option "5".
          read(filenum) natom,mytime
          if(natom /= nr) then
@@ -171,15 +171,15 @@ subroutine getcor(nr,x,v,f,ntx,box,mytime)
    close(filenum, iostat=ier)
 
    1000 continue
-   write(6,'(a,a)') 'FATAL: Could not read coords from ',inpcrd
+   write(6,'(a,a)') 'PBSA BOMB: Could not read coords from ',inpcrd
    call mexit(6, 1)
    1010 continue
-   write(6,'(a,a)') 'FATAL: Could not read velocities from ',inpcrd
+   write(6,'(a,a)') 'PBSA BOMB: Could not read velocities from ',inpcrd
    call mexit(6, 1)
    1020 continue
-   write(6,'(a,a)') 'FATAL: Could not read BOX from ',inpcrd
+   write(6,'(a,a)') 'PBSA BOMB: Could not read BOX from ',inpcrd
    call mexit(6, 1)
-   
+
    9008 format(a80)
    9009 format(t2,'begin time read from input coords =', &
          f10.3,' ps'/)
@@ -189,7 +189,7 @@ subroutine getcor(nr,x,v,f,ntx,box,mytime)
 
    9108 format &
          (/80(1h-)/,'   3.  ATOMIC COORDINATES AND VELOCITIES',/80(1h-)/)
-   9118 format(/2x,'FATAL: NATOM mismatch in coord and ', &
+   9118 format(/2x,'PBSA BOMB: NATOM mismatch in coord and ', &
          'topology files')
 !  9128 format(t2,'NEW BOX DIMENSIONS from inpcrd file:', &
 !        /5x,'X =',f10.5,'  Y =',f10.5,'  Z =',f10.5,/)
@@ -198,4 +198,4 @@ subroutine getcor(nr,x,v,f,ntx,box,mytime)
          /5x,'ALPHA =',f10.5,'  BETA =',f10.5,'  GAMMA =',f10.5,/)
 
 
-end subroutine getcor 
+end subroutine getcor

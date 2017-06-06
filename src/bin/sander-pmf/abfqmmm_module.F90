@@ -373,7 +373,7 @@ subroutine abfqmmm_cut_bond_list
 
   if(ios /=0) then
    write(6,*) 'ERROR: cannot open cut_bond_list_file: ', trim(abfqmmm_param%cut_bond_list_file)
-   stop
+   call mexit(6, 1)
   end if
 
   n_cut_bond = 0
@@ -457,7 +457,7 @@ subroutine abfqmmm_cut_bond_list
        end if
       else
        write(6,*) 'ERROR: wrong specification of cut bond: ', line
-       stop
+       call mexit(6, 1)
       endif
      endif
     endif
@@ -593,7 +593,7 @@ subroutine abfqmmm_oxidation_number_list
 
   if(ios /=0 ) then
    write(6,*) 'ERROR: cannot open oxidation_number_list_file: ', trim(abfqmmm_param%oxidation_number_list_file)
-   stop
+   call mexit(6, 1)
   end if
 
   n_oxidation_number = 0
@@ -622,16 +622,27 @@ subroutine abfqmmm_oxidation_number_list
     first_char=line(1:1)
     if(first_char /= '!' .and. first_char /= '#') then
      read(line,*,iostat=ios) resid, atomtype, oxnum
+     ! Portland group compilers, eg, 15.4.0, do not report an error, ie, ios>0,
+     ! when a residue name starting with a T is read into an integer !
+     ! Thus the read above yields ios=0 and resid=-1 for " THR CB   0"
+     ! which triggers the error below.  Add a specific check for that to
+     ! set the iostat to an error condition to bypass the error below.
+     ! Wow, indent level of 1 - almost as bad as indent level 0.
+     ! SRB 3/28/2016
+     if(first_char == 'T' .and. ios == 0 .and. resid == -1) then
+      ios=84
+     end if
      if(ios == 0 .and. resid /= 0) then
       if(resid <= 0 .or. resid > abfqmmm_param%nres) then
        write(6,*) 'ERROR: oxidation number cannot be identified from this line:'
+       write(6,*) '    resid, atomtype, oxnum, ios:', resid, atomtype, oxnum, ios
        write(6,*) line
-       stop
+       call mexit(6, 1)
       end if
       do j=1,i
        if(resid == oxidation_number(j)%resid .and. atomtype == oxidation_number(j)%atomtype) then
         write(6,*) 'ERROR: oxidation number of atomtype ', atomtype , ' in residue ', resid, 'is defined more than once!'
-        stop
+        call mexit(6, 1)
        end if
       end do
       i=i+1
@@ -646,13 +657,14 @@ subroutine abfqmmm_oxidation_number_list
       if(ios == 0 .and. atomid /= 0) then
        if(resname /= 'atom' .or. atomid <= 0 .or. atomid > abfqmmm_param%natom) then
         write(6,*) 'ERROR: oxidation number cannot be identified from this line:'
+        write(6,*) '    resname, atomid, oxnum, ios:', resname, atomid, oxnum, ios
         write(6,*) line
-        stop
+        call mexit(6, 1)
        end if
        do j=1,i
         if(resname == oxidation_number(j)%resname .and. atomid == oxidation_number(j)%atomid) then
          write(6,*) 'ERROR: oxidation number of atom ', atomid, 'is defined more than once!'
-         stop
+         call mexit(6, 1)
         end if
        end do
        i=i+1
@@ -667,12 +679,13 @@ subroutine abfqmmm_oxidation_number_list
        if(ios /= 0) then
         write(6,*) 'ERROR: oxidation number cannot be identified from this line:'
         write(6,*) line
-        stop
+        write(6,*) '    resname, atomtype, oxnum, ios:', resname, atomtype, oxnum, ios
+        call mexit(6, 1)
        end if
        do j=1,i
        if(resname == oxidation_number(j)%resname .and. atomtype == oxidation_number(j)%atomtype) then
          write(6,*) 'ERROR: oxidation number of atomtype ', atomtype , ' in residue type ', resname, 'is defined more than once!'
-         stop
+         call mexit(6, 1)
         end if
        end do
        i=i+1
@@ -1141,7 +1154,7 @@ subroutine abfqmmm_setup(natom,nres,res_pointers,atom_name,res_name,mass,nbonh,n
   if(abfqmmm_param%hot_spot == 1) then
    if (abfqmmm_param%r_buffer_in .ne. abfqmmm_param%r_buffer_out) then
     write(6,'(a)') 'ERROR: Hot spot is active: r_buffer_in must be equal to r_buffer_out!'
-    stop
+    call mexit(6, 1)
    else
     write(6,'(a43,f5.2,a4)') 'Hot spot width (r_buffer_out = r_buffer_in): ', &
                              abfqmmm_param%r_buffer_out, ' [A]'
@@ -1219,7 +1232,7 @@ subroutine abfqmmm_setup(natom,nres,res_pointers,atom_name,res_name,mass,nbonh,n
     write(6,'(a)') 'Proportional force is applied for momentum conservation'
    case default
     write(6,'(a)') 'ERROR: mom_cons_type must be 0, 1, 2, -1 or -2!'
-    stop
+    call mexit(6, 1)
   end select
 
   if(abfqmmm_param%mom_cons_type /= 0) then 
@@ -1235,7 +1248,7 @@ subroutine abfqmmm_setup(natom,nres,res_pointers,atom_name,res_name,mass,nbonh,n
      write(6,'(a)') 'Force correction is distributed only on all atoms'
     case default
      write(6,'(a)') 'ERROR: mom_cons_region must be  0, 1, 2 or 3!'
-     stop
+     call mexit(6, 1)
    end select
   end if
   write(6,*)
@@ -1468,7 +1481,7 @@ recursive subroutine abfqmmm_recursive_labelling(atom, label)
 
   if(abfqmmm_param%n_recursive > abfqmmm_param%n_max_recursive) then
    write(6,*) 'ERROR: number of recursive labelling reached the maximum number: ', abfqmmm_param%n_max_recursive
-   stop
+   call mexit(6, 1)
   end if
 
   do i=1, abfqmmm_param%numbond(atom)
@@ -1496,7 +1509,7 @@ recursive subroutine abfqmmm_recursive_find_label_heavy_atom(atom, label)
 
   if(abfqmmm_param%n_recursive > abfqmmm_param%n_max_recursive) then
    write(6,*) 'ERROR: number of recursive labelling of nonheavy atom reached the maximum number: ', abfqmmm_param%n_max_recursive
-   stop
+   call mexit(6, 1)
   end if
 
   do i=1, abfqmmm_param%numbond(atom)
@@ -3035,7 +3048,7 @@ subroutine abfqmmm_read_idrst()
 
     if(ios /=0) then
       write(6,*) 'ERROR: cannot open read_idrst_file: ', trim(abfqmmm_param%read_idrst_file)
-      stop
+      call mexit(6, 1)
     end if
 
     write(6,'(a)') 'IDRST FILE WAS SPECIFIED - USER QM/CORE/BUFFER ID SPECIFICATIONS IN INPUT FILE ARE IGNORED'
@@ -3048,7 +3061,7 @@ subroutine abfqmmm_read_idrst()
                                 abfqmmm_param%id_orig(i), abfqmmm_param%id(i)
      if(ios /=0) then
       write(6,*) 'ERROR: cannot read id info for atom: ', i
-      stop
+      call mexit(6, 1)
      end if
     end do
     close(1989)
@@ -3077,7 +3090,7 @@ subroutine abfqmmm_write_idrst()
 
   if(ios /=0) then
     write(6,*) 'ERROR: cannot open write_idrst_file: ', trim(abfqmmm_param%write_idrst_file)
-    stop
+    call mexit(6, 1)
   end if
 
   do i=1,abfqmmm_param%natom
@@ -3117,7 +3130,7 @@ use molecule, only: n_iwrap_mask_atoms, iwrap_mask_atoms
 
     if(ios /=0) then
       write(6,*) 'ERROR: cannot open pdb_file: ', trim(abfqmmm_param%pdb_file)
-      stop
+      call mexit(6, 1)
     end if
   end if
 
@@ -3499,9 +3512,7 @@ end subroutine abfqmmm_calc_diff_coeff
 !  if (ntwx>0) itdump = mod(abfqmmm_param%qmstep,ntwx) == 0 ! Trajectory coords
 !  if (ntwv>0) ivdump = mod(abfqmmm_param%qmstep,ntwv) == 0 ! Velocity
 !  if (ntwf>0) ifdump = mod(abfqmmm_param%qmstep,ntwf) == 0 ! Force
-!  if (ntwr /= 0) then
-!     if ( mod(abfqmmm_param%qmstep,ntwr) == 0 ) ixdump = .true. ! Restart
-!  endif
+!  if ( mod(abfqmmm_param%qmstep,ntwr) == 0 ) ixdump = .true. ! Restart
 !  if (abfqmmm_param%qmstep==abfqmmm_param%maxqmstep) ixdump = .true. ! Final restart
 !  if (ntwv == -1 .and. itdump) ivdump = .true. !Combined crdvel file
 !

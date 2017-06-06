@@ -3,7 +3,7 @@
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ A collection of useful (but difficult-to-place) subroutines.
-module pbsa_lib 
+module pbsa_lib
 
    implicit none
 
@@ -23,7 +23,7 @@ subroutine upper(instring)
   character(*), intent(in out) :: instring
 
 ! Local variables
-  
+
   integer :: i ! counter
 
   do i = 1, len_trim(instring)
@@ -94,7 +94,7 @@ subroutine strip(instring)
 
   implicit none
 
-! Passed variables 
+! Passed variables
 
   character(*), intent(in out) :: instring
 
@@ -161,7 +161,7 @@ subroutine get_token(string, num, token)
   implicit none
 
 ! Passed arguments
-  
+
   character(*), intent(in)  :: string  ! The string to parse
   character(*), intent(out) :: token   ! The token to return
 
@@ -175,7 +175,7 @@ subroutine get_token(string, num, token)
   integer   :: string_loc
   integer   :: token_count
 
-  ! Uncomment the below chunk of code for a "safe" get_num_tokens at the 
+  ! Uncomment the below chunk of code for a "safe" get_num_tokens at the
   ! expense of calling get_num_tokens() each time a specific token is
   ! pulled from the string. When it's commented out, token will just be
   ! a blank string upon return
@@ -200,7 +200,7 @@ subroutine get_token(string, num, token)
     if (string(istart:istart) .le. ' ') then
 
       istart = istart + 1
-      
+
     else
 
       do string_loc = istart, iend

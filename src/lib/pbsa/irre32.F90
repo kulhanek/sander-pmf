@@ -1,41 +1,42 @@
 #include "../include/dprec.fh"
-! ----- for an irregular point (i0,j0,k0), find corresponding coefficients
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine irre32 here]
 subroutine irre32(l,m,n,h,hx,hy,hz,ifail, &
-      i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi,index, &
-      q0p,qyp,qzp,w0p,wyp,wzp,wyyp,wzzp,wyzp, &
-      nq,maxirr,index2,cirreg,wp,qp,xx,rhs)
-use iim_use
+              i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi,index, &
+              q0p,w0p, &
+              nq,maxirr,index2,cirreg,xx,rhs)
 
+   ! for an irregular point (i0,j0,k0), find corresponding coefficients
+
+   use iim_util
    implicit none
+
    integer,parameter :: im=4, ime=4, immax=im, ns=27, in=ns, &
          inmax=in, imnn=im+2*in, &
          lwar=3*inmax*inmax/2+10*inmax+2*immax+1, &
          liwar=in
 
-   !Passed variables
+   ! Passed variables
+
    _REAL_   h,hx,hy,hz,bmax,b_in,b_out,rhs
    integer  l,m,n,ifail,i0,j0,k0,info,nq,maxirr
    integer  index(l,m,n),index2(l,m,n)
    _REAL_   x(0:l+1), y(0:m+1), z(0:n+1)
    _REAL_   phi(0:l+1,0:m+1, 0:n+1)
-   _REAL_   cirreg(maxirr, 15)
-   _REAL_   wp(maxirr), qp(maxirr)
-   _REAL_   q0p(maxirr),qyp(maxirr),qzp(maxirr)
-   _REAL_   w0p(maxirr),wyp(maxirr),wzp(maxirr)
-   _REAL_   wyyp(maxirr),wzzp(maxirr),wyzp(maxirr)
+   _REAL_   cirreg(15, maxirr)
+   _REAL_   q0p(maxirr)
+   _REAL_   w0p(maxirr)
 
-   !Local variables
+   ! Local variables
+
    integer  nc,kr,kctr,ndis,ji,i,j,k,ir,iprint,ii,iout,ijk
    _REAL_   xyy,xzz,xyz,x1,y1,z1,ujmp,wy,wz,wyy,wzz,wyz,q,qy,qz,&
             fk_out,ff_out,fk_in,ff_in,tmp,temp,tmp1,tmp2,tmp3,rho,&
             rho1,hxx,hyy,hzz,hxyz,fb_out,fb_in,fmin,h1,bl2jmp,bl3jmp,&
             fjmp,corr,eps,fkk_in,fkk_out,fkk,fkjmp
-            
-            
+
    _REAL_   t(3,3),a(20)
    _REAL_   xloc(3),tmpx(3)
    _REAL_   bl_out(3),bl_in(3)
@@ -46,23 +47,23 @@ use iim_use
 
    ir = index2(i0, j0, k0)
 
-   x1 = cirreg(ir, 1)
-   y1 = cirreg(ir, 2)
-   z1 = cirreg(ir, 3)
+   x1     = cirreg( 1, ir)
+   y1     = cirreg( 2, ir)
+   z1     = cirreg( 3, ir)
 
-   xyy = cirreg(ir, 4)
-   xzz = cirreg(ir, 5)
-   xyz = cirreg(ir, 6)
+   xyy    = cirreg( 4, ir)
+   xzz    = cirreg( 5, ir)
+   xyz    = cirreg( 6, ir)
 
-   t(1,1) = cirreg(ir, 7)
-   t(1,2) = cirreg(ir, 8)
-   t(1,3) = cirreg(ir, 9)
-   t(2,1) = cirreg(ir, 10)
-   t(2,2) = cirreg(ir, 11)
-   t(2,3) = cirreg(ir, 12)
-   t(3,1) = cirreg(ir, 13)
-   t(3,2) = cirreg(ir, 14)
-   t(3,3) = cirreg(ir, 15)
+   t(1,1) = cirreg( 7, ir)
+   t(1,2) = cirreg( 8, ir)
+   t(1,3) = cirreg( 9, ir)
+   t(2,1) = cirreg(10, ir)
+   t(2,2) = cirreg(11, ir)
+   t(2,3) = cirreg(12, ir)
+   t(3,1) = cirreg(13, ir)
+   t(3,2) = cirreg(14, ir)
+   t(3,3) = cirreg(15, ir)
 
    ! ----- find jump conditions
 
@@ -213,18 +214,12 @@ use iim_use
       end do
    end do
 
-   do ijk=1, in
-      !           ca(11, ijk) = 1.0
-   end do
-   !        cb(11) = 0.0
-
    if (info > 3) then
       call cpymat(immax,inmax,ca,caa)
    end if
 
    iprint = 1
    iwar(1) = 1
-
 
    ! ----- solve quadratic programming
 
@@ -329,5 +324,4 @@ use iim_use
    xx(kctr) = xx(kctr)+fkk
    rhs = rhs + corr
 
-   return
-end subroutine irre32 
+end subroutine irre32

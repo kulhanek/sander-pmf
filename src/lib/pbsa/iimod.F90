@@ -1,12 +1,19 @@
 #include "copyright.h"
 #include "../include/dprec.fh"
 
-module iim_use
-  
+module iim_util
+
+   _REAL_, allocatable :: wp(:),qp(:)
+   _REAL_, allocatable :: qyp(:),qzp(:)
+   _REAL_, allocatable :: wyp(:),wzp(:)
+   _REAL_, allocatable :: wyyp(:),wzzp(:),wyzp(:)
+
 contains
+
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ [Enter a one-line description of subroutine matvec here]
+!+ local copy of matvec
 subroutine matvec(m,n,a,x,y)
+
    implicit none
    integer m,n,i,j
    _REAL_  a(m,n), x(n),y(m)
@@ -18,9 +25,6 @@ subroutine matvec(m,n,a,x,y)
       end do
    end do
 
-   return
-end subroutine matvec 
+end subroutine matvec
 
-
-!-------matmat finds the product a*b of two matrices a and b
-end module iim_use
+end module iim_util

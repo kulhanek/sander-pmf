@@ -170,13 +170,15 @@ subroutine locmem()
    else
       call adj_mem_ptr( r_ptr, lpol, 0 )
    end if
-! Modified by WJM, YD
+! Modified by WJM, YD, RL
    if (ipol > 1) then
       call adj_mem_ptr( r_ptr, ldf, natom )
       call adj_mem_ptr( r_ptr, lpol2, natom )
+      if ( ipol == 5) call adj_mem_ptr( r_ptr, lpolbnd, 3*natom )
    else
       call adj_mem_ptr( r_ptr, ldf, 0 )
       call adj_mem_ptr( r_ptr, lpol2, 0 )
+      call adj_mem_ptr( r_ptr, lpolbnd, 0 )
    end if
    call adj_mem_ptr( r_ptr, lcrd, 3*natom*am_nbead + mxvar )
    call adj_mem_ptr( r_ptr, lforce, 3*natom*am_nbead + mxvar + 40 )
@@ -240,7 +242,7 @@ subroutine locmem()
    if( igb /= 0 .or. ipb /= 0 .or. hybridgb>0 .or. icnstph>1 ) then
       call adj_mem_ptr( r_ptr, l96, natom )
       call adj_mem_ptr( r_ptr, l97, natom )
-      !Hai Nguyen: memory for new GB array
+      ! memory for new GB array
       call adj_mem_ptr( r_ptr, l2402, natom ) 
       call adj_mem_ptr( r_ptr, l2403, natom )
       call adj_mem_ptr( r_ptr, l2404, natom )

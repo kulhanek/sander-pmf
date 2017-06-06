@@ -21,9 +21,10 @@ subroutine qm2_dftb_get_qm_forces(dxyzqm)
 !     coord(3,qmmm_struct%nquant_nlink) - Cartesian coordinates of qm atoms.
 !     qmmm_struct%nquant_nlink    - Total number of qm atoms. (Real + link)
 
-      use qm2_dftb_module, only : izp_str, mcharge, lmax
+      use qm2_dftb_module, only : izp_str, lmax
       use qmmm_module, only : qmmm_struct, qmmm_nml, qmmm_mpi
       use constants, only: AU_TO_KCAL, A_TO_BOHRS
+      
 
       implicit none
 
@@ -46,13 +47,15 @@ subroutine qm2_dftb_get_qm_forces(dxyzqm)
 
         call timer_start(TIME_QMMMDFTBHZEROF)
         ! Gradient due to H zero. (Non charge dependent part)
-        call dftb_hzero_grad(qmmm_struct%nquant_nlink, izp_str%izp,lmax,qmmm_struct%qm_coords,dxyzqm)
+        call dftb_hzero_grad(qmmm_nml%qmtheory%dftb3, &
+             qmmm_struct%nquant_nlink,izp_str%izp,lmax, &
+             qmmm_struct%qm_coords,dxyzqm)
         call timer_stop(TIME_QMMMDFTBHZEROF)
 
         call timer_start(TIME_QMMMDFTBGAMMAF)
         ! here are the contributions due to gamma if in scf mode - Charge Dependent Part
-        call dftb_gammagrad(qmmm_struct%nquant_nlink,qmmm_struct%qm_coords, izp_str%izp,mcharge%uhubb,&
-                            dxyzqm)
+        call dftb_gammagrad(qmmm_nml%qmtheory%DFTB3,qmmm_struct%nquant_nlink,&
+             qmmm_struct%qm_coords,dxyzqm)
         call timer_stop(TIME_QMMMDFTBGAMMAF)
 
 !===========================================
@@ -74,61 +77,84 @@ subroutine qm2_dftb_get_qm_forces(dxyzqm)
 end subroutine qm2_dftb_get_qm_forces
 
 !============================================================================
-subroutine dftb_gammagrad(nquant_nlink,qm_coords,atomtype,uhubb,gmgrd)
+subroutine dftb_gammagrad(dftb3, nquant_nlink, qm_coords, gmgrd)
 
-   use qm2_dftb_module, only: NNDIM, ks_struct
+   use qm2_dftb_module, only: NNDIM, mcharge, izp_str, mol, &
+                             uhder, zeta, ks_struct
    use qmmm_module, only : qm2_struct
+   use constants, only : A_TO_BOHRS
 
    implicit none
 
-!! Passed in:
-   integer, intent(in ) :: nquant_nlink          ! number of atoms in cell
-   integer, intent(in ) :: atomtype(*)  ! list of atomic types
-   _REAL_ , intent(in ) :: qm_coords(3,nquant_nlink)     ! atomic coordinates
-   _REAL_ , intent(out) :: gmgrd(3,nquant_nlink)   ! gamma contribution to the gradient
-   _REAL_ , intent(in ) :: uhubb(*)     ! hubbard parameters
+   !! Passed in:
+   logical, intent(in) :: dftb3
+   integer, intent(in) :: nquant_nlink ! number of atoms
+   _REAL_ , intent(in) :: qm_coords(3,nquant_nlink)  ! atomic coordinates
+   _REAL_ , intent(out) :: gmgrd(3,nquant_nlink)     ! gamma contribution to the gradient
 
 !! Locals
-   integer :: i,k,l
-   _REAL_  :: deriv(3)
-   _REAL_  :: tmpderiv(3)
+   integer :: i, k
+   _REAL_, parameter :: zero = 0.0d0
+   _REAL_, parameter :: half = 0.5d0
+   _REAL_, parameter :: third = 1.0d0/3.0d0
+   _REAL_ :: deriv(3), deriv3(3)
+   _REAL_ :: tmp(3)
+   _REAL_ :: qi, qk
 
-   ! construct gamma derivatives
-   call dftb_gammamatrix_deriv(nquant_nlink,NNDIM,qm_coords,atomtype,uhubb, &
-                               ks_struct%derivx,ks_struct%derivy,ks_struct%derivz)
+   ! compute derivatives of second- and third-order kernels gamma and Gamma
+   call dftb_gammamatrix_deriv(dftb3, nquant_nlink, NNDIM, qm_coords, &
+        izp_str%izp, mol%ishydrogen, mcharge%uhubb, uhder, zeta, &
+        ks_struct%dgdr, ks_struct%dg3dr)
 
-   do k=1,nquant_nlink
+   do k = 1, nquant_nlink
+      qk = qm2_struct%scf_mchg(k)
 
-      deriv(1:3) = 0.0d0
+      deriv(:) = zero
+      deriv3(:) = zero
 
-      do i=1,nquant_nlink
-         if (i > k) then
-            tmpderiv(1) = ks_struct%derivx(i,k)
-            tmpderiv(2) = ks_struct%derivy(i,k)
-            tmpderiv(3) = ks_struct%derivz(i,k)
-         else if (i == k) then
-            tmpderiv(1) = 0.0d0
-            tmpderiv(2) = 0.0d0
-            tmpderiv(3) = 0.0d0
+      do i = 1, nquant_nlink
+         qi = qm2_struct%scf_mchg(i)
+
+         if (dftb3) then
+
+            if (i /= k) then
+               ! 2nd order part
+               deriv(:) = deriv(:) + qi*(ks_struct%dgdr(:,i,k)-ks_struct%dgdr(:,k,i))
+               ! 3rd order part
+               deriv3(:) = deriv3(:) + qi * &
+                    (qi*ks_struct%dg3dr(:,i,k) - qk*ks_struct%dg3dr(:,k,i))
+            end if
+
          else
-            ! shortrange1(rrmuind - ri)  = -shortrange1(ri - rrmuind)
-            tmpderiv(1) = -ks_struct%derivx(k,i)
-            tmpderiv(2) = -ks_struct%derivy(k,i)
-            tmpderiv(3) = -ks_struct%derivz(k,i)
-         endif
 
-         deriv(1) = deriv(1) + qm2_struct%scf_mchg(i)*tmpderiv(1)
-         deriv(2) = deriv(2) + qm2_struct%scf_mchg(i)*tmpderiv(2)
-         deriv(3) = deriv(3) + qm2_struct%scf_mchg(i)*tmpderiv(3)
+            ! DFTB2
+            ! We are working with a triangular matrix
+            if (i > k) then
+               tmp(:) = ks_struct%dgdr(:,i,k)
+            else if (i == k) then
+               tmp(:) = zero
+            else
+               ! shortrange1(rrmuind - ri)  = -shortrange1(ri - rrmuind)
+               ! works only for DFTB2
+               tmp(:) = -ks_struct%dgdr(:,k,i)
+            end if
+            deriv(:) = deriv(:) + qi*tmp(:)
+
+         end if
+         
       end do
 
-      do l = 1,3
-         gmgrd(l,k) = gmgrd(l,k) + qm2_struct%scf_mchg(k)*deriv(l)
-      end do
+      if (dftb3) then
+         gmgrd(:,k) = gmgrd(:,k) + qk*half*deriv(:)
+         gmgrd(:,k) = gmgrd(:,k) - qk*third*deriv3(:)
+         !AWGDEBUG
+         ! write(6,*) 'grad:', k, qk*(0.5d0*deriv(:)-third*deriv3(:))
+      else
+         ! DFTB2
+         gmgrd(:,k) = gmgrd(:,k) + qk*deriv(:)
+      end if
 
    end do
-
-   return
 
 end subroutine dftb_gammagrad
 
@@ -138,43 +164,77 @@ end subroutine dftb_gammagrad
 ! !!! NOTE THAT shortrange1(ri - rj) = -shortrange1(rj - ri) !!!
 ! !!! NOTE THAT phi1(ri - rj) = -phi1(rj - ri) !!!
 !=============================================================================
-subroutine dftb_gammamatrix_deriv(nquant_nlink,DIM,qm_coords,atomtype,u,gammamat1x,gammamat1y,gammamat1z)
+subroutine dftb_gammamatrix_deriv(dftb3,nquant_nlink,DIM,qm_coords, &
+     atomtype, ishydrogen, uh,uhder,zeta,dgdr,dg3dr)
 
    use constants, only : A_TO_BOHRS
    implicit none
 
-!! Passed in:
-   integer, intent(in ) :: nquant_nlink          ! Number of atoms
-   integer, intent(in ) :: DIM          ! Dimension of the (square) matrices gammamat1[x,y,z]
-   integer, intent(in ) :: atomtype(*)  ! 
-   _REAL_ , intent(in ) :: qm_coords(3,nquant_nlink)     ! position of atoms
-   _REAL_ , intent(in ) :: u(*)         ! hubbard parameters
-   _REAL_ , intent(out) :: gammamat1x(DIM,DIM)
-   _REAL_ , intent(out) :: gammamat1y(DIM,DIM)
-   _REAL_ , intent(out) :: gammamat1z(DIM,DIM)
+   !! Passed in:
+   logical, intent(in) :: dftb3
+   integer, intent(in) :: nquant_nlink  ! Number of atoms
+   integer, intent(in) :: DIM           ! Dimension of (square) matrices gammamat1[x,y,z]
+   integer, intent(in) :: atomtype(*)   ! 
+   logical, intent(in) :: ishydrogen(*) ! whether atom type is hydrogen
+   _REAL_ , intent(in) :: qm_coords(3,nquant_nlink) ! position of atoms
+   _REAL_ , intent(in) :: uh(*)         ! hubbard parameters
+   _REAL_ , intent(in)  :: uhder(*)     ! hubbard derivatives dU/dq
+   _REAL_ , intent(in)  :: zeta         ! exponent for gamma^h
+   _REAL_ , intent(out) :: dgdr(3,DIM,DIM)
+   _REAL_ , intent(out) :: dg3dr(3,DIM,DIM)
 
 !!Locals
-   integer :: i,j
-   _REAL_ :: r(3),gdrv
-   _REAL_ :: norm
+   integer :: i, j, ati, atj
+   logical :: xhgamma
+   _REAL_ :: r(3), gdrv, g3drv
+   _REAL_ :: dist, onedist
 
-   do i=1,nquant_nlink
-      do j=1,(i-1)
-         r(1:3)=(qm_coords(1:3,j)-qm_coords(1:3,i))*A_TO_BOHRS
+   if (dftb3) then
 
-         ! Lower matrix gammamat1x  contains (phi1+shortrange1)(ri-rj)x
-         ! Lower matrix gammamat1y  contains (phi1+shortrange1)(ri-rj)y
-         ! Lower matrix gammamat1z  contains (phi1+shortrange1)(ri-rj)z
-         ! !!! NOTE THAT gamma1(ri - rj) = -gamma1(rj - ri) !!!i
+      do i = 1, nquant_nlink
+         ati = atomtype(i)
+         do j = 1, nquant_nlink
+            atj = atomtype(j)
 
-         norm = sqrt(r(1)**2 + r(2)**2 + r(3)**2)
-         call GAM121(norm,u(atomtype(j)),u(atomtype(i)),gdrv)
-         gammamat1x(i,j)= gdrv * r(1)
-         gammamat1y(i,j)= gdrv * r(2)
-         gammamat1z(i,j)= gdrv * r(3)
+            r(1:3) = (qm_coords(1:3,j) - qm_coords(1:3,i))*A_TO_BOHRS
+            dist = sqrt(r(1)**2 + r(2)**2 + r(3)**2)
+            onedist = 1.0d0/dist
 
+            xhgamma = ishydrogen(ati) .or. ishydrogen(atj)
+
+            call gam121_dftb3(dist, uh(ati), uh(atj), uhder(ati), xhgamma, &
+                 zeta, gdrv, g3drv)
+
+            dgdr(:,i,j)= gdrv * r(:) * onedist
+            dg3dr(:,i,j)= g3drv * r(:) * onedist
+
+         end do
       end do
-   end do
+   
+   else
+      
+      ! DFTB2, we need only lower triangular matrix
+      do i = 1, nquant_nlink
+         ati = atomtype(i)
+         do j = 1, (i-1)
+            atj = atomtype(j)
+
+            r(1:3) = (qm_coords(1:3,j) - qm_coords(1:3,i))*A_TO_BOHRS
+            dist = sqrt(r(1)**2 + r(2)**2 + r(3)**2)
+         
+            ! Lower matrix gammamat1x  contains (phi1+shortrange1)(ri-rj)x
+            ! Lower matrix gammamat1y  contains (phi1+shortrange1)(ri-rj)y
+            ! Lower matrix gammamat1z  contains (phi1+shortrange1)(ri-rj)z
+            ! !!! NOTE THAT gamma1(ri - rj) = -gamma1(rj - ri) !!!i
+
+            call GAM121(dist,uh(atj),uh(ati),gdrv)
+            
+            dgdr(:,i,j)= gdrv * r(:)
+
+         end do
+      end do
+
+   end if
 
 end subroutine dftb_gammamatrix_deriv
 
@@ -184,16 +244,17 @@ end subroutine dftb_gammamatrix_deriv
 !
 ! Does the gradient of the Hamiltonian part of the SCC-DFTB energy.
 !
-subroutine dftb_hzero_grad(nquant_nlink,izp,lmax,qm_coords,grad)
+subroutine dftb_hzero_grad(dftb3,nquant_nlink,izp,lmax,qm_coords,grad)
 
    use constants, only : BOHRS_TO_A
    use qm2_dftb_module, only: NDIM,LDIM, ks_struct
    implicit none
 
 ! Passed in:
-   integer, intent(in ) :: nquant_nlink
-   integer, intent(in ) :: izp(*)
-   integer, intent(in ) :: lmax(*)
+   logical, intent(in) :: dftb3
+   integer, intent(in) :: nquant_nlink
+   integer, intent(in) :: izp(*)
+   integer, intent(in) :: lmax(*)
    _REAL_ , intent(inout) :: qm_coords(3,nquant_nlink)
    _REAL_ , intent(out) :: grad(3,nquant_nlink)
 
@@ -203,6 +264,8 @@ subroutine dftb_hzero_grad(nquant_nlink,izp,lmax,qm_coords,grad)
    _REAL_ , pointer :: ev(:)    ! (*)
    _REAL_ , pointer :: occ(:)   ! (*)
    _REAL_ , pointer :: shift(:) ! (*)
+   _REAL_ , pointer :: shift3(:) ! (*)
+   _REAL_ , pointer :: shift3A(:) ! (*)
    _REAL_ , pointer :: a(:,:)   ! (mdim,mdim)
    _REAL_ , pointer :: b(:,:)   ! (mdim,mdim)
    _REAL_ , pointer :: au(:,:)  ! (ldim,ldim)
@@ -213,7 +276,7 @@ subroutine dftb_hzero_grad(nquant_nlink,izp,lmax,qm_coords,grad)
 !!Locals:
    integer :: m,n,i,j,k
    integer :: mu,nu
-   _REAL_  :: ocmcc,dgrh,xhelp,dgrs,dtmp
+   _REAL_  :: ocmcc,dgrh,xhelp,dgrs,dtmp,dtmp3
 !!new locals:
    _REAL_  :: p(ndim,ndim),ep(ndim,ndim)
    integer :: iend(nquant_nlink)
@@ -231,6 +294,10 @@ subroutine dftb_hzero_grad(nquant_nlink,izp,lmax,qm_coords,grad)
    _REAL_, parameter :: deltax = 1.0d-5
    _REAL_, parameter :: rcdx = 1.0d0/deltax
 
+   _REAL_, parameter :: half = 0.5d0
+   _REAL_, parameter :: two = 2.0d0
+   _REAL_, parameter :: third = 1.0d0/3.0d0
+
    ! Since the H and S derivatives are done by:
    !
    !           f(x+delta) - f(x-delta)
@@ -246,6 +313,8 @@ subroutine dftb_hzero_grad(nquant_nlink,izp,lmax,qm_coords,grad)
    ev    => ks_struct%ev   
    occ   => ks_struct%occ  
    shift => ks_struct%shift
+   shift3 => ks_struct%shift3
+   shift3a => ks_struct%shift3A
    a     => ks_struct%a    
    b     => ks_struct%b    
    au    => ks_struct%au   
@@ -269,13 +338,19 @@ subroutine dftb_hzero_grad(nquant_nlink,izp,lmax,qm_coords,grad)
 
    do j = 1,nquant_nlink-1 
       iend(j)=ind(j+1)
-   End Do
+   end do
    iend(nquant_nlink)=ind(nquant_nlink)+ (lmax(izp(nquant_nlink))-1)**2 + 2*lmax(izp(nquant_nlink))-1
       
    do j = 1,nquant_nlink     ! Loop through all atoms 
       do k = 1,nquant_nlink  ! Loop through all atoms
          if(k /= j)then
-            dtmp=0.5d0*(shift(k)+shift(j))
+            dtmp = half*(shift(k) + shift(j))
+            if (dftb3) then
+               dtmp3 = half*third* &
+                    (two*shift3(k) + shift3A(k) + two*shift3(j) + shift3A(j))
+               dtmp = dtmp + dtmp3
+            end if
+
             ! loop X,Y,Z to get the derivative
             do i = 1,3
                ! saves the position of the atom

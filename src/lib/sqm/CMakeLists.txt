@@ -5,6 +5,8 @@
 # program objects --------------------------------------------------------------
 SET(SQM_SRC
         constants.F90
+        qm2_dftb_gamma_dftb3.F90
+        qm2_dftb_get_dftb3_parameters.F90
         dh_correction_module.F90
         elementOrbitalIndex.F90
         file_io_dat.F90

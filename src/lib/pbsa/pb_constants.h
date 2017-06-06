@@ -15,7 +15,7 @@ _REAL_, parameter :: INV_BOHR_RADIUS = 1.0d0/BOHR_RADIUS
 !-------------------------------------------------------
 ! Numeric Constants
 
-_REAL_, parameter ::      PI = 3.14159265358979323846d0 
+_REAL_, parameter ::      PI = 3.14159265358979323846d0
 _REAL_, parameter ::   TWOPI = 2.0d0*PI
 _REAL_, parameter ::  FOURPI = 4.0d0*PI
 _REAL_, parameter :: EIGHTPI = 8.0d0*PI

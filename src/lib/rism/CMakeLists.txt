@@ -7,6 +7,7 @@ SET(RISM_SRC
         amber_rism_interface.F90
         array_util.F90
         blend.F90
+        bspline.F90
         constants.F90
         erfcfun.F90
         fce_c.F90
@@ -20,8 +21,9 @@ SET(RISM_SRC
         quaternion.F90
         rism1d_c.F90
         rism1d_closure_c.F90
-#        rism1d.F90                                                                                                                                                    
-        rism1d_hnc_c.F90                                                                                                                                              
+#        rism1d.F90
+        rism1d_hnc_c.F90
+        rism1d_devb_c.F90
         rism1d_kh_c.F90
         rism1d_mv0_c.F90
         rism1d_potential_c.F90
@@ -29,18 +31,22 @@ SET(RISM_SRC
         rism1d_py_c.F90
         rism3d_c.F90
         rism3d_closure_c.F90
-        rism3d_csv.F90
-        rism3d_debug_c.F90
+#        rism3d_csv.F90
+#        rism3d_debug_c.F90
         rism3d_fft.F90
+        rism3d_ccp4.F90
         rism3d_grid_c.F90
         rism3d_hnc_c.F90
+        rism1d_nub_c.F90
+        rism1d_polyt_c.F90
         rism3d_kh_c.F90
         rism3d_opendx.F90
         rism3d.orave.F90
         rism3d_potential_c.F90
         rism3d_psen_c.F90
-        rism3d_solu_c.F90
-        rism3d_solv_c.F90
+        rism3d_restart.F90
+        rism3d_solute_c.F90
+        rism3d_solvent_c.F90
 #        rism3d.thermo.F90
         rism3d_xyzv.F90
         rism_parm.F90
@@ -50,6 +56,7 @@ SET(RISM_SRC
         safemem.F90
         solvmdl_c.F90
 #        volslice.F90
+        rism_io.F90
 
         xblas/BLAS_daxpby_x-f2c.c
         xblas/BLAS_daxpby_x.c

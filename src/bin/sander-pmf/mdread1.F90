@@ -24,7 +24,7 @@
    use sgld, only : isgld, isgsta,isgend,fixcom, &
                     tsgavg,sgft,sgff,sgfd,tempsg,treflf,tsgavp
    use amd_mod, only: iamd,iamdlag,EthreshD,alphaD,EthreshP,alphaP, &
-        w_amd,EthreshD_w,alphaD_w,EthreshP_w,alphaP_w
+        w_amd,EthreshD_w,alphaD_w,EthreshP_w,alphaP_w,igamd
    use scaledMD_mod, only: scaledMD,scaledMD_lambda
    use nbips, only: ips,teips,tvips,teaips,tvaips,raips,mipsx,mipsy,mipsz, &
                     mipso,gridips,dvbips
@@ -36,9 +36,9 @@
    use emil_mod,          only : emil_do_calc
    use mdin_emil_dat_mod, only : error_hdr
 
-#if !defined(DISABLE_NCSU) && defined(MPI)
-   use ncsu_sander_hooks, only : ncsu_on_mdread1 => on_mdread1
-#endif /* ! DISABLE_NCSU && MPI */
+#if !defined(DISABLE_NFE) && defined(MPI)
+   use nfe_sander_hooks, only : nfe_on_mdread1 => on_mdread1
+#endif /* ! DISABLE_NFE && MPI */
 #ifndef API
    use xray_interface_module, only: xray_active, xray_read_mdin
 #endif /* API */
@@ -53,16 +53,20 @@
 #ifdef RISMSANDER
 #  ifndef API
    use sander_rism_interface, only: xvvfile, guvfile, huvfile, cuvfile,&
-        uuvfile, asympfile, quvFile, chgDistFile, exchemfile, solvenefile, &
-        entropyfile, exchemGFfile, solveneGFfile, entropyGFfile, exchemUCfile, &
-        solveneUCfile, entropyUCfile, potUVfile
+        uuvfile, asympfile, quvFile, chgDistFile, electronMapFile, &
+        excessChemicalPotentialfile, solvationEnergyfile, entropyfile, &
+        excessChemicalPotentialGFfile, solvationEnergyGFfile, entropyGFfile, &
+        excessChemicalPotentialPCPLUSfile, solvationEnergyPCPLUSfile, entropyPCPLUSfile,&
+        excessChemicalPotentialUCfile, solvationEnergyUCfile, entropyUCfile,&
+        solventPotentialEnergyfile
 #  endif /* API */
-   use sander_rism_interface, only: rismprm
+   use sander_rism_interface, only: rismprm, rism_getPeriodicPotential
 #endif /*RISMSANDER*/
 #ifdef APBS
    use apbs
 #endif /* APBS */
    use sebomd_module, only: read_sebomd_namelist, sebomd_namelist_default
+   use nfe_sander_proxy, only: infe
    implicit none
 #  include "box.h"
 #  include "def_time.h"
@@ -76,7 +80,6 @@
 #  include "ew_erfc_spline.h"
 
    character(len=4) watdef(4),watnam,owtnm,hwtnm1,hwtnm2
-
    _REAL_      dele
    integer     ierr
    integer     imcdo
@@ -87,9 +90,9 @@
    integer :: ifqnt    ! local here --> put into qmmm_nml%ifqnt after read here
    integer     mxgrp
    integer     iemap
-   _REAL_      dtemp  ! retired 
-   _REAL_      dxm  ! retired 
-   _REAL_      heat  ! retired 
+   _REAL_      dtemp  ! retired
+   _REAL_      dxm  ! retired
+   _REAL_      heat  ! retired
    _REAL_      timlim ! retired
 
 #ifdef API
@@ -104,6 +107,7 @@
 
 #ifdef RISMSANDER
    integer irism
+   character(len=8) periodicPotential
 #endif /*RISMSANDER*/
 
    namelist /cntrl/ irest,ibelly, &
@@ -125,6 +129,7 @@
          mipsx,mipsy,mipsz,mipso,gridips,raips,dvbips, &
          iamd,iamdlag,EthreshD,alphaD,EthreshP,alphaP, &
          w_amd,EthreshD_w,alphaD_w,EthreshP_w,alphaP_w, &
+         igamd, &
          scaledMD,scaledMD_lambda, &
          iemap,gammamap, &
          isgld,isgsta,isgend,fixcom,tsgavg,sgft,sgff,sgfd,tempsg,treflf,tsgavp,&
@@ -141,17 +146,17 @@
          noshakemask,crgmask, iwrap_mask, &
          rdt,icnstph,solvph,ntcnstph,ntrelax, mccycles, &
          ifqnt,ievb, ipimd, itimass, ineb,profile_mpi, ilscivr, icorf_lsc, &
-         ipb, inp, nkija, idistr, &
-         gbneckscale, & 
+         ipb, inp, nkija, idistr, sinrtau, &
+         gbneckscale, &
          gbalphaH,gbbetaH,gbgammaH, &
          gbalphaC,gbbetaC,gbgammaC, &
          gbalphaN,gbbetaN,gbgammaN, &
          gbalphaOS,gbbetaOS,gbgammaOS, &
          gbalphaP,gbbetaP,gbgammaP, &
          Sh,Sc,Sn,So,Ss,Sp, &
-         lj1264, &
+         lj1264, fswitch, &
          ifcr, cropt, crcut, crskin, crin, crprintcharges, &
-         csurften, ninterface, gamma_ten, &
+         csurften, ninterface, gamma_ten, infe, &
 #ifdef MPI /* SOFT CORE */
          scalpha, scbeta, ifsc, scmask, logdvdl, dvdl_norest, dynlmb, &
          sceeorder, &
@@ -165,17 +170,17 @@
 #ifdef RISMSANDER
          irism,&
 #endif /*RISMSANDER*/
-         emil_do_calc, & 
+         emil_do_calc, &
          restart_cmd, eq_cmd, adiab_param,  &
          vdwmodel, & ! mjhsieh - the model used for van der Waals
-         dtemp, heat, timlim  !all retired 
+         dtemp, heat, timlim  !all retired
 
    ! Define default water residue name and the names of water oxygen & hydrogens
-   
+
    data watdef/'WAT ','O   ','H1  ','H2  '/
-   
+
    !     ----- READ THE CONTROL DATA AND OPEN DIFFERENT FILES -----
-   
+
 #ifndef API /* If this is NOT the API */
    if (mdout /= "stdout" ) &
          call amopen(6,mdout,owrite,'F','W')
@@ -203,7 +208,7 @@
    if (owrite /= 'N') write(6, '(2x,a)') '[-O]verwriting output'
 
    ! Echo the file assignments to the user:
-   
+
    write(6,9700) 'MDIN'   ,mdin(1:70)  , 'MDOUT' ,mdout(1:70) , &
          'INPCRD' ,inpcrd(1:70), 'PARM'  ,parm(1:70)  , &
          'RESTRT',restrt(1:70) , 'REFC'  ,refc(1:70)  , &
@@ -222,42 +227,50 @@
                  'REMDDIM',    trim(remd_dimension_file)
 #  endif
 #ifdef RISMSANDER
-   if(len_trim(xvvfile) > 0)&
-        write(6,9701) 'Xvv',trim(xvvfile)
-   if(len_trim(guvfile) > 0)&
-        write(6,9701) 'Guv',trim(Guvfile)
-   if(len_trim(huvfile) > 0)&
-        write(6,9701) 'Huv',trim(Huvfile)
-   if(len_trim(cuvfile) > 0)&
-        write(6,9701) 'Cuv',trim(Cuvfile)
-   if(len_trim(uuvfile) > 0)&
-        write(6,9701) 'Uuv',trim(Uuvfile)
-   if(len_trim(asympfile) > 0)&
-        write(6,9701) 'Asymptotics',trim(asympfile)
-   if(len_trim(quvfile) > 0)&
-        write(6,9701) 'Quv',trim(Quvfile)
-   if(len_trim(chgDistfile) > 0)&
-        write(6,9701) 'ChgDist',trim(chgDistfile)
-   if(len_trim(exchemfile) > 0)&
-        write(6,9701) 'ExChem',trim(exchemfile)
-   if(len_trim(solvenefile) > 0)&
-        write(6,9701) 'SolvEne',trim(solvenefile)
-   if(len_trim(entropyfile) > 0)&
-        write(6,9701) 'Entropy',trim(entropyfile)
-   if(len_trim(exchemGFfile) > 0)&
-        write(6,9701) 'ExChGF',trim(exchemGFfile)
-   if(len_trim(solveneGFfile) > 0)&
-        write(6,9701) 'SolvEneGF',trim(solveneGFfile)
-   if(len_trim(entropyGFfile) > 0)&
-        write(6,9701) '-TS_GF',trim(entropyGFfile)
-   if(len_trim(exchemUCfile) > 0)&
-        write(6,9701) 'ExChUC',trim(exchemUCfile)
-   if(len_trim(solveneUCfile) > 0)&
-        write(6,9701) 'SolvEneUC',trim(solveneUCfile)
-   if(len_trim(entropyUCfile) > 0)&
-        write(6,9701) '-TS_UC',trim(entropyUCfile)
-   if(len_trim(potUVfile) > 0)&
-        write(6,9701) 'PotUV',trim(potUVfile)
+   if (len_trim(xvvfile) > 0) &
+        write(6,9701) 'Xvv', trim(xvvfile)
+   if (len_trim(guvfile) > 0) &
+        write(6,9701) 'Guv', trim(Guvfile)
+   if (len_trim(huvfile) > 0) &
+        write(6,9701) 'Huv', trim(Huvfile)
+   if (len_trim(cuvfile) > 0) &
+        write(6,9701) 'Cuv', trim(Cuvfile)
+   if (len_trim(uuvfile) > 0) &
+        write(6,9701) 'Uuv', trim(Uuvfile)
+   if (len_trim(asympfile) > 0) &
+        write(6,9701) 'Asymptotics', trim(asympfile)
+   if (len_trim(quvfile) > 0) &
+        write(6,9701) 'Quv', trim(Quvfile)
+   if (len_trim(chgDistfile) > 0) &
+        write(6,9701) 'ChgDist', trim(chgDistfile)
+   if (len_trim(electronMapFile) > 0) &
+        write(6,9701) 'ElectronMap', trim(electronMapFile)
+   if (len_trim(excessChemicalPotentialfile) > 0) &
+        write(6,9701) 'ExChem', trim(excessChemicalPotentialfile)
+   if (len_trim(solvationEnergyfile) > 0) &
+        write(6,9701) 'SolvEne', trim(solvationEnergyfile)
+   if (len_trim(entropyfile) > 0) &
+        write(6,9701) 'Entropy', trim(entropyfile)
+   if (len_trim(excessChemicalPotentialGFfile) > 0) &
+        write(6,9701) 'ExChGF', trim(excessChemicalPotentialGFfile)
+   if (len_trim(solvationEnergyGFfile) > 0) &
+        write(6,9701) 'SolvEneGF', trim(solvationEnergyGFfile)
+   if (len_trim(entropyGFfile) > 0) &
+        write(6,9701) '-TS_GF', trim(entropyGFfile)
+   if (len_trim(excessChemicalPotentialPCPLUSfile) > 0) &
+        write(6,9701) 'exchemPCPLUS', trim(excessChemicalPotentialPCPLUSfile)
+   if (len_trim(solvationEnergyPCPLUSfile) > 0) &
+        write(6,9701) 'SolvEnePCPLUS', trim(solvationEnergyPCPLUSfile)
+   if (len_trim(entropyPCPLUSfile) > 0) &
+        write(6,9701) '-TS_PCPLUS', trim(entropyPCPLUSfile)
+   if (len_trim(excessChemicalPotentialUCfile) > 0) &
+        write(6,9701) 'exchemUC', trim(excessChemicalPotentialUCfile)
+   if (len_trim(solvationEnergyUCfile) > 0) &
+        write(6,9701) 'SolvEneUC', trim(solvationEnergyUCfile)
+   if (len_trim(entropyUCfile) > 0) &
+        write(6,9701) '-TS_UC', trim(entropyUCfile)
+   if (len_trim(solventPotentialEnergyfile) > 0) &
+        write(6,9701) 'PotUV', trim(solventPotentialEnergyfile)
 #endif /*RISMSANDER*/
 
    ! Echo the input file to the user:
@@ -300,6 +313,7 @@
 
    tautp = ONE
    ntp = 0
+   fswitch = -1.d0
    barostat = 1
    mcbarint = 100
    pres0 = ONE
@@ -317,7 +331,9 @@
    cut =  NO_INPUT_VALUE_FLOAT
    dielc = ONE
    ntpr = 50
-   ntwr = 500
+!RCW - Amber 16 change ntwr to equal nstlim
+!0 here is to detect if user set it or not.
+   ntwr = 0
    ntwx = 0
    ntwv = 0
    ntwf = 0
@@ -330,7 +346,12 @@
 #endif /*RISMSANDER*/
 
    ntave = 0
+#ifdef BINTRAJ
+!RCW: Amber 16 default to netcdf if support is compiled in.
+   ioutfm = 1
+#else
    ioutfm = 0
+#endif
    ntr = 0
    ntrx = 1
    ivcap = 0
@@ -349,7 +370,7 @@
    zorth = 47114711.0d0
    numexchg = 0
    repcrd   = 1
-   lj1264 = 0
+   lj1264 = -1
 
    profile_mpi = 0 !whether to write profile_mpi timing file - default = 0 (NO).
 
@@ -367,9 +388,9 @@
 
    ! hybridgb: gb model to use with hybrid REMD.
    hybridgb=0
- 
+
    ! carlos targeted MD, like ntr
-   
+
    itgtmd=0
    tgtrmsd=0.
    tgtmdfrc=0.
@@ -413,8 +434,8 @@
    !  dummy after we read the namelist, we set the default based on igb. if not,
    !  we leave it at what the user set.
    !  best solution would be to create a GB namelist.
-   offset = -999999.d0 
-   gbneckscale = -999999.d0 
+   offset = -999999.d0
+   gbneckscale = -999999.d0
 
    iyammp = 0
    imcdo = -1
@@ -436,7 +457,10 @@
    nkija  = 1     ! Number of Nose-Hoover chains per atom
    idistr = 0     ! Compute distribution functions (1=yes)
 
-   !Hai Nguyen: set default parameters for igb = 8
+   ! Parameters for Stochastic Isokinetic Nose-Hoover RESPA Integrator (SINR)
+   sinrtau = 1.0d0
+
+   ! set default parameters for igb = 8
    ! NOTE THAT NONE OF THESE ARE USED UNLESS IGB=8, SO USERS SHOULD NOT EVEN SET
    ! THEM
    gbalphaH = 0.788440d0
@@ -454,7 +478,7 @@
    gbalphaP = 1.0d0    !P parameters are not optimized yet
    gbbetaP = 0.8d0     !P parameters are not optimized yet
    gbgammaP = 4.85d0   !P parameters are not optimized yet
-   !scaling parameters below will only be used for igb=8. 
+   !scaling parameters below will only be used for igb=8.
    ! the actual code does not use these variables, it uses X(l96)
    ! if igb=8, we will use these to set the X(l96) array.
    Sh = 1.425952d0
@@ -464,7 +488,7 @@
    Ss = -0.703469d0
    Sp = 0.5d0          !P parameters are not optimized for protein
    ! update gbneck2nu pars
-   ! using offset and gb_neckscale parameters from GB8-protein for gbneck2nu 
+   ! using offset and gb_neckscale parameters from GB8-protein for gbneck2nu
    ! Scaling factors
    ! name of variables are different from sander's igb8
    ! we use below names in pmemd
@@ -490,8 +514,8 @@
    gb_alpha_pnu = 0.418365d0
    gb_beta_pnu = 0.290054d0
    gb_gamma_pnu = 0.1064245d0
-   ! End gbneck2nu 
-         
+   ! End gbneck2nu
+
    iconstreff = 0
    cut_inner = EIGHT
    icfe = 0
@@ -502,7 +526,7 @@
    idecomp = 0
    ! added a flag to control output of BDC/SDC synonymous with MMPBSA.py's
    ! version of the same variable.
-   dec_verbose = 3 
+   dec_verbose = 3
    lastrst = 1
    lastist = 1
    restraintmask=''
@@ -528,7 +552,7 @@
    ifcr = 0 ! no charge relocation
    cropt = 0 ! 1-4 EEL is calculated with the original charges
    crcut = 3.0
-   crskin = 2.0 
+   crskin = 2.0
    crin = ''
    crprintcharges = 0
 
@@ -552,7 +576,9 @@
    alphaD_w = 0.d0
    EthreshP_w = 0.d0
    alphaP_w = 0.d0
- 
+
+   igamd = 0 ! No GaMD used
+
    scaledMD = 0 ! No scaled MD used
    scaledMD_lambda = 0.d0
 
@@ -605,7 +631,7 @@
    idssp = 0
 #endif
    emil_do_calc = 0
-   
+
 !  Constant Surface Tension
    csurften = 0      !constant surface tension off (valid options are 0,1,2,3)
    gamma_ten = 0.0d0 !0.0 dyne/cm - default used in charmm. Ignored for csurften=0
@@ -630,6 +656,13 @@
    jfastw = input_options%jfastw
    ntf = input_options%ntf
    ntc = input_options%ntc
+   fswitch = input_options%fswitch
+   ntr = input_options%ntr
+   ibelly = input_options%ibelly
+   restraint_wt = input_options%restraint_wt
+   restraintmask = input_options%restraintmask
+   bellymask = input_options%bellymask
+   refc = input_options%refc
 #  ifdef LES
    rdt = input_options%rdt
 #  endif
@@ -642,7 +675,7 @@
 
    call nmlsrc('pb',5,ifind)
    if (ifind /= 0) mdin_pb=.true.
-   
+
    call nmlsrc('qmmm', 5, ifind)
    if (ifind /= 0) mdin_qmmm = .true.
 
@@ -672,6 +705,24 @@
    end if
 #endif /* ifdef API */
 
+   ! Set ntwr to nstlim if the user did not specify anything.
+   ! Note nstlim can actually be set to zero but zero is not permitted for ntwr
+   ! so if it is still zero set it to 1.
+   if ( nstlim .eq. 0 ) then
+      ntwr = 1
+   else
+      if ( ntwr .eq. 0 ) then
+         if ( numexchg .eq. 0 ) then
+            ntwr = nstlim
+         else
+            ntwr = nstlim * numexchg   ! for replica exchange
+         end if
+      end if
+   end if
+
+   if ( ntwr .eq. 0 ) ntwr = nstlim
+   if ( ntwr .eq. 0 ) ntwr = 1
+
    if ( igb == 10 .and. ipb == 0 ) ipb = 2
    if ( igb == 0  .and. ipb /= 0 ) igb = 10
 
@@ -679,7 +730,7 @@
      write(6, '(1x,a,/)') 'PLUMED is on'
      write(6, '(1x,a,a,/)') 'PLUMEDfile is ',plumedfile
    endif
-   
+
    if (ifqnt == NO_INPUT_VALUE) then
       ifqnt = 0 ! default value
       if (mdin_qmmm) then
@@ -706,11 +757,19 @@
       if (rem < 0) then
          ntxo = 2
       else
+#  ifdef BINTRAJ
+         ntxo = 2
+#  else
          ntxo = 1
+#  endif
       end if
-#else
+#else /* NOT MPI */
+#  ifdef BINTRAJ
+      ntxo = 2
+#  else
       ntxo = 1
-#endif
+#  endif
+#endif /* MPI */
    end if
 
    if (cut == NO_INPUT_VALUE_FLOAT) then
@@ -722,16 +781,31 @@
    end if
 
 #ifdef RISMSANDER
-   !force igb=6 to get vacuum electrostatics.  This must be done ASAP to ensure SANDER's
-   !electrostatics are initialized properly
-   rismprm%irism=irism
-   if(irism/=0) then
+   ! FIXME periodic RISM currently does not work with the API because it tries
+   ! to extract information from the mdin file.
+#  ifndef API
+   ! Force igb=6 to get vacuum electrostatics or igb=0 for periodic
+   ! boundary conditions. This must be done ASAP to ensure SANDER's
+   ! electrostatics are initialized properly.
+   rismprm%rism=irism
+
+   if (irism /= 0) then
+      call rism_getPeriodicPotential(mdin, periodicPotential)
+
+      if (periodicPotential == "") then
 #   ifndef API
-      write(6,'(a)') "|3D-RISM Forcing igb=6"
+         write(6,'(a)') "|non-periodic 3D-RISM Forcing igb=6"
 #   endif
-      igb=6
+         igb = 6
+      else
+#   ifndef API
+         write(6,'(a)') "|periodic 3D-RISM Forcing igb=0"
+#   endif
+         igb = 0
+      end if
    end if
-#endif /*RISMSANDER*/   
+#  endif
+#endif /*RISMSANDER*/
 
 
    if (ifqnt>0) then
@@ -762,11 +836,11 @@
    !--------------------------------------------------------------------
    !     --- vars have been read ---
    !--------------------------------------------------------------------
-   
+
 #ifndef API
    write(6,9309)
 #endif
-   
+
    ! emit warnings for retired cntrl namelist variables
 
    if ( dtemp /= RETIRED_INPUT_OPTION ) then
@@ -782,7 +856,7 @@
       write(6,'(/,a,/,a,/,a)') 'Warning: heat has been retired.', &
             '  Check the Retired Namelist Variables Appendix in the manual.'
    end if
-   
+
    if ( timlim /= RETIRED_INPUT_OPTION ) then
       write(6,'(/,a,/,a,/,a)') 'Warning: timlim has been retired.', &
             '  Check the Retired Namelist Variables Appendix in the manual.'
@@ -810,13 +884,13 @@
          'ninterface must be greater than 2 for constant surface tension.'
          FATAL_ERROR
       end if
-   
+
       if (iamoeba > 0 ) then
          write(6,'(/2x,a)') &
          'Constant Surface Tension is not compatible with Amoeba Runs.'
          FATAL_ERROR
       end if
-   
+
       if (ipimd > 0 ) then
          write(6,'(/2x,a)') &
          'Constant Surface Tension is not compatible with PIMD Runs.'
@@ -827,7 +901,7 @@
 
 ! MC Barostat valid options. Some of these may work, but disable them until they
 ! are fully tested.
-   
+
    if (ntp > 0 .and. barostat == 2) then
       inerr = 0
       if (ievb /= 0) then
@@ -859,7 +933,7 @@
    !--------------------------------------------------------------------
    ! If user has requested ewald electrostatics, read some more input
    !--------------------------------------------------------------------
-   
+
 #ifdef API
    if( igb == 0 .and. ipb == 0 ) call load_ewald_info(ntp)
 #else
@@ -875,7 +949,7 @@
    ! ips=5  3D IPS/DFFT for electrostatic potential only
    ! ips=6  3D IPS/DFFT for Lennard-Jones potential only
    !--------------------------------------------------------------------
-   
+
    teips=.false.
    tvips=.false.
    teaips=.false.
@@ -900,11 +974,11 @@
    temap=iemap>0
    ishake = 0
    if (ntc > 1) ishake = 1
-   
+
    !--------------------------------------------------------------------
    ! Set up some parameters for AMD simulations:
    ! AMD initialization
-   ! iamd=0 no boost is used, 1 boost on the total energy, 
+   ! iamd=0 no boost is used, 1 boost on the total energy,
    ! 2 boost on the dohedrals, 3 boost on dihedrals and total energy
    !--------------------------------------------------------------------
    if(iamd.gt.0)then
@@ -944,12 +1018,12 @@
 #endif
       endif
    endif
- 
+
 
    !--------------------------------------------------------------------
    ! Set up some parameters for scaledMD simulations:
    ! scaledMD initialization
-   ! scaledMD=0 no scaling is used, 1 scale the potential energy 
+   ! scaledMD=0 no scaling is used, 1 scale the potential energy
    !--------------------------------------------------------------------
 #ifndef API
    if(scaledMD.gt.0)then
@@ -958,57 +1032,57 @@
       write(6,'(a,f22.12)')'| scaledMD scaling factor lambda: ',scaledMD_lambda
    endif
 #endif
-   
+
    !--------------------------------------------------------------------
    ! Set up some parameters for GB simulations:
    !--------------------------------------------------------------------
-   !Hai Nguyen: update offset = 0.09d0 for igb /= 8
-   !I add this step because I want to use different offset value as default value
-   !for igb = 8
-   
+   ! update offset = 0.09d0 for igb /= 8
+   ! I add this step because I want to use different offset value as default value
+   ! for igb = 8
+
    if ( igb == 8 ) then
      if (offset == -999999.d0) then
         offset = 0.195141d0  !set to default for igb=8
-     end if 
+     end if
      if (gbneckscale == -999999.d0) then
-        gbneckscale = 0.826836d0  
-     end if 
-   else 
+        gbneckscale = 0.826836d0
+     end if
+   else
       ! not igb=8, use old defaults
-      if (offset == -999999.d0) then 
+      if (offset == -999999.d0) then
          offset = 0.09d0
-      end if 
+      end if
       if (gbneckscale == -999999.d0) then
          gbneckscale = 0.361825d0
-      end if 
+      end if
    endif
-   
+
    if( igb == 2 .or. hybridgb == 2 ) then
       !       --- use our best guesses for Onufriev/Case GB  (GB^OBC I)
-      
+
       gbgamma = 2.90912499999d0  ! (the "99999" to force roundoff on print)
       gbbeta = ZERO
       gbalpha = 0.8d0
    end if
 
    if( igb == 5 .or. hybridgb == 5 ) then
-      
+
       !       --- use our second best guesses for Onufriev/Case GB (GB^OBC II)
-      
+
       gbgamma = 4.850d0
       gbbeta = 0.8d0
       gbalpha = ONE
    end if
-   
+
    if( igb == 7 ) then
-      
+
       !       --- use parameters for Mongan et al. CFA GBNECK
-      
+
       gbgamma = 2.50798245d0
       gbbeta = 1.90792938d0
       gbalpha = 1.09511284d0
    end if
-   
+
    !--------------------------------------------------------------------
    ! If user has requested PB electrostatics, read some more input
    !--------------------------------------------------------------------
@@ -1051,20 +1125,20 @@
    ! restraints file(s) now to determine the amount of memory necessary
    ! for these restraints:
    ! -------------------------------------------------------------------
-   
+
    if (jar == 1 ) nmropt = 1
    intreq = 0
    irlreq = 0
    if (nmropt > 0) then
       mxgrp = 0
       itotst = 1
-      
+
       ! Set ITOTST to 0 if IMIN equals 1 (i.e. if minimization, not dynamics)
       ! This will cause any "time-averaged" requests to be over-ridden.
-      
-      if (imin == 1) then 
+
+      if (imin == 1) then
          itotst = 0
-      end if 
+      end if
       !         CALL AMOPEN(31,NMR,'O','F','R')
       call restlx(5,itotst,mxgrp,dt,6,ierr)
       !         CLOSE(31)
@@ -1074,7 +1148,7 @@
    ! If EMIL was requested, make sure it was compiled in, and validate.
    ! -------------------------------------------------------------------
   if( emil_do_calc .gt. 0 ) then
-#ifdef EMIL 
+#ifdef EMIL
     if( ntc .ne. 1 ) then
        write (6, '(a,a)') error_hdr, 'emil_do_calc == 1,'
        write (6, '(a)') '      and ntc != 1.'
@@ -1094,7 +1168,7 @@
 
    ! Set the definition of the water molecule. The default definition is in
    ! WATDEF(4).
-   
+
    read(watdef(1),'(A4)') iwtnm
    read(watdef(2),'(A4)') iowtnm
    read(watdef(3),'(A4)') ihwtnm(1)
@@ -1104,8 +1178,10 @@
    if (hwtnm1 /= '    ') read(hwtnm1,'(A4)') ihwtnm(1)
    if (hwtnm2 /= '    ') read(hwtnm2,'(A4)') ihwtnm(2)
 
-#if !defined(DISABLE_NCSU) && defined(MPI)
-   call ncsu_on_mdread1()
+#if !defined(DISABLE_NFE) && defined(MPI)
+   if ( infe == 1 ) then
+     call nfe_on_mdread1()
+   end if
 #endif
 
    return
@@ -1116,9 +1192,9 @@
    FATAL_ERROR
 
    ! --- input file polar opts read err trapping:
-   
+
    9308 format(/10x,55('-'),/10x, &
-         'Amber 14 SANDER                              2014', &
+         'Amber 16 SANDER                              2016', &
          /10x,55('-')/)
    9309 format(/80('-')/'   1.  RESOURCE   USE: ',/80('-')/)
    9700 format(/,'File Assignments:',/,15('|',a6,': ',a,/))

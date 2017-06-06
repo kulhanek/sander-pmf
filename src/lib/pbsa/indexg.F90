@@ -12,7 +12,7 @@ subroutine indexg(l,m,n,h,hx,hy,hz,maxirr,x,y,z,index,phi,index2,cirreg)
 
    !common /lmn/l, m, n, nirreg
    integer l,m,n,nirreg,i,j,k,i0,j0,k0,maxirr
-  
+
    _REAL_ x1,y1,z1,xyy,xzz,xyz
    _REAL_ x(0:l+1), y(0:m+1), z(0:n+1)
    integer  index(l,m,n),index2(l,m,n)
@@ -92,6 +92,6 @@ subroutine indexg(l,m,n,h,hx,hy,hz,maxirr,x,y,z,index,phi,index2,cirreg)
    ! write(*,*)
 
    return
-end subroutine indexg 
+end subroutine indexg
 
 ! ----- End of indexg()

@@ -18,11 +18,13 @@ subroutine mdfil(VERSION, version_requested)
    use remd, only : rem, rremd 
 #endif
 #ifdef RISMSANDER
-   use sander_rism_interface, only : xvvfile, guvfile, huvfile, cuvfile, uuvfile,&
-        asympfile, quvfile, chgdistfile, exchemfile, solvenefile, entropyfile,&
-        exchemGFfile, solveneGFfile, entropyGFfile,&
-        exchemUCfile, solveneUCfile, entropyUCfile,&
-        potUVfile
+   use sander_rism_interface, only : xvvfile, guvfile, huvfile, cuvfile, uuvfile, &
+        asympfile, quvfile, chgdistfile, excessChemicalPotentialfile, &
+        solvationEnergyfile, entropyfile, &
+        excessChemicalPotentialGFfile, solvationEnergyGFfile, entropyGFfile, &
+        excessChemicalPotentialPCPLUSfile, solvationEnergyPCPLUSfile, entropyPCPLUSfile, &
+        excessChemicalPotentialUCfile, solvationEnergyUCfile, entropyUCfile, &
+        solventPotentialEnergyfile, electronMapFile, crdFile
 #endif
    use cns_xref, only : is_xref_on
 
@@ -114,16 +116,21 @@ subroutine mdfil(VERSION, version_requested)
    asympfile     = ''
    quvfile       = ''
    chgdistfile   = ''
-   exchemfile    = ''
-   solvenefile   = ''
+   excessChemicalPotentialfile    = ''
+   solvationEnergyfile   = ''
    entropyfile   = ''
-   exchemGFfile    = ''
-   solveneGFfile   = ''
+   excessChemicalPotentialGFfile    = ''
+   solvationEnergyGFfile   = ''
    entropyGFfile   = ''
-   exchemUCfile    = ''
-   solveneUCfile   = ''
+   excessChemicalPotentialPCPLUSfile    = ''
+   solvationEnergyPCPLUSfile   = ''
+   entropyPCPLUSfile   = ''
+   excessChemicalPotentialUCfile    = ''
+   solvationEnergyUCfile   = ''
    entropyUCfile   = ''
-   potUVfile     = ''
+   solventPotentialEnergyfile     = ''
+   electronMapFile = ''
+   crdFile = ''
    rismcrdfil    = ''
    rismfrcfil    = ''
    rismcrdrstfil = ''
@@ -207,6 +214,9 @@ subroutine mdfil(VERSION, version_requested)
       else if (arg == '-c') then
          iarg = iarg + 1
          call getarg_wrap(iarg,inpcrd)
+#ifdef RISMSANDER
+         crdFile = inpcrd
+#endif
       else if (arg == '-vecs') then
          iarg = iarg + 1
          call getarg_wrap(iarg,vecs)
@@ -319,34 +329,45 @@ subroutine mdfil(VERSION, version_requested)
          call getarg_wrap(iarg,chgdistfile)
       else if (arg == '-exchem') then
          iarg = iarg + 1
-         call getarg_wrap(iarg,exchemfile)
+         call getarg_wrap(iarg,excessChemicalPotentialfile)
       else if (arg == '-solvene') then
          iarg = iarg + 1
-         call getarg_wrap(iarg,solvenefile)
+         call getarg_wrap(iarg,solvationEnergyfile)
       else if (arg == '-entropy') then
          iarg = iarg + 1
          call getarg_wrap(iarg,entropyfile)
       else if (arg == '-exchemGF') then
          iarg = iarg + 1
-         call getarg_wrap(iarg,exchemGFfile)
+         call getarg_wrap(iarg,excessChemicalPotentialGFfile)
       else if (arg == '-solveneGF') then
          iarg = iarg + 1
-         call getarg_wrap(iarg,solveneGFfile)
+         call getarg_wrap(iarg,solvationEnergyGFfile)
       else if (arg == '-entropyGF') then
          iarg = iarg + 1
          call getarg_wrap(iarg,entropyGFfile)
+      else if (arg == '-exchemPCPLUS') then
+         iarg = iarg + 1
+         call getarg_wrap(iarg,excessChemicalPotentialPCPLUSfile)
+      else if (arg == '-solvenePCPLUS') then
+         iarg = iarg + 1
+         call getarg_wrap(iarg,solvationEnergyPCPLUSfile)
+      else if (arg == '-entropyPCPLUS') then
+         iarg = iarg + 1
       else if (arg == '-exchemUC') then
          iarg = iarg + 1
-         call getarg_wrap(iarg,exchemUCfile)
+         call getarg_wrap(iarg,excessChemicalPotentialUCfile)
       else if (arg == '-solveneUC') then
          iarg = iarg + 1
-         call getarg_wrap(iarg,solveneUCfile)
+         call getarg_wrap(iarg,solvationEnergyUCfile)
       else if (arg == '-entropyUC') then
          iarg = iarg + 1
          call getarg_wrap(iarg,entropyUCfile)
       else if (arg == '-potUV') then
          iarg = iarg + 1
-         call getarg_wrap(iarg,potUVfile)
+         call getarg_wrap(iarg,solventPotentialEnergyfile)
+      else if (arg == '-electronMap') then
+         iarg = iarg + 1
+         call getarg_wrap(iarg,electronMapFile)
       else if (arg == '-rismcrd') then
          iarg = iarg + 1
          call getarg_wrap(iarg,rismcrdfil)

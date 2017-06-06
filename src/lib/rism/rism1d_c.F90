@@ -1,58 +1,56 @@
 ! <compile=optimized>
 
-!The 3D-RISM-KH software found here is copyright (c) 2010-2012 by 
-!Andriy Kovalenko, Tyler Luchko, Takeshi Yamazaki and David A. Case.
-!
-!This program is free software: you can redistribute it and/or modify it
-!under the terms of the GNU General Public License as published by the Free
-!Software Foundation, either version 3 of the License, or (at your option)
-!any later version.
-!
-!This program is distributed in the hope that it will be useful, but
-!WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-!or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-!for more details.
-!
-!You should have received a copy of the GNU General Public License in the
-!../../LICENSE file.  If not, see <http://www.gnu.org/licenses/>.
-!
-!Users of the 3D-RISM capability found here are requested to acknowledge
-!use of the software in reports and publications.  Such acknowledgement
-!should include the following citations:
-!
-!1) A. Kovalenko and F. Hirata. J. Chem. Phys., 110:10095-10112  (1999); 
-!ibid. 112:10391-10417 (2000).   
-!
-!2) A. Kovalenko,  in:  Molecular  Theory  of  Solvation,  edited  by  
-!F. Hirata  (Kluwer Academic Publishers, Dordrecht, 2003), pp.169-275.  
-!
-!3) T. Luchko, S. Gusarov, D.R. Roe, C. Simmerling, D.A. Case, J. Tuszynski,
-!and  A. Kovalenko, J. Chem. Theory Comput., 6:607-624 (2010). 
+! The 3D-RISM-KH software found here is copyright (c) 2010-2012 by 
+! Andriy Kovalenko, Tyler Luchko, Takeshi Yamazaki and David A. Case.
+! 
+! This program is free software: you can redistribute it and/or modify it
+! under the terms of the GNU General Public License as published by the Free
+! Software Foundation, either version 3 of the License, or (at your option)
+! any later version.
+! 
+! This program is distributed in the hope that it will be useful, but
+! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+! for more details.
+! 
+! You should have received a copy of the GNU General Public License in the
+! ../../LICENSE file.  If not, see <http://www.gnu.org/licenses/>.
+! 
+! Users of the 3D-RISM capability found here are requested to acknowledge
+! use of the software in reports and publications.  Such acknowledgement
+! should include the following citations:
+! 
+! 1) A. Kovalenko and F. Hirata. J. Chem. Phys., 110:10095-10112  (1999); 
+! ibid. 112:10391-10417 (2000).   
+! 
+! 2) A. Kovalenko,  in:  Molecular  Theory  of  Solvation,  edited  by  
+! F. Hirata  (Kluwer Academic Publishers, Dordrecht, 2003), pp.169-275.  
+! 
+! 3) T. Luchko, S. Gusarov, D.R. Roe, C. Simmerling, D.A. Case, J. Tuszynski,
+! and  A. Kovalenko, J. Chem. Theory Comput., 6:607-624 (2010). 
 
 #include "../include/dprec.fh"
-!***********************************************************************
-! Site-site correlations and thermodynamics of a molecular mixture
-! o Site-site PDFs, TCFs, DCFs, and susceptibility and their
-!   temperature derivatives
-! o compressibility
-! o site-site RISM equation and its temperature derivative
-! o HNC, KH, PSE-n, MV0, PY closures
-! o HNC, KH and PSE-n closure temperature derivatives
-! o temperature derivatives expressed as T*d/dT. This is used throughout.
-! o solving for the Direct Correlation Functions
-! o using the linearly spaced 1D-FFT
-! o calculating the residual as r*(G_clos(r)-1-H_rism(r))
-! o compact triangle ordering of site-site vectors
-! o modified direct inversion in the iterative subspace (MDIIS)
-! o Coulomb + 12-6 Lennard-Jones site-site potentials
-! o units:  energy       [kT]
-!           distances    [A]           (Angstroms)
-!           site charges [sqrt(kT A)]
-!           temperature  [K]
-!           density      [#/A^3]
-! o To convert [e] to [sqrt(kT A)] *sqrt(COULOMB_CONST_E/KB/temperature)
-!***********************************************************************
 
+!> Site-site correlations and thermodynamics of a molecular mixture.
+!! o Site-site PDFs, TCFs, DCFs, and susceptibility and their
+!!   temperature derivatives.
+!! o Compressibility.
+!! o Site-site RISM equation and its temperature derivative.
+!! o HNC, KH, PSE-n, MV0, PY closures
+!! o HNC, KH and PSE-n closure temperature derivatives
+!! o temperature derivatives expressed as T*d/dT. This is used throughout.
+!! o Solving for the Direct Correlation Functions.
+!! o Using the linearly spaced 1D-FFT.
+!! o Calculating the residual as r*(G_clos(r)-1-H_rism(r)).
+!! o Compact triangle ordering of site-site vectors.
+!! o Modified direct inversion in the iterative subspace (MDIIS).
+!! o Coulomb + 12-6 Lennard-Jones site-site potentials.
+!! o units:  energy       [kT]
+!!           distances    [A]           (Angstroms)
+!!           site charges [sqrt(kT A)]
+!!           temperature  [K]
+!!           density      [#/A^3]
+!! o To convert [e] to [sqrt(kT A)] * sqrt(COULOMB_CONST_E / (KB * temperature)).
 module rism1d_c
   use safemem
   use rism1d_potential_c
@@ -76,7 +74,7 @@ module rism1d_c
 
      !extra_precision :: controls the precision in key parts of the algorithm.
      !                   0 - no extra precision
-     !                   1 - XBLAS DGEMM for Ak and Bk in r1rism()
+     !                   1 - XBLAS DGEMM for Ak and Bk in single3DRISMsolution()
      integer :: extra_precision=1
      
      !Mdiis_nvec : number of MDIIS vectors
@@ -108,8 +106,8 @@ module rism1d_c
      !convenience pointers
      !cvv   : direct correlation function.  Points to cvvWRK(:,:,1)
      !cvvres: residual direct correlation function (residual between iterations).
-     !        Note that cvvres is also used as workspace in r1rism* and doesn't 
-     !        necessarily contain residuals after a call to rxrism*. Points to 
+     !        Note that cvvres is also used as workspace in single3DRISMsolution* and doesn't 
+     !        necessarily contain residuals after a call to solve3DRISM*. Points to 
      !        cuvresWRK(:,:,1)
      _REAL_,pointer :: cvv(:,:)=>NULL(), cvvres(:,:)=>NULL()
 
@@ -129,21 +127,21 @@ module rism1d_c
      !potTimer :: specifically times potential calculation
      !fftTimer :: specifically times FFT calculation
      !solveTimer :: specifically times rism1d_solve calculation
-     !rxrismTimer :: specifically times rxrism calculation
-     !r1rismTimer :: specifically times r1rism calculation
+     !solve3DRISMTimer :: specifically times solve3DRISM calculation
+     !single3DRISMsolutionTimer :: specifically times single3DRISMsolution calculation
      !fft_dTTimer :: specifically times FFT calculation for temperature
      !              derivative calculation
      !solve_dTTimer :: specifically times rism1d_solve calculation for
      !                temperature derivative calculation
-     !rxrism_dTTimer :: specifically times rxrism calculation for
+     !solve3DRISM_dTTimer :: specifically times solve3DRISM calculation for
      !                 temperature derivative calculation
-     !r1rism_dTTimer :: specifically times r1rism calculation for
+     !single3DRISMsolution_dTTimer :: specifically times single3DRISMsolution calculation for
      !                 temperature derivative calculation
      !thermoTimer :: specifically times thermodynamics calculations
      !selftestTimer :: specifically times self-test calculations
      type(rism_timer) :: timer, potTimer, &
-          fftTimer, solveTimer, rxrismTimer, r1rismTimer, &
-          fft_dTTimer, solve_dTTimer, rxrism_dTTimer, r1rism_dTTimer, &
+          fftTimer, solventTimer, solve3DRISMTimer, single3DRISMsolutionTimer, &
+          fft_dTTimer, solvent_dTTimer, solve3DRISM_dTTimer, single3DRISMsolution_dTTimer, &
           thermoTimer, selftestTimer
      
   end type rism1d
@@ -156,8 +154,8 @@ module rism1d_c
        rism1d_getInvDebyeLen, rism1d_getCompressibility , rism1d_getDelHvLimit,& 
        rism1d_getExNumber, rism1d_getStructFactor, rism1d_getRunNumber, &
        rism1d_getRunExNumber, rism1d_getPressureVirial, rism1d_getPressureFE, rism1d_getFreeEnergy, &
-       rism1d_getPMV, rism1d_getExChem, rism1d_getSolvene
-  private new_, rxrism, r1rism, sanity_check
+       rism1d_getPMV, rism1d_getExChem, rism1d_getSolvene, rism1d_readNBFix
+  private new_, solve3DRISM, single3DRISMsolution, sanity_check
 contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -165,7 +163,7 @@ contains
 !!!IN:
 !!!   this : rism1d object
 !!!   theory : 'xrism' or 'drism'
-!!!   closure : 'kh','hnc', 'py', 'vm0', 'psen' or 'v*'
+!!!   closure : 'kh','hnc', 'py', 'vm0', 'psen', 'v*', 'nub'
 !!!   coeff  : (optional) coefficients for the selected closure
 !!!   vstarB : (optional) 'B' parameter for Verlet (V*) closure
 !!!   temperature : system temperature in [K]
@@ -199,15 +197,15 @@ contains
     call rism_timer_new(this%timer, "1D-RISM Total")
     call rism_timer_start(this%timer)
     call rism_timer_new(this%thermoTimer, "Thermodynamics",this%timer)
-    call rism_timer_new(this%solveTimer, "Solve 1D-RISM",this%timer)
-    call rism_timer_new(this%potTimer, "Potential",this%solveTimer)
-    call rism_timer_new(this%rxrismTimer, "RXRISM",this%solveTimer)
-    call rism_timer_new(this%r1rismTimer, "R1RISM",this%rxrismTimer)
-    call rism_timer_new(this%fftTimer, "FFT",this%r1rismTimer)
-    call rism_timer_new(this%solve_dTTimer, "Solve 1D-RISM dT",this%timer)
-    call rism_timer_new(this%rxrism_dTTimer, "RXRISM dT",this%solve_dTTimer)
-    call rism_timer_new(this%r1rism_dTTimer, "R1RISM dT",this%rxrism_dTTimer)
-    call rism_timer_new(this%fft_dTTimer, "FFT dT",this%r1rism_dTTimer)
+    call rism_timer_new(this%solventTimer, "Solve 1D-RISM",this%timer)
+    call rism_timer_new(this%potTimer, "Potential",this%solventTimer)
+    call rism_timer_new(this%solve3DRISMTimer, "RXRISM",this%solventTimer)
+    call rism_timer_new(this%single3DRISMsolutionTimer, "R1RISM",this%solve3DRISMTimer)
+    call rism_timer_new(this%fftTimer, "FFT",this%single3DRISMsolutionTimer)
+    call rism_timer_new(this%solvent_dTTimer, "Solve 1D-RISM dT",this%timer)
+    call rism_timer_new(this%solve3DRISM_dTTimer, "RXRISM dT",this%solvent_dTTimer)
+    call rism_timer_new(this%single3DRISMsolution_dTTimer, "R1RISM dT",this%solve3DRISM_dTTimer)
+    call rism_timer_new(this%fft_dTTimer, "FFT dT",this%single3DRISMsolution_dTTimer)
     call rism_timer_new(this%selftestTimer, "Self-test",this%timer)
 
     call caseup(closure)
@@ -222,7 +220,6 @@ contains
     !THIS%POT MUST BE INITIALIZED FIRST
     call rism1d_potential_new(this%pot,theory,temperature,dielconst,smear,adbcor,nr,dr,&
          this%extra_precision)
-
 
     if(present(coeff)) then
        call rism1d_closure_new(this%closure,this%closureID,this%pot,&
@@ -310,26 +307,26 @@ contains
     logical :: converged
     _REAL_ :: charge
     integer :: err
-    call rism_timer_start(this%solveTimer)
+    call rism_timer_start(this%solventTimer)
 
 
     !................ for MV0 closure, solving RISM at Q=0 .................
-    if(rism1d_closure_isCharged(this%closure))then
-       charge=1d0
+    if (rism1d_closure_isCharged(this%closure)) then
+       charge = 1d0
     else
-       charge=0d0
+       charge = 0d0
     end if
     call rism_timer_start(this%potTimer)
     call rism1d_potential_calc(this%pot,charge)
-    if(rism1d_closure_type(this%closure) .eq. "MV0")&
+    if (rism1d_closure_type(this%closure) .eq. "MV0") &
          call rism1d_mv0_calcUvv(this%closure%mv0, this%pot%nr, this%pot%dr, &
-         this%pot%qv, this%pot%epsv, this%pot%rminv, this%pot%smear)
+         this%pot%qv, this%pot%ljEpsilonVV, this%pot%ljRminVV, this%pot%smear)
     call rism_timer_stop(this%potTimer)
 
     !........................ solving RISM by MDIIS ........................
-    converged =  rxrism(this,ksave,progress,maxstep,tolerance)
+    converged =  solve3DRISM(this,ksave,progress,maxstep,tolerance)
 
-    call rism_timer_stop(this%solveTimer)
+    call rism_timer_stop(this%solventTimer)
   end function rism1d_solve
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -351,11 +348,11 @@ contains
     logical :: converged
     _REAL_ :: charge
     integer :: err
-    call rism_timer_start(this%solve_dTTimer)
+    call rism_timer_start(this%solvent_dTTimer)
 
     !........................ solving RISM DT by MDIIS ........................
-    converged =  rxrism_dT(this,ksave,progress,maxstep,tolerance)
-    call rism_timer_stop(this%solve_dTTimer)
+    converged =  solve3DRISM_dT(this,ksave,progress,maxstep,tolerance)
+    call rism_timer_stop(this%solvent_dTTimer)
 
   end function rism1d_dt_solve
 
@@ -434,7 +431,7 @@ contains
     
     !1) charge neutrality - input vs. total excess
     write(unit,'(a)') 'NET CHARGE NEUTRALITY [sqrt(kT A)]'
-    write(unit,'(1p,a,e24.16)') '  ZERO Input from MDL        ',sum(this%pot%qv*this%pot%rhov)
+    write(unit,'(1p,a,e24.16)') '  ZERO Input from MDL        ',sum(this%pot%qv*this%pot%densityv)
     !get excess number of all other sites about each site
     !convert to charge and get the sum for each site (excess charge around each site)
     do iv =1, this%pot%nv
@@ -475,21 +472,21 @@ contains
        write(unit,'(1p,a,e24.16)') '  Free energy                          ',FE
        if(exchemPR(1) /= huge(1d0))&
             write(unit,'(1p,a,e24.16)') '  Sum of ExChem (PR) - Excess pressure ',&
-            sum(exchemPR * this%pot%rhov/this%pot%mtv)-pressureFE+sum(this%pot%rhosp)
+            sum(exchemPR * this%pot%densityv/this%pot%mtv)-pressureFE+sum(this%pot%densitysp)
        if(exchemSC(1) /= huge(1d0))&
             write(unit,'(1p,a,e24.16)') '  Sum of ExChem (SC) - Excess pressure ',&
-            sum(exchemSC * this%pot%rhov/this%pot%mtv)-pressureFE+sum(this%pot%rhosp)
+            sum(exchemSC * this%pot%densityv/this%pot%mtv)-pressureFE+sum(this%pot%densitysp)
        write(unit,'(1p,a,e24.16)') '  Sum of ExChem (SM) - Excess pressure ',&
-            sum(exchemSM * this%pot%rhov/this%pot%mtv)-pressureFE+sum(this%pot%rhosp)
+            sum(exchemSM * this%pot%densityv/this%pot%mtv)-pressureFE+sum(this%pot%densitysp)
        write(unit,'(a)') 'Relative difference [kT/A^3]'
        if(exchemPR(1) /= huge(1d0))&
             write(unit,'(1p,a,e24.16)') '  ZERO ExChem (PR) - ExP to Free Energy',&
-            (FE-(sum(exchemPR * this%pot%rhov/this%pot%mtv)-pressureFE+sum(this%pot%rhosp)))/FE
+            (FE-(sum(exchemPR * this%pot%densityv/this%pot%mtv)-pressureFE+sum(this%pot%densitysp)))/FE
        if(exchemSC(1) /= huge(1d0))&
             write(unit,'(1p,a,e24.16)') '  ZERO ExChem (SC) - ExP to Free Energy',&
-            (FE-(sum(exchemSC * this%pot%rhov/this%pot%mtv)-pressureFE+sum(this%pot%rhosp)))/FE
+            (FE-(sum(exchemSC * this%pot%densityv/this%pot%mtv)-pressureFE+sum(this%pot%densitysp)))/FE
        write(unit,'(1p,a,e24.16)') '  ZERO ExChem (SM) - ExP to Free Energy',&
-            (FE-(sum(exchemSM * this%pot%rhov/this%pot%mtv)-pressureFE+sum(this%pot%rhosp)))/FE
+            (FE-(sum(exchemSM * this%pot%densityv/this%pot%mtv)-pressureFE+sum(this%pot%densitysp)))/FE
        write(unit,*)
     end if
 
@@ -603,7 +600,7 @@ contains
     type(rism1d), intent(inout) :: this
     _REAL_, pointer :: xvv(:,:,:)
     call rism_timer_start(this%thermoTimer)
-    call rism1d_closure_calcXvv(this%closure,this%hvv)
+    call rism1d_closure_calcXvv(this%closure, this%hvv)
     xvv => this%closure%xvv
     call rism_timer_stop(this%thermoTimer)
   end function rism1d_getSusceptibility
@@ -877,13 +874,13 @@ contains
     nullify(this%cvvres)
     call rism_timer_destroy(this%potTimer)
     call rism_timer_destroy(this%fftTimer)
-    call rism_timer_destroy(this%solveTimer)
+    call rism_timer_destroy(this%solventTimer)
     call rism_timer_destroy(this%thermoTimer)
-    call rism_timer_destroy(this%rxrismTimer)
-    call rism_timer_destroy(this%r1rismTimer)
-    call rism_timer_destroy(this%solve_dTTimer)
-    call rism_timer_destroy(this%rxrism_dTTimer)
-    call rism_timer_destroy(this%r1rism_dTTimer)
+    call rism_timer_destroy(this%solve3DRISMTimer)
+    call rism_timer_destroy(this%single3DRISMsolutionTimer)
+    call rism_timer_destroy(this%solvent_dTTimer)
+    call rism_timer_destroy(this%solve3DRISM_dTTimer)
+    call rism_timer_destroy(this%single3DRISMsolution_dTTimer)
     call rism_timer_destroy(this%fft_dTTimer)
     call rism_timer_destroy(this%selftestTimer)
     call rism_timer_stop(this%timer)
@@ -923,8 +920,8 @@ contains
 !!!OUT:
 !!!    .true. if converged.  .false. otherwise.  
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  function  rxrism (this,ksave,progress,maxstep,tolerance) result (converged)
-    use rism_util, only : poly_interp_progressive, freeUnit
+  function  solve3DRISM (this,ksave,progress,maxstep,tolerance) result (converged)
+    use rism_util, only : polynomialInterpolation_progressive, freeUnit
     use constants, only : pi
 #ifdef __PGI
     use ieee_arithmetic, only : ieee_is_nan
@@ -945,11 +942,11 @@ contains
     _REAL_ :: k
     type(mdiis) :: mdiis_o
 
-    call rism_timer_start(this%rxrismTimer)
+    call rism_timer_start(this%solve3DRISMTimer)
 
     call mdiis_new(mdiis_o,2,&
          this%mdiis_del,0d0, this%mdiis_restart)
-    call mdiis_setTimerParent(mdiis_o,this%r1rismTimer)
+    call mdiis_setTimerParent(mdiis_o,this%single3DRISMsolutionTimer)
     call mdiis_setData(mdiis_o,this%cvvWRK, this%cvvresWRK,&
          this%pot%nr*this%pot%nvv, this%Mdiis_nvec)
     this%cvv=>this%cvvWRK(:,:,mdiis_getWorkVector(mdiis_o))
@@ -1006,23 +1003,24 @@ contains
 
     do istep=1,maxstep
 
-       !the first element is never set but is read by the closure and MDIIS.  This
-       !ensures that is it initialized properly.  It doesn't change the result but
-       !does allow Valgrind to run cleanly
+       ! The first element is never set but is read by the closure and
+       ! MDIIS. This ensures that is it initialized properly. It
+       ! doesn't change the result but does allow Valgrind to run
+       ! cleanly.
        this%cvv(1,:)=0
        this%cvvres(1,:)=0
        this%gvv(1,:)=0
        this%hvv(1,:)=0
        !..................... one relaxation step of RISM .....................
-       call  r1rism (this,residual,tolerance, start,converged,mdiis_o)
-
-! isnan is not standard, but GNU doesn't support Fortran 2003's ieee_arithmetic
-! until version 5.  Intel 15 supports both; use the PGI define to enable
-! the most support for old compilers.  srb  dec 2014
+       call  single3DRISMsolution (this,residual,tolerance, start,converged,mdiis_o)
+       !................. terminate if residual is NaN ........................
+       ! isnan is not standard, but GNU doesn't support Fortran 2003's
+       ! ieee_arithmetic until version 5. Intel 15 supports both; use
+       ! the PGI define to enable the most support for old compilers.
 #ifdef __PGI
-       if ( ieee_is_nan(residual) ) &
+       if (ieee_is_nan(residual)) &
 #else
-       if ( isnan(residual) ) &
+       if (isnan(residual)) &
 #endif
           call rism_report_error( 'RXRISM: residual is NaN' )
 
@@ -1049,11 +1047,11 @@ contains
             .and. .not. rism1d_closure_isCharged(this%closure))then
           converged = .false.
           call rism1d_closure_useCharged(this%closure,.true.)
-          call rism_timer_stop(this%rxrismTimer)
+          call rism_timer_stop(this%solve3DRISMTimer)
           call rism_timer_start(this%potTimer)
           call rism1d_potential_calc(this%pot,1d0)
           call rism_timer_stop(this%potTimer)
-          call rism_timer_start(this%rxrismTimer)
+          call rism_timer_start(this%solve3DRISMTimer)
           call mdiis_reset(mdiis_o)
           this%cvv=>this%cvvWRK(:,:,mdiis_getWorkVector(mdiis_o))
           this%cvvres=>this%cvvresWRK(:,:,mdiis_getWorkVector(mdiis_o))
@@ -1085,11 +1083,11 @@ contains
     enddo
 
     do ivv=1,this%pot%nvv
-       call  poly_interp_progressive (ep0,this%cvv(2:1+maxep0,ivv),maxep0, 0.d0,this%cvv(1,ivv), err0)
+       call  polynomialInterpolation_progressive (ep0,this%cvv(2:1+maxep0,ivv),maxep0, 0.d0,this%cvv(1,ivv), err0)
     enddo
 
     do ivv=1,this%pot%nvv
-       call  poly_interp_progressive (ep0,this%gvv(2:1+maxep0,ivv),maxep0, 0.d0,this%gvv(1,ivv), err0)
+       call  polynomialInterpolation_progressive (ep0,this%gvv(2:1+maxep0,ivv),maxep0, 0.d0,this%gvv(1,ivv), err0)
     enddo
 
     !....................... eliminating K from Hvv ........................
@@ -1107,23 +1105,23 @@ contains
     enddo
 
     do ivv=1,this%pot%nvv
-       call  poly_interp_progressive (ep0,this%hvv(2:1+maxep0,ivv),maxep0, 0.d0,this%hvv(1,ivv), err0)
+       call  polynomialInterpolation_progressive (ep0,this%hvv(2:1+maxep0,ivv),maxep0, 0.d0,this%hvv(1,ivv), err0)
     enddo
 
     call mdiis_destroy(mdiis_o)
-    call rism_timer_stop(this%rxrismTimer)
-  end function rxrism
+    call rism_timer_stop(this%solve3DRISMTimer)
+  end function solve3DRISM
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! One relaxation step for the direct correlation function
 !!! in the RISM equation,
-!!!   k*Hvv(k) = (k-(Wvv+Zvv)^(tr)*k*Cvv*Rho_v)^(-1)
+!!!   k*Hvv(k) = (k-(Wvv+Zvv)^(tr)*k*Cvv*Density_v)^(-1)
 !!!              * k*(Wvv+Zvv)^(tr)*k*Cvv*(Wvv+Zvv) + k*Zvv
 !!! where '^(tr)' means 'transpose', with the selected closure.
 !!!OUT:
 !!!    .true. if converged.  .false. otherwise.  
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine  r1rism (this,residual,tolerance,start,converged,mdiis_o)
+  subroutine  single3DRISMsolution (this,residual,tolerance,start,converged,mdiis_o)
     implicit none
 #include "../xblas/f77/blas_namedconstants.fh"    
     type(rism1d), intent(inout) :: this
@@ -1140,7 +1138,7 @@ contains
     integer ::  indx(this%pot%nv)
     _REAL_ ::  ak(this%pot%nv,this%pot%nv), bk(this%pot%nv,this%pot%nv), wck(this%pot%nv,this%pot%nv)
 
-    call rism_timer_start(this%r1rismTimer)
+    call rism_timer_start(this%single3DRISMsolutionTimer)
     !............................. FFT>K r*Cvv .............................
     call DCOPY(this%pot%nvv*this%pot%nr,this%cvv,1,this%cvvres,1)
     call DAXPY(this%pot%nvv*this%pot%nr,1d0,this%pot%ulrvv,1,this%cvvres,1)
@@ -1195,12 +1193,12 @@ contains
                BLAS_PREC_EXTRA)
        end if
 
-       !................. getting (Wvv+Zvv)^(tr)*k*Cvv*Rho_v ..................
+       !................. getting (Wvv+Zvv)^(tr)*k*Cvv*Density_v ..................
        do iv2=1,this%pot%nv
-          call DSCAL(this%pot%nv,this%pot%rhov(iv2),wck(:,iv2),1)
+          call DSCAL(this%pot%nv,this%pot%densityv(iv2),wck(:,iv2),1)
        enddo
 
-       !.............. getting Ak=(k-(Wvv+Zvv)^(tr)*k*Cvv*Rho_v) ..............
+       !.............. getting Ak=(k-(Wvv+Zvv)^(tr)*k*Cvv*Density_v) ..............
        ak=0
        do iv1=1,this%pot%nv
           ak(iv1,iv1) = t
@@ -1261,8 +1259,8 @@ contains
     call mdiis_advance(mdiis_o,residual,converged,tolerance)
     this%cvv=>this%cvvWRK(:,:,mdiis_getWorkVector(mdiis_o))
     this%cvvres=>this%cvvresWRK(:,:,mdiis_getWorkVector(mdiis_o))
-    call rism_timer_stop(this%r1rismTimer)
-  end subroutine r1rism
+    call rism_timer_stop(this%single3DRISMsolutionTimer)
+  end subroutine single3DRISMsolution
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! Relaxing the RISM DT equation
@@ -1275,9 +1273,9 @@ contains
 !!!OUT:
 !!!    .true. if converged.  .false. otherwise.  
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  function  rxrism_dT (this,ksave,progress,maxstep,tolerance) result (converged)
+  function  solve3DRISM_dT (this,ksave,progress,maxstep,tolerance) result (converged)
     use mdiis_c
-    use rism_util, only : poly_interp_progressive, freeUnit
+    use rism_util, only : polynomialInterpolation_progressive, freeUnit
     use constants, only : pi
     implicit none
     type(rism1d), intent(inout) :: this
@@ -1300,7 +1298,7 @@ contains
     !mdiis_method :: implementation of MDIIS to use
     integer :: mdiis_method =2
 
-    call rism_timer_start(this%rxrism_dTTimer)
+    call rism_timer_start(this%solve3DRISM_dTTimer)
 !    call rism_report_message('retrieving Xvv ...')
     call rism1d_closure_calcXvv(this%closure,this%hvv)
     xvv => this%closure%xvv
@@ -1313,7 +1311,7 @@ contains
 
     call mdiis_setData(mdiis_o,this%cvvWRK_dT,this%cvvresWRK_dT,&
          this%pot%nr*this%pot%nvv, this%Mdiis_nvec)
-    call mdiis_setTimerParent(mdiis_o,this%r1rism_dTTimer)
+    call mdiis_setTimerParent(mdiis_o,this%single3DRISMsolution_dTTimer)
     unit = freeUnit()
 
     !.................. checking extrapolation grid size ...................
@@ -1358,7 +1356,7 @@ contains
        this%cvv_dT(1,:)=0
        this%cvv_dTres(1,:)=0
        !..................... one relaxation step of RISM .....................
-       call  r1rism_dT (this,xvv,residual,tolerance, start,converged, mdiis_o)
+       call  single3DRISMsolution_dT (this,xvv,residual,tolerance, start,converged, mdiis_o)
        !................. screen outputting relaxation steps ..................
        if (progress /= 0)  then
           if (converged .OR. ksave > 0 .AND. mod(istep,ksave) == 0 .OR. &
@@ -1390,11 +1388,11 @@ contains
     enddo
 
     do ivv=1,this%pot%nvv
-       call  poly_interp_progressive (ep0,this%cvv_dT(2:1+maxep0,ivv),maxep0, 0.d0,this%cvv_dT(1,ivv), err0)
+       call  polynomialInterpolation_progressive (ep0,this%cvv_dT(2:1+maxep0,ivv),maxep0, 0.d0,this%cvv_dT(1,ivv), err0)
     enddo
 
     do ivv=1,this%pot%nvv
-       call  poly_interp_progressive (ep0,this%gvv_dT(2:1+maxep0,ivv),maxep0, 0.d0,this%gvv_dT(1,ivv), err0)
+       call  polynomialInterpolation_progressive (ep0,this%gvv_dT(2:1+maxep0,ivv),maxep0, 0.d0,this%gvv_dT(1,ivv), err0)
     enddo
 
     !....................... eliminating K from dHvv/dt ........................
@@ -1412,17 +1410,17 @@ contains
     enddo
 
     do ivv=1,this%pot%nvv
-       call  poly_interp_progressive (ep0,this%hvv_dT(2:1+maxep0,ivv),maxep0, 0.d0,this%hvv_dT(1,ivv), err0)
+       call  polynomialInterpolation_progressive (ep0,this%hvv_dT(2:1+maxep0,ivv),maxep0, 0.d0,this%hvv_dT(1,ivv), err0)
     enddo
 
     call mdiis_destroy(mdiis_o)
-    call rism_timer_stop(this%rxrism_dTTimer)
-  end function rxrism_dT
+    call rism_timer_stop(this%solve3DRISM_dTTimer)
+  end function solve3DRISM_dT
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! One relaxation step for the direct correlation function        *
 !!! in the RISM equation with the HNC or PLHNC closure,          *
-!!! k*Hvv(k) = (k-(Wvv+Zvv)^(tr)*k*Cvv*Rho_v)^(-1)            *
+!!! k*Hvv(k) = (k-(Wvv+Zvv)^(tr)*k*Cvv*Density_v)^(-1)            *
 !!! * k*(Wvv+Zvv)^(tr)*k*Cvv*(Wvv+Zvv) + k*Zvv ,   *
 !!! Gvv(r) = exp(-b*Uvv + Hvv - Cvv)  or                      *
 !!! Gvv(r) = exp(X), X<0                                      *
@@ -1431,7 +1429,7 @@ contains
 !!!OUT:
 !!!    .true. if converged.  .false. otherwise.  
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine  r1rism_dT (this,xvv,residual,tolerance,start,converged,mdiis_o)
+  subroutine  single3DRISMsolution_dT (this,xvv,residual,tolerance,start,converged,mdiis_o)
     use mdiis_c
     implicit none
     type(rism1d), intent(inout) :: this
@@ -1452,7 +1450,7 @@ contains
     _REAL_ :: ck(this%pot%nv,this%pot%nv), dzk(this%pot%nv,this%pot%nv), pdz(this%pot%nv,this%pot%nv)
     _REAL_ :: wck_dT(this%pot%nv,this%pot%nv), dck(this%pot%nv,this%pot%nv)
 
-    call rism_timer_start(this%r1rism_dTTimer)
+    call rism_timer_start(this%single3DRISMsolution_dTTimer)
     !............................. FFT>K r*dCvv/dt .............................
     do ivv=1,this%pot%nvv
        do ir=2,this%pot%nr
@@ -1496,7 +1494,7 @@ contains
          do iv2=1,this%pot%nv
             do iv1=1,this%pot%nv
                dzk(iv1,iv2) = (this%pot%pcdiel+3.d0)/this%pot%pcdiel *  this%pot%zkvv(ir,iv1,iv2)
-               pdz(iv1,iv2) = this%pot%rhov(iv1) * dzk(iv1,iv2) / t
+               pdz(iv1,iv2) = this%pot%densityv(iv1) * dzk(iv1,iv2) / t
             enddo
          enddo
        endif
@@ -1542,14 +1540,14 @@ contains
           enddo
        enddo
 
-       !................. getting (Wvv+Zvv)^(tr)*k*Cvv*Rho_v ..................
+       !................. getting (Wvv+Zvv)^(tr)*k*Cvv*Density_v ..................
        do iv2=1,this%pot%nv
           do iv1=1,this%pot%nv
-             wck(iv1,iv2) = wck(iv1,iv2)*this%pot%rhov(iv2)
+             wck(iv1,iv2) = wck(iv1,iv2)*this%pot%densityv(iv2)
           enddo
        enddo
 
-       !.............. getting Ak=(k-(Wvv+Zvv)^(tr)*k*Cvv*Rho_v) ..............
+       !.............. getting Ak=(k-(Wvv+Zvv)^(tr)*k*Cvv*Density_v) ..............
        do iv2=1,this%pot%nv
           do iv1=1,this%pot%nv
              ak(iv1,iv2) = - wck(iv1,iv2)
@@ -1623,7 +1621,20 @@ contains
     call mdiis_advance(mdiis_o,residual,converged)
     this%cvv_dT=>this%cvvWRK_dT(:,:,mdiis_getWorkVector(mdiis_o))
     this%cvv_dTres=>this%cvvresWRK_dT(:,:,mdiis_getWorkVector(mdiis_o)) 
-    call rism_timer_stop(this%r1rism_dTTimer)
- end subroutine r1rism_dT
+    call rism_timer_stop(this%single3DRISMsolution_dTTimer)
+ end subroutine single3DRISMsolution_dT
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Read modification for nonbond file
+!!! this: rism1d object
+!!! nbfix: the filename of nonbond_fix file
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  subroutine rism1d_readNBFix(this,nbfix)
+    implicit none 
+    type(rism1d), intent(inout) :: this
+    character(len=*), intent(in) :: nbfix
+
+    call rism1d_potential_initNBFix(this%pot,nbfix)
+  end subroutine rism1d_readNBFix
 
 end module rism1d_c

@@ -1,55 +1,44 @@
 #include "../include/dprec.fh"
-! set up the linear equation for an irregular point (i0,j0,k0)
-! determin the coefficients in matrix A and the rhs to satisfy
-! the specified jump conditions
-!
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine irre31 here]
 subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi,index, &
-      qyp,qzp,wyp,wzp,wyyp,wzzp,wyzp, &
-      nq,maxirr,index2,cirreg,wp,qp,xx,rhs)
-   use iim_use
- 
+              nq,maxirr,index2,cirreg,xx,rhs)
+
+   ! set up the linear equation for an irregular point (i0,j0,k0)
+   ! determin the coefficients in matrix A and the rhs to satisfy
+   ! the specified jump conditions
+
+   use iim_util
    implicit none
 
-   ! parameter settings 
+   ! parameter settings
 
    integer im,ime,immax,ns,in,inmax,imnn,lwar,liwar
    parameter(im=36, ime=10, immax=im, ns=27, in=ns, &
          inmax=in, imnn=im+2*in, &
          lwar=3*inmax*inmax/2+10*inmax+2*immax+1, &
          liwar=in)
- 
+
    ! external functions
-  
+
    _REAL_, external :: fmin,fb_in,fb_out,fk_in,fk_out,ff_in,ff_out
 
    ! interface variables
-   
+
    integer ifail,i0,j0,k0,info,nq,maxirr
    integer index(l,m,n),index2(l,m,n)
    _REAL_  bmax,b_out,b_in
    _REAL_  rhs
    _REAL_  x(0:l+1), y(0:m+1), z(0:n+1)
    _REAL_  phi(0:l+1,0:m+1, 0:n+1)
-   _REAL_  cirreg(maxirr, 15)
-   _REAL_  wp(maxirr), qp(maxirr)
-   _REAL_  qyp(maxirr),qzp(maxirr)
-   _REAL_  wyp(maxirr),wzp(maxirr)
-   _REAL_  wyyp(maxirr),wzzp(maxirr),wyzp(maxirr)
+   _REAL_  cirreg(15, maxirr)
    _REAL_  xx(in)
 
-   ! common block variables
-
-   !common /cmache/ eps
-   !common /lmn/ l, m, n, nirreg
-   !common /hxyz/ hx,hy,hz,hmax
-
    ! local variables
-   
+
    integer i,j,nc,kr,kctr,ndis,l,m,n,nirreg,k,ii,ir,iout,iprint,ji
-   integer iwar(liwar) 
-   
+   integer iwar(liwar)
+
    _REAL_  wy,wz,wyy,wzz,wyz,q,qy,qz,fkk_in,fkk_out &
           ,hxx,hyy,hzz,h1,eps,rho,rho1,bl2jmp,bl3jmp &
           ,hxyz,tmp,tmp1,fkk,corr &
@@ -63,48 +52,35 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
    _REAL_  war(lwar)
    _REAL_  tmpcoe(7)
 
-!             write(111,*) eps,l, m, n, nirreg,hx,hy,hz,hmax
-!             write(2001,*) i0,j0,k0,x,y,z,phi,index
-!             write(2002,*) q0p,qyp,qzp,w0p,wyp,wzp,wyyp,wzzp,wyzp
-!             write(2004,*) index2
-!             write(2005,*) cirreg
-!             write(2006,*) wp,qp
-!             
-!             write(35,"(7f20.6)") xx(1:7)/bmax
-
    ! retrieving info for the irregular point
 
    ir = index2(i0, j0, k0)
-  ! write(91,*) ir,i0,j0,k0,info
-  ! write(91,*) index,index2
-  ! write(91,*) cirreg
- 
-   x1 = cirreg(ir, 1)
-   y1 = cirreg(ir, 2)
-   z1 = cirreg(ir, 3)
 
-   xyy = cirreg(ir, 4)
-   xzz = cirreg(ir, 5)
-   xyz = cirreg(ir, 6)
+   x1     = cirreg( 1, ir)
+   y1     = cirreg( 2, ir)
+   z1     = cirreg( 3, ir)
 
-   t(1,1) = cirreg(ir, 7)
-   t(1,2) = cirreg(ir, 8)
-   t(1,3) = cirreg(ir, 9)
-   t(2,1) = cirreg(ir, 10)
-   t(2,2) = cirreg(ir, 11)
-   t(2,3) = cirreg(ir, 12)
-   t(3,1) = cirreg(ir, 13)
-   t(3,2) = cirreg(ir, 14)
-   t(3,3) = cirreg(ir, 15)
+   xyy    = cirreg( 4, ir)
+   xzz    = cirreg( 5, ir)
+   xyz    = cirreg( 6, ir)
+
+   t(1,1) = cirreg( 7, ir)
+   t(1,2) = cirreg( 8, ir)
+   t(1,3) = cirreg( 9, ir)
+   t(2,1) = cirreg(10, ir)
+   t(2,2) = cirreg(11, ir)
+   t(2,3) = cirreg(12, ir)
+   t(3,1) = cirreg(13, ir)
+   t(3,2) = cirreg(14, ir)
+   t(3,3) = cirreg(15, ir)
 
    ! this is the jump of the rhs ...
+
    call fjmps(x1,y1,z1, fjmp)
 
    ! this is the jump of the linear term ...
 
    call fkjmps(x1,y1,z1, fkjmp)
-
-  ! write(100, *) ir, fjmp, fkjmp
 
    ! retrieve the jump in u, its first derivatives,
    ! and second derivatives
@@ -115,31 +91,18 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
    wyy  = wyyp(ir)
    wzz  = wzzp(ir)
    wyz  = wyzp(ir)
-   !if(ir==12) then
-  ! write(94,*) "   ujmp ", wp(ir)
-  ! write(94,*) "   wy   ", wyp(ir)
-  ! write(94,*) "   wz   ", wzp(ir)
-  ! write(94,*) "   wyy  ", wyyp(ir)
-  ! write(94,*) "   wzz  ", wzzp(ir)
-  ! write(94,*) "   wyz  ", wyzp(ir)
-   !end if
+
    ! retrieve the jump in beta u_n, its first derivative,
    ! and second derivatives
 
    q =  qp(ir)
    qy = qyp(ir)
    qz = qzp(ir)
-   !if(ir==12) then
-  ! write(94,*)"   q "  ,qp(ir)
-  ! write(94,*)"   qy " ,qyp(ir)
-  ! write(94,*)"   qz " ,qzp(ir)
-   !end if  
-  
+
    ! compute the derivatives of beta of inside and out
    ! and transform them into local coordinate system
 
    call betas(hx,hy,hz,x1,y1,z1,t,bl_in,bl_out,b_in,b_out)
-
 
    ! the linear term inside and outside
 
@@ -252,8 +215,8 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
          end do  !  k=k0-1,k0+1
       end do  !  j=j0-1,j0+1
    end do  !  i=i0-1,i0+1
-  
-  
+
+
    if (info > 3) then
       cb(1) = fkjmp
    end if
@@ -272,7 +235,6 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
       cc(i,i) = 1.0
    end do
    hxyz=hx*hx+hy*hy+hz*hz
-  !write(966,*) hxyz
    nc = 0
    do i=i0-1,i0+1
       do j=j0-1,j0+1
@@ -290,8 +252,7 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
             end if
 
             if (ndis == 0) cd(nc)=-6.0*cd(nc)
-            !write(4001,*) nc,cd(nc)
-            
+
          end do
       end do
    end do
@@ -303,45 +264,10 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
    iwar(1) = 1
 
    ! ----- solve quadratic programming
-         
-      !       write(3004,"(7f20.6)") xx(1:7)/bmax
-      !       write(3001,"(7f20.6)") xx
-      !       write(3002,"(7f20.6)") uu ! error
-      !       write(3003,*) "3",iout !
-      !       write(3003,*) "4",ifail
-      !       write(3003,*) "5",iprint
-      !       write(3003,*) "6",war
-      !       write(3003,*) "7",lwar
-      !       write(3003,*) "8",iwar ! error
-  
-      !       write(3003,*) "9",liwar !
-   
-  ! write(944,*) ca
-  ! write(955,*) cb
-  ! write(966,*) cc
-  ! write(977,*) cd
-  ! write(911,*) im
-  ! write(911,*) ime
-  ! write(911,*) immax
-  ! write(911,*) in
-  ! write(911,*) inmax
-  ! write(911,*) imnn
-  ! write(911,*) xl
-  ! write(911,*) xu
-    
-  ! write(922,*) iout
-  ! write(922,*) iprint
-  ! write(922,*) war
-  ! write(922,*) iwar
-  ! write(922,*) lwar
-  ! write(922,*) liwar
- 
- 
+
    call ql0001(im,ime,immax,in,inmax,imnn,cc,cd,ca,cb,xl,xu, &
-         xx,uu,iout,ifail,iprint,war,lwar,iwar,liwar,eps)
-!write(3005,"(7f20.6)") xx/bmax
-  ! write(3005,*) xx/bmax
- 
+      xx,uu,iout,ifail,iprint,war,lwar,iwar,liwar,eps)
+
    tmp=0.0
    do ii=1,10
       tmp1=0.0
@@ -351,7 +277,6 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
       if(abs(tmp1+cb(ii)) > tmp) tmp = abs(tmp1+cb(ii))
    end do
 
-!write(31,*) "ifail=",ifail
    if(ifail > 10) then
       write(*,*) "Warning!", i0,j0,k0, "Irre31 Inconsistent Constraints"
       return
@@ -372,11 +297,9 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
    do i=1,20
       a(i) = 0.0
    end do
-!  write(135,*) "this is xx",xx
 
-!About the local coordinates:note that in the test point i dir and ksi are opposite
-!eta with k dir gama with j dir
-  !write(100,*) t
+   !About the local coordinates:note that in the test point i dir and ksi are opposite
+
    nc = 0
    do i=i0-1,i0+1
       do j=j0-1,j0+1
@@ -415,10 +338,6 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
          end do
       end do  !  j=j0-1,j0+1
    end do  !  i=i0-1,i0+1
-   !!  write(136,*) a
-   !if(ir==12) then
-   !write(94,*) "xyy",xyy,"xyz",xyz,"xzz",xzz
-   !end if
    tmp  = 1.0/b_out
    tmp1 =   a(4) + a(10)*(xyy+xzz-bl_out(1)*tmp) &
          - a(12)*xyy - a(14)*xzz - a(16)*bl_out(2)*tmp &
@@ -427,21 +346,10 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
          + a(16)*xyy + a(18)*xyz
    tmp3 =   a(8) - a(10)*bl_out(3)*tmp &
          + a(16)*xyz + a(18)*xzz
-  ! write(13,*) 'tmp,1,2,3',tmp,tmp1,tmp2,tmp3
-  ! write(13,*) 'a',a
-  ! write(13,*)  'fjmp',fjmp,'ujmp',ujmp,'wyy',wyy,'wzz',wzz,&
-  ! 'qz',qz,'wyz',wyz,'q',q,'wy',wy,'wz',wz
    corr =   a(10)*((fjmp-fkk_out*ujmp)*tmp-wyy-wzz) &
          + a(12)*wyy + a(14)*wzz + a(16)*qy*tmp &
          + a(18)*qz*tmp + a(20)*wyz + a(2)*ujmp &
          + tmp*tmp1*q + tmp2*wy + tmp3*wz
-   !    if(ir==12) then
-   !     do i=1,20
-   !    write(94,*) "a(",i,")",a(i)
-   !     end do
-   !     write(94,*) "corr",corr,"info",info
-   !     end if
-   !.......if the grid point is on (+) side
 
    if (info > 3) then
       corr = corr + fkk_out*ujmp - fjmp
@@ -457,12 +365,5 @@ subroutine irre31(l,m,n,h,hx,hy,hz,ifail,i0,j0,k0,info,bmax,b_in,b_out,x,y,z,phi
 
    xx(kctr) = xx(kctr)+fkk
    rhs = rhs + corr
-  
-  !write(13,*) corr,rhs
- 
-  
-    
-!               write(305,"(7f20.6)") xx(1:7)/bmax
-!               write(301,"(7f20.6)") xx(8:27)/bmax
-   return
-end subroutine irre31 
+
+end subroutine irre31

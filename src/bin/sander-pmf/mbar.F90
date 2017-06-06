@@ -121,6 +121,7 @@
             end if
             write (6,'(a,f6.4,a,f12.4)') 'Energy at ', bar_lambda(i), ' = ', energy
          end do
+         write(6,'(t2,78("-"),/)')
          bar_cont(1:bar_states) = 0.0d0
       end if
 

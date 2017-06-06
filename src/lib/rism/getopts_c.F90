@@ -587,10 +587,11 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   function get_c_pt(key, type,length)! result(value)
     implicit none
+    
+    integer, intent(in) :: length
     character(len=*), intent(in) :: key
     character(len=length),pointer,dimension(:) :: type
     character(len=length),pointer,dimension(:) :: get_c_pt
-    integer, intent(in) :: length
     integer :: ikey, nval
     get_c_pt=>NULL()
     ikey = array_index(clongkey,key)

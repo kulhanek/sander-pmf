@@ -12,6 +12,10 @@ module qm2_extern_tc_module
 !
 ! Date: November 2010
 !
+! Updated March 2017
+! Compute and remove self-energy among classical charges since 
+! this term (and gradient) is included in TeraChem version 1.91
+!
 ! ----------------------------------------------------------------
 
   use qm2_extern_util_module, only: debug_enter_function, debug_exit_function
@@ -79,8 +83,11 @@ contains
     _REAL_, intent(out) :: dxyzcl(3,nclatoms)   ! SCF MM force
     integer, intent(in) :: charge, spinmult     ! Charge and spin multiplicity
 
-    _REAL_              :: dipmom(4,3)          ! Dipole moment {x, y, z, |D|}, {QM, MM, TOT}
-    _REAL_              :: qmcharges(nqmatoms)  ! QM charges from population analysis
+    _REAL_ :: dipmom(4,3)         ! Dipole moment {x, y, z, |D|}, {QM, MM, TOT}
+    _REAL_ :: qmcharges(nqmatoms) ! QM charges from population analysis
+
+    _REAL_ :: self_energy               ! electrostatic energy among point charges
+    _REAL_ :: self_gradient(3,nclatoms) ! resulting gradient
 
     type(tc_nml_type), save :: tc_nml
     logical, save :: first_call = .true.
@@ -190,6 +197,14 @@ contains
           if ( trim(tc_nml%charge_analysis) /= 'NONE' ) then
              call write_charges( trim(chgfile), qmcharges, tc_nml%debug )
           end if
+       end if
+    end if
+
+    call compute_self_energy_gradient(clcoords, nclatoms, do_grad, self_energy, self_gradient)
+    if (nclatoms > 0) then
+       escf = escf - self_energy
+       if (do_grad) then
+          dxyzcl(:,:) = dxyzcl(:,:) - self_gradient(:,:)
        end if
     end if
 
@@ -859,7 +874,7 @@ contains
 
     if ( nclatoms > 0 ) then
       write(iurun, '(a)') 'pointcharges '//ptcfile
-      write(iurun, '(a)') 'amber       yes'
+!      write(iurun, '(a)') 'amber       yes'  ! Not supported in TeraChem 1.91
     end if
 
     write(iurun, '(a)') 'end'
@@ -1118,5 +1133,54 @@ contains
     call debug_exit_function( 'read_template', module_name, debug )
 
   end subroutine read_template
+
+  subroutine compute_self_energy_gradient(clcoords, nclatoms, do_grad, self_energy, self_gradient)
+
+    use constants, only: CODATA08_A_TO_BOHRS, ZERO
+    implicit none
+    _REAL_, intent(in) :: clcoords(4,nclatoms)
+    integer, intent(in) :: nclatoms
+    logical, intent(in) :: do_grad
+    _REAL_, intent(out) :: self_energy
+    _REAL_, intent(out) :: self_gradient(3,nclatoms)
+
+    integer :: i, j
+    _REAL_ :: qi, qj, qij, dij, one_dij, tmp
+    _REAL_ :: xyzi(3), xyzj(3), rij(3), tmp3(1:3)
+
+    if (nclatoms < 1) return
+
+    self_energy = ZERO
+    self_gradient = ZERO
+
+    do i = 1, nclatoms
+
+       qi = clcoords(4,i)
+       xyzi(1:3) = clcoords(1:3,i) * CODATA08_A_TO_BOHRS
+
+       do j = 1, i-1
+
+          qj = clcoords(4,j)
+          xyzj(1:3) = clcoords(1:3,j) * CODATA08_A_TO_BOHRS
+          qij = qi*qj
+          rij(1:3) = xyzi(1:3) - xyzj(1:3)
+          dij = rij(1)*rij(1) + rij(2)*rij(2) + rij(3)*rij(3)
+          dij = dsqrt(dij)
+          one_dij = 1/dij
+
+          self_energy = self_energy + qij*one_dij
+
+          if (do_grad) then
+             tmp = qij*one_dij*one_dij*one_dij
+             tmp3(1:3) = tmp*rij(1:3)
+             self_gradient(1:3,j) = self_gradient(1:3,j) + tmp3(1:3)
+             self_gradient(1:3,i) = self_gradient(1:3,i) - tmp3(1:3)
+          end  if
+
+       end do
+    end do
+    
+
+  end subroutine compute_self_energy_gradient
 
 end module qm2_extern_tc_module

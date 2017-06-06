@@ -29,7 +29,7 @@
       _REAL_,allocatable :: rwork(:)
 
 !     print *,'entered amg'
-      
+
       xmymzm = xm*ym*zm
 
 !       read (90,*),NDA
@@ -58,27 +58,27 @@
 
 !     print *,nda,ndia,ndja,ndu,ndf,ndig
       allocate ( a(1:nz_num), stat=ist)
-      if ( ist /= 0 ) then 
+      if ( ist /= 0 ) then
          print *,'allocate a(1:nz_num) failed',nda,ist
          stop
       end if
       allocate ( ja(1:nz_num), stat=ist)
-      if ( ist /= 0 ) then 
+      if ( ist /= 0 ) then
          print *,'allocate ja(1:nz_num) failed',ndja,ist
          stop
       end if
       allocate ( ia(1:nz_num), stat=ist)
-      if ( ist /= 0 ) then 
+      if ( ist /= 0 ) then
          print *,'allocate ia(1:nz_num) failed',ndia,ist
          stop
       end if
       allocate ( u(1:xmymzm)  , stat=ist)
-      if ( ist /= 0 ) then 
+      if ( ist /= 0 ) then
          print *,'allocate u(1:xmymzm)   failed',ndu,ist
          stop
       end if
       allocate ( f(1:xmymzm)  , stat=ist)
-      if ( ist /= 0 ) then 
+      if ( ist /= 0 ) then
          print *,'allocate f(1:xmymzm)   failed',ndf,ist
          stop
       end if
@@ -94,7 +94,7 @@
 
       n = xmymzm
       nelt = nz_num
-      isym = 0 
+      isym = 0
       nsave = 10
       itol = 0
       tol = EPS1
@@ -123,7 +123,7 @@
       subroutine SETA(l,m,n,maxirr,nz_num,index,index2,c,c2, &
                  ff,a,f,ia,ja)
 
-!     dimension uu(0:l+1,0:m+1,0:n+1)	
+!     dimension uu(0:l+1,0:m+1,0:n+1)
       implicit none
       integer l,m,n,maxirr,nz_num
       integer :: index(l,m,n), index2(l,m,n)
@@ -134,11 +134,11 @@
 
       integer ncount,i,j,k,ne,ii,ir,nc1,i0,j0,k0,ndis,ne1
 !     integer npos
-      
+
 !     print *,'entered seta'
 !     print *,"l,m,n",l,m,n,nz_num
       ncount = 0
-      
+
       do k=1, n
          do j=1, m
             do i=1, l
@@ -153,47 +153,47 @@
                   f(ne1) = ff(i,j,k)
 !                 print *,ncount,ia(ncount),ja(ncount)
 
-                  if ( abs(c(i,j,k,2)) > 1.d-10 ) then 
+                  if ( abs(c(i,j,k,2)) > 1.d-10 ) then
                      ne = npos(l,m,n,i-1, j, k)
                      ncount = ncount + 1
                      a(ncount) = -c(i,j,k,2)
                      ia(ncount) = ne1
                      ja(ncount) = ne
-                  end if 
+                  end if
 
-                  if ( abs(c(i,j,k,3)) > 1.d-10 ) then 
+                  if ( abs(c(i,j,k,3)) > 1.d-10 ) then
                      ne = npos(l,m,n,i+1, j, k)
                      ncount = ncount + 1
                      a(ncount) = -c(i,j,k,3)
                      ia(ncount) = ne1
                      ja(ncount)=ne
-                  end if 
+                  end if
 
-                  if ( abs(c(i,j,k,4)) > 1.d-10 ) then 
+                  if ( abs(c(i,j,k,4)) > 1.d-10 ) then
                      ne = npos(l,m,n,i, j-1, k)
                      ncount = ncount + 1
                      a(ncount) = -c(i,j,k,4)
                      ia(ncount) = ne1
                      ja(ncount)=ne
-                  end if 
+                  end if
 
-                  if ( abs(c(i,j,k,5)) > 1.d-10 ) then 
+                  if ( abs(c(i,j,k,5)) > 1.d-10 ) then
                      ne = npos(l,m,n,i, j+1, k)
                      ncount = ncount + 1
                      a(ncount) = -c(i,j,k,5)
                      ia(ncount) = ne1
                      ja(ncount)=ne
-                  end if 
+                  end if
 
-                  if ( abs(c(i,j,k,6)) > 1.d-10 ) then 
+                  if ( abs(c(i,j,k,6)) > 1.d-10 ) then
                      ne = npos(l,m,n,i, j, k-1)
                      ncount = ncount + 1
                      a(ncount) = -c(i,j,k,6)
                      ia(ncount) = ne1
                      ja(ncount)=ne
-                  end if 
+                  end if
 
-                  if ( abs(c(i,j,k,7)) > 1.d-10 ) then 
+                  if ( abs(c(i,j,k,7)) > 1.d-10 ) then
                      ne = npos(l,m,n,i, j, k+1)
                      ncount = ncount + 1
                      a(ncount) = -c(i,j,k,7)
@@ -209,10 +209,10 @@
 !                    write(190,*) a(ii),ja(ii)
 !                 end do
 !                 write(190,*) f(ne)
- 
-                
+
+
                else
-                   
+
                   ir = index2(i,j,k)
                   ne1 = npos(l,m,n,i,j,k)
                   ncount = ncount + 1
@@ -220,13 +220,13 @@
                   ia(ncount) = ne1
                   ja(ncount) = ne1
                   f(ne1) = -ff(i,j,k)
-                  
+
                   nc1 = 0
                   do i0 = i-1, i+1
                   do j0 = j-1, j+1
                   do k0 = k-1, k+1
                      ndis=abs(i-i0)+abs(j-j0)+abs(k-k0)
-                     if (ndis .eq. 0) then 
+                     if (ndis .eq. 0) then
                        nc1 = nc1 + 1
                      else
                        nc1 = nc1 + 1
@@ -250,23 +250,23 @@
 !                 end do
 !                 write(190,'(f20.10)') f(ne)
 !
-                
+
                endif
 !     write(102,*) ncount
 !     flush(102)
             end do
          end do
       end do
-      
+
       return
 
       end subroutine
-        
+
       integer function npos(l,m,n,i,j,k)
       implicit none
          integer l,m,n,i,j,k
-         npos = i + (j-1)*l + (k-1)*l*m 
+         npos = i + (j-1)*l + (k-1)*l*m
          return
       end function npos
- 
+
       end subroutine gmres

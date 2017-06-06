@@ -78,7 +78,7 @@ subroutine AM_RECIP_allocate(numatoms)
   Bspline_order = order
   if ( Bspline_order < dr_order + 2 )then
     write(6,*)'Spline order too small. Must be at least ',dr_order + 2
-    call mexit(6,1)
+    call mexit(6,1) 
   endif
   if ( Bspline_order > Max_Bspline_order )then
     write(6,*)'Bspline_order too big! Max = ',Max_Bspline_order

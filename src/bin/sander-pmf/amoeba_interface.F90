@@ -15,6 +15,7 @@ subroutine AM_NONBOND_readparm(nf,natom,mass)
   use amoeba_induced, only : AM_INDUCED_readparm
   use amoeba_recip, only : AM_RECIP_allocate
   use amoeba_runmd, only : AM_RUNMD_init
+  use nbips, only : ips 
   integer,intent(in) :: nf,natom
 
   integer :: mpole_valid,adjust_valid,vdw_valid,polar_valid
@@ -24,7 +25,7 @@ subroutine AM_NONBOND_readparm(nf,natom,mass)
   vdw_valid = AM_VDW_read_parm(nf)
   polar_valid = AM_INDUCED_readparm(nf,natom,mass)
   ! alocate to initialize recip
-  call AM_RECIP_allocate(natom)
+  if(ips==0)call AM_RECIP_allocate(natom)
   call AM_RUNMD_init(natom)
 end subroutine AM_NONBOND_readparm
 !-------------------------------------------------------------------------------
@@ -293,6 +294,7 @@ subroutine AM_NonBond_perm_fields(numatoms,is_polarizable,crd,x,ipairs, &
   use amoeba_direct, only : AM_DIRECT_permfield
   use amoeba_adjust, only : AM_ADJUST_permfield
   use amoeba_self, only : AM_SELF_permfield
+  use nbips, only : do_ele_ips
   integer,intent(in) :: numatoms
   logical,intent(in) :: is_polarizable(*)
   _REAL_,intent(in) ::  crd(3,*)
@@ -315,7 +317,7 @@ subroutine AM_NonBond_perm_fields(numatoms,is_polarizable,crd,x,ipairs, &
   master = mytaskid.eq.0
 #endif
 
-  call AM_RECIP_perm_field(numatoms,crd,cart_dipole_field,x)
+  if(do_ele_ips==0)call AM_RECIP_perm_field(numatoms,crd,cart_dipole_field,x)
 
 #ifdef MPI
   call mpi_comm_rank(commsander,mytaskid,ierr)
@@ -337,6 +339,7 @@ subroutine AM_NonBond_dip_dip_fields(numatoms,x, &
   use amoeba_direct, only : AM_DIRECT_dip_dip_field
   use amoeba_adjust, only : AM_ADJUST_dip_dip_fields
   use amoeba_self, only : AM_SELF_dipole_field
+  use nbips, only : do_ele_ips
   integer,intent(in) :: numatoms
   _REAL_,intent(in) :: x(*)
   _REAL_,intent(in) :: ind_dip_d(3,*),ind_dip_p(3,*)
@@ -356,7 +359,7 @@ subroutine AM_NonBond_dip_dip_fields(numatoms,x, &
   master = mytaskid.eq.0
 #endif
 
-  call AM_RECIP_dipole_field(numatoms,x,  &
+  if(do_ele_ips==0)call AM_RECIP_dipole_field(numatoms,x,  &
                              ind_dip_d,ind_dip_p,dip_field_d,dip_field_p)
  
 #ifdef MPI
@@ -378,10 +381,11 @@ subroutine AM_NonBond_ene_frc(numatoms,crd,x,ipairs, &
   use amoeba_recip, only : AM_RECIP_ene_frc
   use amoeba_direct, only : AM_DIRECT_ene_frc
   use amoeba_adjust, only : AM_ADJUST_ene_frc
-  use amoeba_self, only : AM_SELF_ene_torque
+  use amoeba_self, only : AM_SELF_ene_torque,AM_SELF_IPS_ene_torque
   use amoeba_vdw, only : AM_VDW_longrange_ene
   use amoeba_induced, only : ind_dip_d,ind_dip_p
   use amoeba_mdin, only : amoeba_verbose
+  use nbips, only : do_ele_ips 
   integer,intent(in) :: numatoms
   _REAL_,intent(in) :: crd(3,*),x(*)
   integer,intent(in) :: ipairs(*)
@@ -403,8 +407,13 @@ subroutine AM_NonBond_ene_frc(numatoms,crd,x,ipairs, &
   master = mytaskid.eq.0
 #endif
 
-  call AM_RECIP_ene_frc(numatoms,crd,x,ind_dip_d,ind_dip_p, &
+  if(do_ele_ips==0)then
+    call AM_RECIP_ene_frc(numatoms,crd,x,ind_dip_d,ind_dip_p, &
                         e_rec_perm,e_rec_ind,frc,vir_tensor)
+  else
+    e_rec_perm=0.0d0
+    e_rec_ind=0.0d0
+  endif
 
 #ifdef MPI
   call mpi_comm_rank(commsander,mytaskid,ierr)
@@ -417,8 +426,13 @@ subroutine AM_NonBond_ene_frc(numatoms,crd,x,ipairs, &
                          e_dir_perm,e_dir_ind,e_dir_vdw,frc,vir_tensor)
   call AM_ADJUST_ene_frc(crd,x,ind_dip_d,ind_dip_p, &
                          e_adj_perm,e_adj_ind,e_adj_vdw,frc,vir_tensor)
-  call AM_SELF_ene_torque(numatoms,ind_dip_d,ind_dip_p, &
+  if(do_ele_ips==0)then
+    call AM_SELF_ene_torque(numatoms,ind_dip_d,ind_dip_p, &
                  e_self_perm,e_self_ind)
+  else
+    call AM_SELF_IPS_ene_torque(numatoms,ind_dip_d,ind_dip_p, &
+                 e_self_perm,e_self_ind)
+  endif
   call AM_VDW_longrange_ene(e_rec_vdw,vir_tensor)
 
   if ( amoeba_verbose > 0 )then
@@ -472,10 +486,11 @@ subroutine AM_NONBOND_set_user_bit(do_recip,do_adjust,do_direct,do_self, &
    use amoeba_self, only : AM_SELF_set_user_bit
    use amoeba_vdw, only : AM_VDW_set_user_bit
    use amoeba_induced, only : AM_INDUCED_set_user_bit
+   use nbips, only : do_ele_ips
    implicit none
    integer, intent(in) :: do_recip,do_adjust,do_direct,do_self, &
                           do_vdw,do_induce
-   call AM_RECIP_set_user_bit(do_recip)
+   if(do_ele_ips==0)call AM_RECIP_set_user_bit(do_recip)
    call AM_ADJUST_set_user_bit(do_adjust)
    call AM_DIRECT_set_user_bit(do_direct)
    call AM_SELF_set_user_bit(do_self)

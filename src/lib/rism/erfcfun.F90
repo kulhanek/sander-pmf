@@ -74,6 +74,15 @@ function erfc(x)
   call rismerfcfun(x,erfc)
 end function erfc
 
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ a function wrapper for the rismerfcfun subroutine
+function erf(x)
+  implicit none
+  _REAL_ :: erf,x,erfc
+  call rismerfcfun(x,erfc)
+  erf = 1.d0 - erfc
+end function erf
+
 #if 0
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine get_ee_func here]

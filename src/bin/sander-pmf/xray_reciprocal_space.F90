@@ -916,6 +916,7 @@ contains
       case (10); result = (h>=k)
       case (11); result = (l>=h .and. (l/=h .or. k>=h) .and. (l<=h .or. k>h))
       case (12); result = (k>=l .and. l>=h )
+      case default; result = .false.; ASSERT( .false. )
       end select
    end function hkl_octant_au
 

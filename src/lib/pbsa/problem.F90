@@ -1,12 +1,14 @@
 #include "../include/dprec.fh"
 
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! The IIM method solves the singular free PB equation.
 ! bcopt = 4 or 5: inside is total field and outside is total field.
 ! bcopt = 6 or 7: inside is reaction field and outside is total field.
 ! bcopt = 8 or 9: inside is reaction field and outside is reaction field.
-!
-! the right side of equation inside
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ the right side of equation inside
 function ff_in(x,y,z)
 
    implicit none
@@ -16,11 +18,9 @@ function ff_in(x,y,z)
 
    ff_in = 0.d0
 
-
 end function ff_in
-!
-! the right side of equation outside
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ the right side of equation outside
 function ff_out(x,y,z)
 
    implicit none
@@ -30,21 +30,23 @@ function ff_out(x,y,z)
 
    ff_out = 0.d0
 
-
 end function ff_out
-!
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! the jump condition of potential at projection point (x,y,z)
 ! bcopt = 4 or 5: it is zero.
 ! bcopt = 6 or 7: it is the coulomb potential.
 ! bcopt = 8 or 9: it is zero.
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ the jump condition of potential at projection point (x,y,z)
 function fw(bcopt,bi,bo,atmfirst,atmlast,x,y,z)
 
    use poisson_boltzmann, only : acrg,acrd
    implicit none
 
    _REAL_ :: bi,bo
-   !common /para/bi,bo
 
    integer bcopt,atmfirst,atmlast
    _REAL_ fw
@@ -58,7 +60,7 @@ function fw(bcopt,bi,bo,atmfirst,atmlast,x,y,z)
    if ( bcopt == 6 .or. bcopt == 7 ) then
          if(x==-2.0d0 .and. y==0.0d0 .and. z==0.0d0) then
          end if
-         
+
       do k = atmfirst, atmlast
          r(1) = x - acrd(1,k)
          r(2) = y - acrd(2,k)
@@ -71,18 +73,21 @@ function fw(bcopt,bi,bo,atmfirst,atmlast,x,y,z)
       end do
    end if
 
-
 end function fw
-!
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! the jump condition of field (b*E_n) at projection point (x,y,z)
-! bcopt = 4 or 5: it is zero. 
+! bcopt = 4 or 5: it is zero.
 ! bcopt = 6 or 7: it is  bi       * coulomb field.
 ! bcopt = 8 or 9: it is (bi - bo) * coulomb field.
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ the jump condition of field (b*E_n) at projection point (x,y,z)
 function fq(bcopt,bi,bo,atmfirst,atmlast,x,y,z,t)
 
    use poisson_boltzmann, only : acrg,acrd
-   use iim_use
+   use iim_util
    implicit none
 
    _REAL_ :: bi,bo
@@ -119,27 +124,24 @@ function fq(bcopt,bi,bo,atmfirst,atmlast,x,y,z,t)
       if ( bcopt == 8 .or. bcopt == 9 ) fq = (bi - bo)*fq
    end if
 
-
 end function fq
-!
-! the dielectric constant inside
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ the dielectric constant inside
 function fb_in(bi,bo,x,y,z)
 
    implicit none
-      
+
    _REAL_ :: bi,bo
    !common /para/bi,bo
-         
+
    _REAL_ fb_in
    _REAL_ x,y,z
 
    fb_in = bi
 
 end function fb_in
-!
-! the dielectric constant outside
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ the dielectric constant outside
 function fb_out(bi,bo,x,y,z)
 
    implicit none
@@ -153,12 +155,14 @@ function fb_out(bi,bo,x,y,z)
    fb_out = bo
 
 end function fb_out
-!
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! the sigma term, i.e. the linear Boltzmann term
 ! set to zero for poisson equation right now
-!
-! inside term
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ inside term
 function fk_in(x,y,z)
    implicit none
 
@@ -166,17 +170,14 @@ function fk_in(x,y,z)
 
    fk_in = 0.0d0
 
-
 end function fk_in
-!
-! outside term
-!
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ outside term
 function fk_out(x,y,z)
    implicit none
 
    _REAL_ fk_out,x,y,z
 
    fk_out = 0.0d0
-
 
 end function fk_out

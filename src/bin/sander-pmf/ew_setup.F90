@@ -1707,12 +1707,6 @@ subroutine peek_ewald_inpcrd(inpcrd,a,b,c,alpha,beta,gamma)
      read(line,'(i8,e15.7)', err=666) natom,tt
    end if
 
-   if ( natom <= 2 )then
-      write(6,*)'peek_ewald_inpcrd: ', &
-            ' Cannot Deduce box info from inpcrd. Too few atoms'
-      call mexit(6,1)
-      return
-   end if
    do i = 1,9999999
       read(INPCRD_UNIT,9028,end=81,err=667)x1,x2,x3,x4,x5,x6
       ic = ic+1
@@ -1723,7 +1717,7 @@ subroutine peek_ewald_inpcrd(inpcrd,a,b,c,alpha,beta,gamma)
    nextra = mod(natom,2)
    justcrd = nrow+nextra
    vel = 2*justcrd
-   if ( ic == justcrd .or. ic == vel )then
+   if ( natom > 2 .and. (ic == justcrd .or. ic == vel) )then
       write(6,'(a)') &
             '| peek_ewald_inpcrd: Box info not found in inpcrd'
       call mexit(6,1)
@@ -1761,6 +1755,7 @@ subroutine peek_ewald_inpcrd(inpcrd,a,b,c,alpha,beta,gamma)
    end if
    
    write(6,*) 'peek_ewald_inpcrd: SHOULD NOT BE HERE'
+   write(6,'(6f10.4)') x1,x2,x3,x4,x5,x6
    call mexit(6,1)
    
    9028 format(6f12.7)
@@ -1942,6 +1937,10 @@ subroutine read_ewald(ax,bx,cx,alphax,betax,gammax)
    else
       nttdip = 0
    end if
+
+   ! long-range correction is 0 with a force-switch
+
+   if (fswitch > 0) vdwmeth = 0
    
    !  ---- adjust the netfrc value, different for minimization than dynamics:
    if (netfrc .eq. NO_INPUT_VALUE) then

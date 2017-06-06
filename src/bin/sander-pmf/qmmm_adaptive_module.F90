@@ -484,7 +484,7 @@ contains
 
   ! Calculate Wbk, the book-keeping correction along the trajectory
   ! Wbk needs re-calculated energies for partitionings
-  ! that may have (dis)appeared along the trajctory.
+  ! that may have (dis)appeared along the trajectory.
   subroutine calculate_wbk(self)
 
     implicit none

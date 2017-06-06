@@ -28,13 +28,13 @@ subroutine pb_atmpart( verbose,pbprint,natom,ibgwat,ienwat,ibgion,ienion, &
 
    integer ires, num
    _REAL_ sepr, atmr, xtmp, ytmp, ztmp
- 
+
    sepr = (rdiel-sepbuf)**2
    outflag = 0
- 
+
    ! internal portion always include protein atoms
    ! external portion only include water atoms
- 
+
    inatm = ipres(ibgwat)-1
    outwat = 0
    oution = 0
@@ -76,7 +76,7 @@ subroutine pb_atmpart( verbose,pbprint,natom,ibgwat,ienwat,ibgion,ienion, &
 
 end subroutine pb_atmpart
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ partition of atoms into internal and external portions according to a shell
+!+ partition of atoms into internal and external portions using a sphere
 subroutine pb_atmpart2( verbose,pbprint,natom,ibgwat,ienwat,ibgion,ienion, &
                         inatm,outwat,oution,ipres,outflag,distance,x )
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -99,12 +99,12 @@ subroutine pb_atmpart2( verbose,pbprint,natom,ibgwat,ienwat,ibgion,ienion, &
    ! Local variables
 
    integer ires, jatm, num, proatm
-   logical isin 
+   logical isin
    _REAL_ dist2, dist2tmp, xtmp, ytmp, ztmp
- 
+
    dist2 = distance**2
    outflag = 0
- 
+
    ! Internal portion always include protein atoms
    if ( ibgion /= 0 ) then
       proatm = (ipres(ibgwat) - 1) - (ienion - ibgion + 1)
@@ -131,7 +131,7 @@ subroutine pb_atmpart2( verbose,pbprint,natom,ibgwat,ienwat,ibgion,ienion, &
                exit
             end if
          end do ! jatm
-         if(.not. isin) then
+         if (.not. isin) then
             oution = oution + 1
             outflag(num) = 1
          end if
@@ -154,7 +154,7 @@ subroutine pb_atmpart2( verbose,pbprint,natom,ibgwat,ienwat,ibgion,ienion, &
             exit
          end if
       end do ! jatm
-      if(.not. isin) then
+      if (.not. isin) then
          outwat = outwat + 3
          outflag(num) = 1
          outflag(num+1) = 1
@@ -317,7 +317,7 @@ subroutine pb_atmpart3(verbose,pbprint,natom,buffer,xmin,xmax,ymin,ymax,zmin,zma
    lymin = - (ylength) * HALF + ybox
    lzmin = - (zlength) * HALF + zbox
 
-   lxmax = lxmin + xlength 
+   lxmax = lxmin + xlength
    lymax = lymin + ylength
    lzmax = lzmin + zlength
 
@@ -433,119 +433,6 @@ subroutine pb_atmpart3(verbose,pbprint,natom,buffer,xmin,xmax,ymin,ymax,zmin,zma
 
 end subroutine pb_atmpart3
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Grid Partition subroutine by Mengjuei Hsieh
-!+ For slave node to claim ownership from the focus sub-grids.
-!+ This has been generalized that it doesn't need to know about the MPI
-!+ If we want to add print out for multiple thread (MPI), we need to pass
-!+ the logical variable "master" for the print out control.
-subroutine pb_atmpart_mb(verbose, pbprint, natom, istart, iend, h,   &
-              blknx,  blkny,  blknz,  blkxlo, blkylo, blkzlo,        &
-              blkxup, blkyup, blkzup, blkgox, blkgoy, blkgoz,        &
-              x, lfocuswpad, lfocus0pad, lfocus4s3f,                 &
-                 nfirstwpad, nfirst0pad, nfirst4s3f, master)
-   use solvent_accessibility, only : radi, dprob
-   implicit none
-
-   ! Passed variables
-
-   logical verbose, pbprint, master
-   integer natom
-   integer istart, iend
-   integer blkxlo(*), blkylo(*), blkzlo(*)
-   integer blkxup(*), blkyup(*), blkzup(*)
-   integer blknx(*),  blkny(*),  blknz(*)
-   integer lfocuswpad(*), lfocus0pad(*), lfocus4s3f(*)
-   integer nfirstwpad(*), nfirst0pad(*), nfirst4s3f(*)
-   _REAL_ h
-   _REAL_ blkgox(*), blkgoy(*), blkgoz(*)
-   _REAL_ x(3,natom)
-
-   ! Local variables
-
-   integer i, j, k, l, m, n
-   !logical blockhasatom
-   logical myinside(natom)
-   _REAL_ dimxlower, dimylower, dimzlower
-   _REAL_ dimxupper, dimyupper, dimzupper
-   _REAL_ blkxlower, blkylower, blkzlower
-   _REAL_ blkxupper, blkyupper, blkzupper
-   _REAL_ myradi
-
-   !check starts.
-   k = 1
-   l = 1
-   m = 1
-   n = 1
-   myinside = .false.
-   myradi = MAXVAL(radi(1:natom))+dprob*2
-   blkloop: do i = istart, iend
-      dimxlower = blkgox(i) + h
-      blkxlower = blkgox(i) + blkxlo(i)*h
-      dimxupper = blkgox(i) +  blknx(i)*h
-      blkxupper = blkgox(i) + blkxup(i)*h
-      dimylower = blkgoy(i) + h
-      blkylower = blkgoy(i) + blkylo(i)*h
-      dimyupper = blkgoy(i) +  blkny(i)*h
-      blkyupper = blkgoy(i) + blkyup(i)*h
-      dimzlower = blkgoz(i) + h
-      blkzlower = blkgoz(i) + blkzlo(i)*h
-      dimzupper = blkgoz(i) +  blknz(i)*h
-      blkzupper = blkgoz(i) + blkzup(i)*h
-
-      atmloop: do j = 1, natom
-         !since the outer edge does not contain atoms, it should be safe.
-         if ( x(1,j) <  dimxlower - myradi - h ) cycle atmloop
-         if ( x(1,j) >= dimxupper + myradi + h ) cycle atmloop
-         if ( x(2,j) <  dimylower - myradi - h ) cycle atmloop
-         if ( x(2,j) >= dimyupper + myradi + h ) cycle atmloop
-         if ( x(3,j) <  dimzlower - myradi - h ) cycle atmloop
-         if ( x(3,j) >= dimzupper + myradi + h ) cycle atmloop
-!print *, dimxlower - myradi - h, dimxupper + myradi + h, dimylower - myradi - h
-!print *, dimyupper + myradi + h, dimzlower - myradi - h, dimzupper + myradi + h;stop
-         lfocus4s3f(n) = j
-         n = n + 1
-         if ( x(1,j) <  dimxlower ) cycle atmloop
-         if ( x(1,j) >= dimxupper ) cycle atmloop
-         if ( x(2,j) <  dimylower ) cycle atmloop
-         if ( x(2,j) >= dimyupper ) cycle atmloop
-         if ( x(3,j) <  dimzlower ) cycle atmloop
-         if ( x(3,j) >= dimzupper ) cycle atmloop
-         lfocuswpad(k) = j
-         k = k + 1
-         if ( x(1,j) <  blkxlower ) cycle atmloop
-         if ( x(1,j) >= blkxupper ) cycle atmloop
-         if ( x(2,j) <  blkylower ) cycle atmloop
-         if ( x(2,j) >= blkyupper ) cycle atmloop
-         if ( x(3,j) <  blkzlower ) cycle atmloop
-         if ( x(3,j) >= blkzupper ) cycle atmloop
-         if (myinside(j)) then
-            write(6,'(a,i6,a,i6)') "atom:",j," is assigned at least twice in the block ",i
-            cycle atmloop
-         endif
-         lfocus0pad(l) = j
-         l = l + 1
-         myinside(j) = .true.
-      end do atmloop
-      nfirst4s3f(m+1) = nfirst4s3f(1)+n-1
-      nfirstwpad(m+1) = nfirstwpad(1)+k-1
-      nfirst0pad(m+1) = nfirst0pad(1)+l-1
-
-      m = m + 1
-   end do blkloop
-   !print *,"mjhsieh: k,l,m",k,l,m
-   do j = 1, natom
-      if (.not.myinside(j)) then
-         write(6,'(2a)') "PBerror: At least one atom is outside ", &
-           "the focus fine grids."
-         call mexit(6,1)
-      endif
-   end do
-
-   ! TODO: add a permanent check to make sure the atom numbers sum up to natom
-   ! This has to be after the MPI_REDUCE
-   ! write(6,'(a)') m-1,nfirst0pad(m)-1,natom
-end subroutine pb_atmpart_mb
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Atom-based nblist for PBMD/PBDOCK
 !+ This is also used by multi-block focusing
 subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex, &
@@ -553,13 +440,13 @@ subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex,
                         cn2,cn1pb,cn2pb,cn3pb,cg,acrd)
    use poisson_boltzmann, only : liveflag, outflag
    implicit none
-   
+
 #  include "pb_constants.h"
-    
+
    ! Passed variables
 
    logical verbose, pbprint
-   integer pqropt 
+   integer pqropt
    integer maxnba,natom,ntypes               ! should be readonly
    integer natex(*),nshrt(0:natom),nex(*),iex(64,natom),iac(*),ico(*) !readonly
    integer iar1pb(4,0:natom)                 ! will be updated
@@ -567,9 +454,9 @@ subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex,
    _REAL_ acrd(3,*), cn1(*), cn2(*), cg(*)   ! should be readonly
    _REAL_ cn1pb(*), cn2pb(*), cn3pb(*)       ! will be updated
    _REAL_ cutnb, cutsa, cutfd                ! should be readonly
-    
+
    ! Local variables
-    
+
    logical i_is_excluded, j_is_excluded
    integer iaci, ic
    integer iatm, jatm
@@ -578,9 +465,9 @@ subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex,
    integer tmpex(MAXNEI), tmppb(MAXNEI), tmpsa(MAXNEI), tmpnb(MAXNEI)
    _REAL_ xi, yi, zi, dx, dy, dz, d2
    _REAL_ cgi
-    
+
    ! set up zeroth atom for limits
-    
+
    iar1pb(1, 0) = 0
    iar1pb(2, 0) = 0
    iar1pb(3, 0) = 0
@@ -594,16 +481,16 @@ subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex,
    cn1pb(1:maxnba) = 0
    cn2pb(1:maxnba) = 0
    cn3pb(1:maxnba) = 0
- 
+
    ! this is the global index of atom-based pair
-    
+
    cntr = 0
-    
+
    ! we shall assume that only ligand atoms are moving for now,
    ! and they are continuously located in the coordinate array
    ! mjhsieh: the original code was looping ligand atoms over
    !          all atoms in the docking box, is that correct?
-    
+
    do i = 1, natom
       if ( outflag(i) == 1 ) then
          iar1pb(1, i) = cntr
@@ -618,10 +505,10 @@ subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex,
          cgi  = -cg(i)
       end if
 
-      ! the inner loop is over all atoms in the docking box 
-       
+      ! the inner loop is over all atoms in the docking box
+
       ! part a: save nonboneded pairs into tmppb, tmpsa, and tmpnb
-       
+
       xi = acrd(1, i)
       yi = acrd(2, i)
       zi = acrd(3, i)
@@ -684,13 +571,13 @@ subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex,
 !write(2012,*) i,pclose,cntr, '|'
 !write(2012,*) i,sclose,cntr, '|'
 !write(2012,*) i,nclose,cntr, '|'
-       
+
       ! part b: pack them into the new atom-based nblist
       ! since there is no separation of h-atom and other atoms, we need to
       ! set up CN1, CN2 properly in every situation, though we may not use it
       ! in docking. Once confirmed in the later phase of the project,
-      ! these extra arrays can be removed. 
-       
+      ! these extra arrays can be removed.
+
       if (eclose > MAXNEI .or. pclose > MAXNEI .or. sclose > MAXNEI .or. &
           nclose > MAXNEI) then
          write(6,'(a)') 'PB bomb in pb_atmlist(): MAXNEI too short'
@@ -776,67 +663,62 @@ subroutine pb_atmlist( verbose,pbprint,pqropt,maxnba,natom,ntypes,iac,ico,natex,
 !   write(2013,*) i,outflag(i),iar1pb(3,i)-iar1pb(4,i-1)
 !end do
    if ( verbose .and. pbprint ) write(6,'(2x,a,i9)') 'NB-update: atom-based nb list', cntr
-   
+
 end subroutine pb_atmlist
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Set up FDPB grid for a de novo call
 subroutine pb_setgrd( ipb, verbose, pbprint, initial, pbgrid, ifcap, atmfirst, atmlast, xcap, ycap, zcap, cutcap )
-    
+
    use poisson_boltzmann
    use solvent_accessibility, only : radi, dprob
 
    implicit none
 
    ! Passed variables
-    
+
    logical verbose, pbprint, initial, pbgrid
    integer ipb,ifcap, atmfirst, atmlast
    _REAL_ xcap, ycap, zcap, cutcap
-    
+
    ! Local variables
-    
+
    integer totsavxmymzm
    integer xm_max, ym_max, zm_max
    integer xmymzm_max,xmymzm_ext
    integer l, alloc_err(32)
-!  integer block
 
    ! get center and dimension information of the current molecule
-    
-   call setgrd( verbose, pbprint, pbgrid, ifcap, atmfirst, atmlast, xcap, ycap, zcap, cutcap )
-   
-   ! Mengjuei> xmymzm_ext = (xm + 2)*(ym + 2)*(zm + 2)
+
+   call setgrd( verbose,pbprint,(initial .or. pbgrid),ifcap,atmfirst,atmlast,xcap,ycap,zcap,cutcap )
+
+   ! Mengjuei: xmymzm_ext = (xm + 2)*(ym + 2)*(zm + 2)
 
    xmymzm_max = maxval(savxmymzm(1:nfocus))
    xm_max     = maxval(savxm(1:nfocus))
    ym_max     = maxval(savym(1:nfocus))
    zm_max     = maxval(savzm(1:nfocus))
-   if ( multiblock ) then
-      xmymzm_max = max(xmymzm_max,maxval(blknxnynz))
-      xm_max = max(xm_max,maxval(blknx))
-      ym_max = max(ym_max,maxval(blkny))
-      zm_max = max(zm_max,maxval(blknz))
-   end if
    xmymzm_ext = (xm_max + 2) * (ym_max + 2) * (zm_max + 2)
-    
+
    ! if allocate working arrays for fdpb
-    
+
    alloc_err(1:32) = 0
    if ( .not. initial ) then
       deallocate(    phi, stat = alloc_err(1 ) )
       deallocate(  chgrd, stat = alloc_err(2 ) )
-      deallocate(   epsx, stat = alloc_err(4 ) )
-      deallocate(   epsy, stat = alloc_err(5 ) )
-      deallocate(   epsz, stat = alloc_err(6 ) )
-      if(ipb /= 4 .and. ipb /= 5) deallocate(saltgrd, stat = alloc_err(7 ) )
-      deallocate(     bv, stat = alloc_err(3 ) )
+      deallocate(   epsx, stat = alloc_err(3 ) )
+      deallocate(   epsy, stat = alloc_err(4 ) )
+      deallocate(   epsz, stat = alloc_err(5 ) )
+      if(ipb /= 4 .and. ipb /= 5) deallocate(saltgrd, stat = alloc_err(6 ) )
+      deallocate( ioncrg, stat = alloc_err(7 ) )
+      deallocate(     bv, stat = alloc_err(8 ) )
 
-      deallocate(  insas, stat = alloc_err(8 ) )
-      deallocate( atmsas, stat = alloc_err(9 ) )
-      deallocate( lvlset, stat = alloc_err(10) )
-      deallocate(     zv, stat = alloc_err(11) )
+      deallocate(  insas, stat = alloc_err(9 ) )
+      deallocate( atmsas, stat = alloc_err(10) )
+      deallocate( lvlset, stat = alloc_err(11) )
+      deallocate(mlvlset, stat = alloc_err(12) )
+      deallocate(     zv, stat = alloc_err(13) )
 
-      deallocate(   cphi, stat = alloc_err(13) )
+      deallocate(   cphi, stat = alloc_err(22) )
       if(ipb /= 4 .and. ipb /= 5) deallocate( fedgex, stat = alloc_err(14) )
       if(ipb /= 4 .and. ipb /= 5) deallocate( fedgey, stat = alloc_err(15) )
       if(ipb /= 4 .and. ipb /= 5) deallocate( fedgez, stat = alloc_err(16) )
@@ -860,25 +742,27 @@ subroutine pb_setgrd( ipb, verbose, pbprint, initial, pbgrid, ifcap, atmfirst, a
    allocate(   epsy( xmymzm_max+xm_max*zm_max ), stat = alloc_err(4 ) )
    allocate(   epsz( xmymzm_max+xm_max*ym_max ), stat = alloc_err(5 ) )
    if(ipb /= 4 .and. ipb /= 5) allocate(saltgrd( xmymzm_max ), stat = alloc_err(6 ) )
-   allocate(     bv( xmymzm_max ), stat = alloc_err(7 ) )
+   allocate( ioncrg( xmymzm_max ), stat = alloc_err(7 ) )
+   allocate(     bv( xmymzm_max ), stat = alloc_err(8 ) )
 
    ! geometry propery maps and auxiliary arrays for mapping dielectric and stern interfaces
 
-   allocate(  insas( xmymzm_ext ), stat = alloc_err(8 ) )
-   allocate( atmsas( xmymzm_ext ), stat = alloc_err(9 ) )
-   allocate( lvlset( xmymzm_ext ), stat = alloc_err(10) )
-   allocate(     zv( xmymzm_ext ), stat = alloc_err(11) )
+   allocate(  insas( xmymzm_ext ), stat = alloc_err(9 ) )
+   allocate( atmsas( xmymzm_ext ), stat = alloc_err(10) )
+   allocate( lvlset( xmymzm_ext ), stat = alloc_err(11) )
+   allocate(mlvlset( xmymzm_ext ), stat = alloc_err(12) )
+   allocate(     zv( xmymzm_ext ), stat = alloc_err(13) )
 
    ! physical property maps for forces
 
-   allocate(   cphi   (1:xmymzm_max), stat = alloc_err(13) )
-   if(ipb /= 4 .and. ipb /= 5) allocate( fedgex   (1:xmymzm_max), stat = alloc_err(14) )
-   if(ipb /= 4 .and. ipb /= 5) allocate( fedgey   (1:xmymzm_max), stat = alloc_err(15) )
-   if(ipb /= 4 .and. ipb /= 5) allocate( fedgez   (1:xmymzm_max), stat = alloc_err(16) )
-   allocate( iepsav (4,1:xmymzm_max), stat = alloc_err(17) )
-   if(ipb /= 4 .and. ipb /= 5) allocate( iepsavx(4,1:xmymzm_max), stat = alloc_err(18) )
-   if(ipb /= 4 .and. ipb /= 5) allocate( iepsavy(4,1:xmymzm_max), stat = alloc_err(19) )
-   if(ipb /= 4 .and. ipb /= 5) allocate( iepsavz(4,1:xmymzm_max), stat = alloc_err(20) )
+   allocate(   cphi   (1:xmymzm_max), stat = alloc_err(14) )
+   if(ipb /= 4 .and. ipb /= 5) allocate( fedgex   (1:xmymzm_max), stat = alloc_err(15) )
+   if(ipb /= 4 .and. ipb /= 5) allocate( fedgey   (1:xmymzm_max), stat = alloc_err(16) )
+   if(ipb /= 4 .and. ipb /= 5) allocate( fedgez   (1:xmymzm_max), stat = alloc_err(17) )
+   allocate( iepsav (4,1:xmymzm_max), stat = alloc_err(18) )
+   if(ipb /= 4 .and. ipb /= 5) allocate( iepsavx(4,1:xmymzm_max), stat = alloc_err(19) )
+   if(ipb /= 4 .and. ipb /= 5) allocate( iepsavy(4,1:xmymzm_max), stat = alloc_err(20) )
+   if(ipb /= 4 .and. ipb /= 5) allocate( iepsavz(4,1:xmymzm_max), stat = alloc_err(21) )
 
    ! the saved phi array for pbmd/pbdock
 
@@ -886,12 +770,8 @@ subroutine pb_setgrd( ipb, verbose, pbprint, initial, pbgrid, ifcap, atmfirst, a
    do l = 1, nfocus
       totsavxmymzm = totsavxmymzm + savxmymzm(l)+2*SAVXMYM(l)
    end do
-   if ( multiblock ) then
-      totsavxmymzm = max(totsavxmymzm, (maxval(blknxnynz) + &
-         savxmymzm(1) + 2*savxmym(1) + 2*maxval(blknxny)))
-   end if
-   if ( bcopt /= 10) allocate( xs(totsavxmymzm), stat = alloc_err(21) )
-   if ( bcopt == 10) allocate( xs(xmymzm_ext), stat = alloc_err(21) )
+   if ( bcopt /= 10) allocate( xs(totsavxmymzm), stat = alloc_err(22) )
+   if ( bcopt == 10) allocate( xs(xmymzm_ext), stat = alloc_err(22) )
 
    if ( sum(alloc_err(1:32)) /= 0 ) then
       write(6,'(a)') 'PB bomb in pb_setgrd(): Allocation aborted', alloc_err(1:32)
@@ -899,11 +779,11 @@ subroutine pb_setgrd( ipb, verbose, pbprint, initial, pbgrid, ifcap, atmfirst, a
    end if
 
    ! initialize saved phi map
-    
+
    xs = ZERO
-    
+
    ! save fine grid limits for checking of atom-out-of-grid situation
-   
+
    gxmin = savgox(nfocus) + 3*savh(nfocus);
    gxmax = savgox(nfocus) + (savxm(nfocus)-2)*savh(nfocus)
    gymin = savgoy(nfocus) + 3*savh(nfocus);
@@ -911,47 +791,28 @@ subroutine pb_setgrd( ipb, verbose, pbprint, initial, pbgrid, ifcap, atmfirst, a
    gzmin = savgoz(nfocus) + 3*savh(nfocus);
    gzmax = savgoz(nfocus) + (savzm(nfocus)-2)*savh(nfocus)
 
-   ! Auxiliary setup for multiblock
-
-!  if ( multiblock ) then
-!     block = 0
-!     do l = 2, nfocus
-!        block = block + levelblock(l)
-!     end do
-!  end if
-
 contains
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ set up FDPB grid for a de novo call
 subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap,cutcap )
    implicit none
-    
+
 #  include "pb_constants.h"
 #  include "extra.h"
-    
+
    ! Passed variables
-    
+
    logical verbose, pbprint, initial
-   integer ifcap, atmfirst, atmlast 
+   integer ifcap, atmfirst, atmlast
    _REAL_ xcap, ycap, zcap, cutcap
-    
+
    ! Local variables
-    
+
    integer l, iatm
    logical isfillratiosane, newbox
    _REAL_ xlength, ylength, zlength
    _REAL_ xbox, ybox, zbox, htmp
 
-   ! Local multi-block variables
-
-   integer tmpxm,  tmpym,  tmpzm
-   integer tmpgox, tmpgoy, tmpgoz
-   integer block,  blkpad
-   integer iblk,   jblk,   kblk
-   integer alloc_err(19)
-    
-   ! set bounding box center for selected atoms
-    
    if ( verbose .and. pbprint ) then
       write(6,'(a)')
       write(6,'(a)')
@@ -962,6 +823,8 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
    ! :::: set the second/fine grid ::::
 
    l = nfocus
+
+   ! part a: find the bounding box
 
    ! find the bounding box if it has not been initialized from
    ! pb_read() or from pb_atmpart3() for focusing on the ligand.
@@ -994,14 +857,18 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
       end if
    end if
 
-   ! this is the box center
+   ! part b: find the box center
+
    ! round it to the nearest h unit for easy restarting
+   ! no more corrected box or previous box centers due to the rounding
 
    xbox = (xmax + xmin)/TWO; ybox = (ymax + ymin)/TWO; zbox = (zmax + zmin)/TWO
-   htmp = savh(nfocus)
+   htmp = savh(l)
    xbox = nint(xbox/htmp)*htmp; ybox = nint(ybox/htmp)*htmp; zbox = nint(zbox/htmp)*htmp
+   cxbox(l) = xbox; cybox(l) = ybox; czbox(l) = zbox
+   savxbox(l) = cxbox(l); savybox(l) = cybox(l); savzbox(l) = czbox(l)
 
-   if ( verbose .and. pbprint .and. nfocus > 1 ) then
+   if ( verbose .and. pbprint ) then
       write(6, '(1x,a,i10)') 'Bounding Box at level:  ', l
       write(6, '(1x,a,3f10.3)') 'Bounding Box Center:  ', xbox, ybox, zbox
       write(6, '(1x,a,3f10.3)') 'Xmin, Xmax, Xmax-Xmin:', xmin, xmax, xmax-xmin
@@ -1009,238 +876,118 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
       write(6, '(1x,a,3f10.3)') 'Zmin, Zmax, Zmax-Zmin:', zmin, zmax, zmax-zmin
    end if
 
-   ! this is for updating the bounding box information 
+   ! part c: find the grid dimension
 
-   if ( initial ) then
-      cxbox(l) = xbox; cybox(l) = ybox; czbox(l) = zbox
-      if ( verbose .and. pbprint .and. nfocus > 1 ) write(6, '(a,1x,i5,1x,3f10.3)') &
-         '   beginning box center at level ', l, cxbox(l), cybox(l), czbox(l)
+   ! if the grid dimension is read in, related storage arrays have been set in
+   ! pb_read()
+
+   if ( rxm /= 0 .and. rym /= 0 .and. rzm /= 0 ) then
+
+   continue
+
    else
-      savxbox(l) = cxbox(l); savybox(l) = cybox(l); savzbox(l) = czbox(l)
-      if ( verbose .and. pbprint .and. nfocus > 1 ) write(6, '(a,1x,i5,1x,3f10.3)') &
-         '   previous box center at level ', l, savxbox(l), savybox(l), savzbox(l)
-   end if
-    
-   ! set the grid dimension
-    
+
    xlength = xmax-xmin; ylength = ymax-ymin; zlength = zmax-zmin
+
+   ! use cubic if for graphic display
+
    if ( outphi .and. phiform == 0 ) then
       xlength = max(xlength, ylength, zlength)
       ylength = xlength; zlength = xlength
    endif
-   savxm(l) = nint( xlength/savh(l) ) + nbuffer
-   savym(l) = nint( ylength/savh(l) ) + nbuffer
-   savzm(l) = nint( zlength/savh(l) ) + nbuffer
-    
-   !    adjust for the multigrid solver (four levels) or other solver options ...
-   !    use fold16 to enforce the same grid size as MG for consistency check
-    
-   if ( solvopt == 2 ) then 
-      if ( bcopt == 10) then
-         savxm(l) = 16*ceiling( dble(savxm(l))/16.0d0 )
-         savym(l) = 16*ceiling( dble(savym(l))/16.0d0 )
-         savzm(l) = 16*ceiling( dble(savzm(l))/16.0d0 )  
-      else
-         savxm(l) = 16*ceiling( dble(savxm(l))/16.0d0 ) - 1
-         savym(l) = 16*ceiling( dble(savym(l))/16.0d0 ) - 1
-         savzm(l) = 16*ceiling( dble(savzm(l))/16.0d0 ) - 1   
-      end if
-   else
-      if ( fold16 == 1 ) then
 
-      if ( bcopt == 10 ) then
+   ! note that the grid boundary cannot touch the solute surface for proper
+   ! functioning. thus nbuffer is added to the solute surface extrema if
+   ! focussing is used, and fillratio is used to enlarge the grid boundary when
+   ! focussing is not used.
+
+   if ( nfocus > 1 ) then
+      savxm(l) = nint( xlength/savh(l) ) + nbuffer
+      savym(l) = nint( ylength/savh(l) ) + nbuffer
+      savzm(l) = nint( zlength/savh(l) ) + nbuffer
+   else
+      savxm(l) = nint( xlength*fillratio/savh(l) )
+      savym(l) = nint( ylength*fillratio/savh(l) )
+      savzm(l) = nint( zlength*fillratio/savh(l) )
+   end if
+
+   ! adjust for the multigrid solver (four levels) or other solver options ...
+   ! use fold16 to enforce the same grid size as MG for consistency check
+
+   if ( solvopt == 2 ) then
+      if ( bcopt == 10) then
          savxm(l) = 16*ceiling( dble(savxm(l))/16.0d0 )
          savym(l) = 16*ceiling( dble(savym(l))/16.0d0 )
          savzm(l) = 16*ceiling( dble(savzm(l))/16.0d0 )
       else
          savxm(l) = 16*ceiling( dble(savxm(l))/16.0d0 ) - 1
          savym(l) = 16*ceiling( dble(savym(l))/16.0d0 ) - 1
-         savzm(l) = 16*ceiling( dble(savzm(l))/16.0d0 ) - 1   
-      endif
-
+         savzm(l) = 16*ceiling( dble(savzm(l))/16.0d0 ) - 1
+      end if
+   else
+      if ( fold16 == 1 ) then
+         if ( bcopt == 10 ) then
+            savxm(l) = 16*ceiling( dble(savxm(l))/16.0d0 )
+            savym(l) = 16*ceiling( dble(savym(l))/16.0d0 )
+            savzm(l) = 16*ceiling( dble(savzm(l))/16.0d0 )
+         else
+            savxm(l) = 16*ceiling( dble(savxm(l))/16.0d0 ) - 1
+            savym(l) = 16*ceiling( dble(savym(l))/16.0d0 ) - 1
+            savzm(l) = 16*ceiling( dble(savzm(l))/16.0d0 ) - 1
+         endif
       else
-
-      savxm(l) = 2*nint( dble(savxm(l))*HALF ) + 1
-      savym(l) = 2*nint( dble(savym(l))*HALF ) + 1
-      savzm(l) = 2*nint( dble(savzm(l))*HALF ) + 1
-
+         savxm(l) = 2*nint( dble(savxm(l))*HALF ) + 1
+         savym(l) = 2*nint( dble(savym(l))*HALF ) + 1
+         savzm(l) = 2*nint( dble(savzm(l))*HALF ) + 1
       end if
    end if
-    
-   !    additional stored data and printing
-    
+
+   ! additional stored data
+
    savxmym(l) = savxm(l)*savym(l)
    savxmymzm(l) = savxmym(l)*savzm(l)
-   if ( verbose .and. pbprint .and. nfocus > 1 ) write(6, '(a,i5,1x,3i5)') &
-      ' Grid dimension at level ', l, savxm(l), savym(l), savzm(l)
-    
-   ! set grid origin
-    
-   if ( initial ) then
-      savgox(l) = - dble(savxm(l)+1) * savh(l) * HALF + xbox
-      savgoy(l) = - dble(savym(l)+1) * savh(l) * HALF + ybox
-      savgoz(l) = - dble(savzm(l)+1) * savh(l) * HALF + zbox
+
+   end if ! end of grid dimension read in check
+
+   ! part d: set the grid origin
+
+   ! if the grid origin is read in, skip
+
+   if ( rgox + rgoy + rgoz /= ZERO ) then
+
+   continue
+
    else
-      cxbox(l) = savxbox(l) + nint( (xbox - savxbox(l))/savh(l) )*savh(l)
-      cybox(l) = savybox(l) + nint( (ybox - savybox(l))/savh(l) )*savh(l)
-      czbox(l) = savzbox(l) + nint( (zbox - savzbox(l))/savh(l) )*savh(l)
-      if ( verbose .and. pbprint .and. nfocus > 1 ) write(6, '(a,i5,1x,3f10.3)') &
-         ' Box center corrected at level ', l, cxbox(l), cybox(l), czbox(l)
-      savgox(l) = - dble(savxm(l)+1) * savh(l) * HALF + cxbox(l)
-      savgoy(l) = - dble(savym(l)+1) * savh(l) * HALF + cybox(l)
-      savgoz(l) = - dble(savzm(l)+1) * savh(l) * HALF + czbox(l)
+
+   if ( (solvopt == 2 .or. fold16 == 1) .and. bcopt == 10 ) then
+      ! for even grid dimensions
+      savgox(l) = - (dble(savxm(l)) * HALF + ONE) * savh(l) + xbox
+      savgoy(l) = - (dble(savym(l)) * HALF + ONE) * savh(l) + ybox
+      savgoz(l) = - (dble(savzm(l)) * HALF + ONE) * savh(l) + zbox
+   else
+      ! for odd grid dimensions
+      savgox(l) = - dble(savxm(l)+1) * HALF * savh(l) + xbox
+      savgoy(l) = - dble(savym(l)+1) * HALF * savh(l) + ybox
+      savgoz(l) = - dble(savzm(l)+1) * HALF * savh(l) + zbox
    end if
-   if ( verbose .and. pbprint .and. nfocus > 1 ) write(6, '(a,i5,1x,3f10.3)') &
+
+   end if ! end of grid origin read in check
+
+   if ( verbose .and. pbprint ) write(6, '(a,i5,1x,3i5)') &
+      ' Grid dimension at level ', l, savxm(l), savym(l), savzm(l)
+
+   if ( verbose .and. pbprint ) write(6, '(a,i5,1x,3f10.3)') &
       ' Grid origin corrected at level ', l, savgox(l), savgoy(l), savgoz(l)
 
-   ! Multi-block section, mjhsieh
-
-   if ( .not. multiblock ) then
-      ngrdblkx=savxm(l)
-      ngrdblky=savym(l)
-      ngrdblkz=savzm(l)
-   else if ( l /= 2 ) then
-      write(6,'(a)') 'setgrd(): nfocus should be 2 with multiblock focusing'
-      call mexit(6,1)
-   else
-      levelblock(1) = 1
-      h = savh(l)
-      blkpad = nint(buffer/h)
-      tmpxm=savxm(l)
-      tmpym=savym(l)
-      tmpzm=savzm(l)
-      if (xmblk == 0) xmblk = ceiling(REAL(tmpxm-1)/(ngrdblkx-1))
-      if (ymblk == 0) ymblk = ceiling(REAL(tmpym-1)/(ngrdblky-1))
-      if (zmblk == 0) zmblk = ceiling(REAL(tmpzm-1)/(ngrdblkz-1))
-      block = xmblk*ymblk*zmblk
-      allocate(     blkxo(block), stat = alloc_err( 1) )
-      allocate(     blkyo(block), stat = alloc_err( 2) )
-      allocate(     blkzo(block), stat = alloc_err( 3) )
-      allocate(    blkxlo(block), stat = alloc_err( 4) )
-      allocate(    blkylo(block), stat = alloc_err( 5) )
-      allocate(    blkzlo(block), stat = alloc_err( 6) )
-      allocate(    blkxup(block), stat = alloc_err( 7) )
-      allocate(    blkyup(block), stat = alloc_err( 8) )
-      allocate(    blkzup(block), stat = alloc_err( 9) )
-      allocate(     blknx(block), stat = alloc_err(10) )
-      allocate(     blkny(block), stat = alloc_err(11) )
-      allocate(     blknz(block), stat = alloc_err(12) )
-      allocate(   blknxny(block), stat = alloc_err(13) )
-      allocate(   blknynz(block), stat = alloc_err(14) )
-      allocate(   blknxnz(block), stat = alloc_err(15) )
-      allocate( blknxnynz(block), stat = alloc_err(16) )
-      allocate(    blkgox(block), stat = alloc_err(17) )
-      allocate(    blkgoy(block), stat = alloc_err(18) )
-      allocate(    blkgoz(block), stat = alloc_err(19) )
-      if ( alloc_err( 1)+alloc_err( 2)+alloc_err( 3)+alloc_err( 4)+alloc_err( 5)+&
-           alloc_err( 6)+alloc_err( 7)+alloc_err( 8)+alloc_err( 9)+alloc_err(10)+&
-           alloc_err(11)+alloc_err(12)+alloc_err(13)+alloc_err(14)+alloc_err(15)+&
-           alloc_err(16)+alloc_err(17)+alloc_err(18)+alloc_err(19)               &
-           /= 0 ) then
-         write(6,'(a,19i6)') 'PB bomb in setgrd(): Allocation aborted', alloc_err(1:19)
-         call mexit(6, 1)
-      end if
-      if ( mod(ngrdblkx-1,fscale) /= 0 .or. &
-           mod(ngrdblkz-1,fscale) /= 0 .or. &
-           mod(ngrdblkz-1,fscale) /= 0      ) then
-         write(6,'(a)') 'PB bomb in setgrd(): unfavorable ngrdbl[x-z] setting.'
-         call mexit(6, 1)
-      end if
-      tmpxm = xmblk*(ngrdblkx-1)+1
-      tmpym = ymblk*(ngrdblky-1)+1
-      tmpzm = zmblk*(ngrdblkz-1)+1
-      tmpgox = xbox-(nint(REAL(tmpxm-1)*HALF)-1)*h
-      tmpgoy = ybox-(nint(REAL(tmpym-1)*HALF)-1)*h
-      tmpgoz = zbox-(nint(REAL(tmpzm-1)*HALF)-1)*h
-      savxm(l)  = tmpxm
-      savym(l)  = tmpym
-      savzm(l)  = tmpzm
-      savgox(l) = tmpgox
-      savgoy(l) = tmpgoy
-      savgoz(l) = tmpgoz
-      levelblock(l) = xmblk * ymblk * zmblk
-      if ( master ) then
-         write(6,'(a)') "multiblock range:"
-         write(6,'(3f10.3)') tmpgox +h, tmpgox +tmpxm*h
-         write(6,'(3f10.3)') tmpgoy +h, tmpgoy +tmpym*h
-         write(6,'(3f10.3)') tmpgoz +h, tmpgoz +tmpzm*h
-      end if
-!     gxmin = tmpgox+h-tmpxm*h
-!     gymin = tmpgoy+h-tmpym*h
-!     gzmin = tmpgoz+h-tmpzm*h
-!     gxmax = tmpgox  +tmpxm*h
-!     gymax = tmpgoy  +tmpym*h
-!     gzmax = tmpgoz  +tmpzm*h
-
-      block = 0
-      tmpxm = ngrdblkx + 2*blkpad
-      tmpym = ngrdblky + 2*blkpad
-      tmpzm = ngrdblkz + 2*blkpad
-      do kblk = 1, zmblk; do jblk = 1, ymblk; do iblk = 1, xmblk
-         block = block + 1
-         ! set up the default dimension, origin, and grid limits within
-         ! which the atoms' forces will be computed. That is to say
-         ! atoms within the padding regions are discarded because they
-         ! are too close to the block boundary, i.e. accuracy too low.
-         gox = tmpgox + (iblk - 1)*(ngrdblkx - 1)*h - buffer
-         goy = tmpgoy + (jblk - 1)*(ngrdblky - 1)*h - buffer
-         goz = tmpgoz + (kblk - 1)*(ngrdblkz - 1)*h - buffer
-         blkxo(block) = (iblk - 1)*(ngrdblkx - 1)   - blkpad
-         blkyo(block) = (jblk - 1)*(ngrdblky - 1)   - blkpad
-         blkzo(block) = (kblk - 1)*(ngrdblkz - 1)   - blkpad
-         ilower = 1 + blkpad
-         jlower = 1 + blkpad
-         klower = 1 + blkpad
-         
-         iupper = ilower + (ngrdblkx - 1)
-         jupper = jlower + (ngrdblky - 1)
-         kupper = klower + (ngrdblkz - 1)
-         blknx(block) = tmpxm
-         blkny(block) = tmpym
-         blknz(block) = tmpzm
-         blknxny(block) = tmpxm*tmpym
-         blknynz(block) = tmpym*tmpzm
-         blknxnz(block) = tmpxm*tmpzm
-         blknxnynz(block) = tmpxm*tmpym*tmpzm
-         blkgox(block) = gox
-         blkgoy(block) = goy
-         blkgoz(block) = goz
-         blkxlo(block) = ilower; blkxup(block) = iupper
-         blkylo(block) = jlower; blkyup(block) = jupper
-         blkzlo(block) = klower; blkzup(block) = kupper
-         !if ( verbose .and. pbprint .and. master) then
-         if ( master .and. nfocus > 1 ) then
-            write(6, '(a,2i5,1x,3i5)') ' Grid dimension at level/block ',&
-               l, block,  tmpxm, tmpym, tmpzm
-            write(6, '(a,2i5,1x,3f10.3)') ' Grid orig at level/block', &
-               l, block, gox, goy, goz
-            if ( ilower == 1 ) then
-               write(6,'(a,2f10.3)') ' Block inner limits ', gox+h*ilower, gox+h*iupper
-            else
-               write(6,'(a,2f10.3)') ' Block inner limits ', gox+h*ilower+h, gox+h*iupper
-            end if
-            if ( klower == 1 ) then
-               write(6,'(a,2f10.3)') ' Block inner limits ', goy+h*jlower, goy+h*jupper
-            else
-               write(6,'(a,2f10.3)') ' Block inner limits ', goy+h*jlower+h, goy+h*jupper
-            end if
-            if ( klower == 1 ) then
-               write(6,'(a,2f10.3)') ' Block inner limits ', goz+h*klower, goz+h*kupper
-            else
-               write(6,'(a,2f10.3)') ' Block inner limits ', goz+h*klower+h, goz+h*kupper
-            end if
-         end if
-      end do; end do; end do
-   end if ! end of multi-block
-
-   ! if no focusing is used, we are done ...
- 
-   !if ( nfocus > 1 ) then
-
    ! :::::: set the first/coarse grid ::::::
-    
-   ! find the bounding box of all atoms
-    
+
+   if ( nfocus > 1 ) then
+
+   l = 1
+
+   ! part a. find the bounding box of all atoms
+   ! rounding to nearest h unit (fine grid) for easy restarting
+
    if ( ifcap == 0 .or. ifcap == 5 ) then
       xmin =  9999.0; ymin =  9999.0; zmin =  9999.0
       xmax = -9999.0; ymax = -9999.0; zmax = -9999.0
@@ -1254,9 +1001,6 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
          if ( acrd(3,iatm)+radi(iatm) .gt. zmax ) zmax = acrd(3,iatm)+radi(iatm)
       end do
       xbox = (xmax + xmin)/TWO; ybox = (ymax + ymin)/TWO; zbox = (zmax + zmin)/TWO
-
-      ! rounding to nearest h unit for easy restarting
-
       htmp = savh(nfocus)
       xbox = nint(xbox/htmp)*htmp; ybox = nint(ybox/htmp)*htmp; zbox = nint(zbox/htmp)*htmp
    else
@@ -1265,7 +1009,12 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
       zmin = zcap - cutcap; zmax = zcap + cutcap
       xbox = xcap; ybox = ycap; zbox = zcap
    end if
-    
+
+   ! no more corrected box or previous box centers due to the rounding of box center
+
+   cxbox(1) = xbox; cybox(1) = ybox; czbox(1) = zbox
+   savxbox(1) = cxbox(1); savybox(1) = cybox(1); savzbox(1) = czbox(1)
+
    if ( verbose .and. pbprint ) then
       write(6, '(1x,a,i10)') 'Bounding Box at level:  ', 1
       write(6, '(1x,a,3f10.3)') 'Bounding Box Center:  ', xbox, ybox, zbox
@@ -1274,25 +1023,13 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
       write(6, '(1x,a,3f10.3)') 'Zmin, Zmax, Zmax-Zmin:', zmin, zmax, zmax-zmin
    end if
 
-   ! this is for updating of box information 
+   ! part b. apply fill ratio ...
 
-   if ( initial ) then
-      cxbox(1) = xbox; cybox(1) = ybox; czbox(1) = zbox
-      if ( verbose .and. pbprint ) write(6, '(a,1x,i5,1x,3f10.3)') &
-         '   beginning box center at level ', 1, cxbox(1), cybox(1), czbox(1)
-   else
-      savxbox(1) = cxbox(1); savybox(1) = cybox(1); savzbox(1) = czbox(1)
-      if ( verbose .and. pbprint ) write(6, '(a,1x,i5,1x,3f10.3)') &
-         '   previous box center at level ', 1, savxbox(1), savybox(1), savzbox(1)
-   end if
-    
-   ! set the grid dimension
-    
    isfillratiosane = .false.
-   do while ( .not. isfillratiosane ) 
-    
-   !    at least fillratio as large as the solute bounding box to search the
-   !    large enough grid
+   do while ( .not. isfillratiosane )
+
+   ! parb b-i: at least fillratio as large as the solute bounding box to search the
+   ! large enough grid
 
    xlength = (xmax-xmin)*fillratio; ylength = (ymax-ymin)*fillratio; zlength = (zmax-zmin)*fillratio
    if ( outphi .and. phiform == 0 ) then
@@ -1303,11 +1040,11 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
    savym(1) = nint(ylength/savh(1))
    savzm(1) = nint(zlength/savh(1))
 
-   !    adjust for the multigrid solver (four levels) or other solver options ...
-   !    periodic systems must use even no of grids at all levels for pbc to work
-   !    properly
-   !    use fold16 to enforce the same grid size as MG for consistency check
- 
+   ! parb b-ii: adjust for the multigrid solver (four levels) or other solver options ...
+   ! periodic systems must use even no of grids at all levels for pbc to work
+   ! properly
+   ! use fold16 to enforce the same grid size as MG for consistency check
+
    if ( solvopt == 2 ) then
       if ( bcopt == 10 ) then
          savxm(1) = 16*ceiling( dble(savxm(1))/16.0d0 )
@@ -1316,54 +1053,47 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
       else
          savxm(1) = 16*ceiling( dble(savxm(1))/16.0d0 ) - 1
          savym(1) = 16*ceiling( dble(savym(1))/16.0d0 ) - 1
-         savzm(1) = 16*ceiling( dble(savzm(1))/16.0d0 ) - 1   
+         savzm(1) = 16*ceiling( dble(savzm(1))/16.0d0 ) - 1
       endif
    else
       if ( fold16 == 1 ) then
-
-      if ( bcopt == 10 ) then
-         savxm(1) = 16*ceiling( dble(savxm(1))/16.0d0 )
-         savym(1) = 16*ceiling( dble(savym(1))/16.0d0 )
-         savzm(1) = 16*ceiling( dble(savzm(1))/16.0d0 )
+         if ( bcopt == 10 ) then
+            savxm(1) = 16*ceiling( dble(savxm(1))/16.0d0 )
+            savym(1) = 16*ceiling( dble(savym(1))/16.0d0 )
+            savzm(1) = 16*ceiling( dble(savzm(1))/16.0d0 )
+         else
+            savxm(1) = 16*ceiling( dble(savxm(1))/16.0d0 ) - 1
+            savym(1) = 16*ceiling( dble(savym(1))/16.0d0 ) - 1
+            savzm(1) = 16*ceiling( dble(savzm(1))/16.0d0 ) - 1
+         endif
       else
-         savxm(1) = 16*ceiling( dble(savxm(1))/16.0d0 ) - 1
-         savym(1) = 16*ceiling( dble(savym(1))/16.0d0 ) - 1
-         savzm(1) = 16*ceiling( dble(savzm(1))/16.0d0 ) - 1   
-      endif
-
-      else
-
          savxm(1) = 2*nint( dble(savxm(1))*HALF ) + 1
          savym(1) = 2*nint( dble(savym(1))*HALF ) + 1
          savzm(1) = 2*nint( dble(savzm(1))*HALF ) + 1
-
       end if
    end if
 
-   !    additional stored data and printing
-    
+   ! additional stored data and printing
+
    savxmym(1) = savxm(1)*savym(1)
    savxmymzm(1) = savxmym(1)*savzm(1)
-    
-   ! set grid origin
-    
-   if ( initial ) then
-      savgox(1) = - dble(savxm(1)+1) * savh(1) * HALF + xbox
-      savgoy(1) = - dble(savym(1)+1) * savh(1) * HALF + ybox
-      savgoz(1) = - dble(savzm(1)+1) * savh(1) * HALF + zbox
+
+   ! part c. set grid origin
+
+   if ( (solvopt == 2 .or. fold16 == 1) .and. bcopt == 10 ) then
+      ! for even grid dimensions
+      savgox(1) = - (dble(savxm(1)) * HALF + ONE) * savh(1) + xbox
+      savgoy(1) = - (dble(savym(1)) * HALF + ONE) * savh(1) + ybox
+      savgoz(1) = - (dble(savzm(1)) * HALF + ONE) * savh(1) + zbox
    else
-      cxbox(1) = savxbox(1) + nint( (xbox - savxbox(1))/savh(1) )*savh(1)
-      cybox(1) = savybox(1) + nint( (ybox - savybox(1))/savh(1) )*savh(1)
-      czbox(1) = savzbox(1) + nint( (zbox - savzbox(1))/savh(1) )*savh(1)
-      if ( verbose .and. pbprint ) write(6, '(a,i5,1x,3f10.3)') &
-         ' Box center corrected at level ', 1, cxbox(1), cybox(1), czbox(1)
-      savgox(1) = - dble(savxm(1)+1) * savh(1) * HALF + cxbox(1)
-      savgoy(1) = - dble(savym(1)+1) * savh(1) * HALF + cybox(1)
-      savgoz(1) = - dble(savzm(1)+1) * savh(1) * HALF + czbox(1)
+      ! for odd grid dimensions
+      savgox(1) = - dble(savxm(1)+1) * HALF * savh(1) + xbox
+      savgoy(1) = - dble(savym(1)+1) * HALF * savh(1) + ybox
+      savgoz(1) = - dble(savzm(1)+1) * HALF * savh(1) + zbox
    end if
-    
-   ! sanity checks for electrostatic focussing
-    
+
+   ! part d. sanity checks for electrostatic focussing
+
    isfillratiosane = .true.
    do l = 2, nfocus
       if ( savgox(l)+(savxm(l)+1)*savh(l) > savgox(l-1)+savxm(l-1)*savh(l-1) .or. &
@@ -1376,38 +1106,19 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
       end if
    end do
 
-   if ( multiblock .and. isfillratiosane ) then ! multiblock section
-      ! NOTE: tmp[x-z]m already include the paddings
-      if ( minval(blkgox)         <= savgox(1)                  .or. &
-           minval(blkgoy)         <= savgoy(1)                  .or. &
-           minval(blkgoz)         <= savgoz(1)                  .or. &
-           minval(blkgox)+tmpxm*h >= savgox(1)+savxm(1)*savh(1) .or. &
-           minval(blkgoy)+tmpym*h >= savgoy(1)+savym(1)*savh(1) .or. &
-           minval(blkgoz)+tmpzm*h >= savgoz(1)+savzm(1)*savh(1) ) then
-         write(6, '(a)'  ) 'setgrd(): fine grid larger than coarse grid'
-         write(6, '(a,f6.3)') &
-              'We need a fillratio larger than', max(&
-              (h*(tmpxm-1))/(xmax-xmin), &
-              (h*(tmpym-1))/(ymax-ymin), &
-              (h*(tmpzm-1))/(zmax-zmin))
-         isfillratiosane = .false.
-         fillratio = fillratio + 1
-         write(6, '(a,f6.3)') 'Automatically increased fillratio to', fillratio
-      end if
-   end if ! end of multiblock section
-
    end do ! while not isfillratiosane
+
    if ( verbose .and. pbprint ) write(6, '(a,i5,1x,3i5)') &
       ' Grid dimension at level ', 1, savxm(1),savym(1),savzm(1)
    if ( verbose .and. pbprint ) write(6, '(a,i5,1x,3f10.3)') &
       ' Grid origin corrected at level ', 1, savgox(1),savgoy(1),savgoz(1)
- 
-!  end if ! if ( nfocus > 1 )
+
+   end if ! end of set up for focussing grids
 
    ! :::::: for all grids ::::::
 
-   ! if requested offseting grid, do it here
-    
+   ! part e. if requested offseting grid, do it here
+
    if ( offx + offy + offz /= ZERO ) then
       do l = 1, nfocus
          savgox(l) = savgox(l) + offx
@@ -1418,9 +1129,9 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
       end do
    end if
 
-   ! printing and graphics staff
+   ! part f. printing and graphics staff
 
-   if ( verbose .and. pbprint .and. .not. multiblock ) then
+   if ( verbose .and. pbprint ) then
       write(6, '(a)') '------- VMD goodie --------'
       write(6, '(a)') '#First Level Geometric Box'
       write(6, '(a)') 'draw materials off'
@@ -1512,7 +1223,7 @@ subroutine setgrd( verbose,pbprint,initial,ifcap,atmfirst,atmlast,xcap,ycap,zcap
            savgoz(2)+savzm(2)*savh(2)+savh(2),'"'
       write(6, '(a)') '--- End VMD goodie --------'
    endif
-   
+
 end subroutine setgrd
 
 end subroutine pb_setgrd

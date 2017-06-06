@@ -12,7 +12,7 @@
 !+ [Enter a one-line description of subroutine handle_induced here]
 subroutine handle_induced(crd,numatoms,iac,ico,charge, &
       cn1,cn2,cn6,eelt,epol,frc,x,ix,ipairs, &
-      pol, pol2,xr,virvsene,ipres,ibgwat,nres,aveper, &
+      pol,pol2,polbnd,xr,virvsene,ipres,ibgwat,nres,aveper, &
       aveind,avetot,emtot, dipole_rms, dipiter,dipole_temp, &
 #ifdef HAS_10_12
       cn3,cn4,cn5,asol,bsol)
@@ -29,7 +29,7 @@ subroutine handle_induced(crd,numatoms,iac,ico,charge, &
 #ifdef HAS_10_12
    _REAL_ asol(*), bsol(*)
 #endif
-   _REAL_ x(*), pol2(*), cn3(*),cn4(*),cn5(*)
+   _REAL_ x(*),pol2(*),polbnd(3,*),cn3(*),cn4(*),cn5(*)
    integer ix(*),ipairs(*)
 #  include "ew_mpole.h"
 #  include "ew_cntrl.h"
@@ -71,8 +71,8 @@ subroutine handle_induced(crd,numatoms,iac,ico,charge, &
          
          !         ---predict induced dipoles from previous time steps:
          
-         call dip_init(numatoms,x(linddip),pol, &
-               x(leold1),x(leold2),x(leold3),indmeth)
+         call dip_init(numatoms,crd,x(linddip),pol,polbnd, &
+               x(leold1),x(leold2),x(leold3),indmeth,induced)
       end if
       
       do iter = 1,maxiter
@@ -88,7 +88,7 @@ subroutine handle_induced(crd,numatoms,iac,ico,charge, &
          66 format(1x,'Induced dipoles: iter = ',i3,' RMS = ', &
                e12.3, 'TOL = ',e12.3)
          if ( diprms < diptol )goto 100
-         call dip_iter(numatoms,x(linddip),pol,x(lfield))
+         call dip_iter(numatoms,crd,x(linddip),pol,polbnd,x(lfield),induced)
       end do
       100 continue
       initdip = 0
@@ -130,13 +130,17 @@ end subroutine handle_induced
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine dip_init here]
-subroutine dip_init(numatoms,ind_dip,pol, &
-      eold1,eold2,eold3,indmeth)
+subroutine dip_init(numatoms,x,ind_dip,pol,polbnd, &
+      eold1,eold2,eold3,indmeth,induced)
    implicit none
-   integer numatoms,indmeth
+   integer numatoms,indmeth,induced
+   _REAL_ x(3,*)
    _REAL_ eold1(3,*),eold2(3,*),eold3(3,*)
    _REAL_ ind_dip(3,*),pol(*)
+   _REAL_ polbnd(3,*)
+
    integer n,istart,iend
+
 #ifdef MPI
 #  include "parallel.h"
 #endif
@@ -176,6 +180,15 @@ subroutine dip_init(numatoms,ind_dip,pol, &
                3.d0*eold2(3,n) + eold3(3,n))
       end do
    end if
+
+   if ( induced == 5) then
+      call bond_pol(istart,iend,x,eold1,polbnd)
+      do n = istart,iend
+         ind_dip(1,n) = ind_dip(1,n) + polbnd(1,n)
+         ind_dip(2,n) = ind_dip(2,n) + polbnd(2,n)
+         ind_dip(3,n) = ind_dip(3,n) + polbnd(3,n)
+      end do
+   end if
    call timer_stop(TIME_DIPUP)
 
    return
@@ -184,11 +197,15 @@ end subroutine dip_init
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine dip_iter here]
-subroutine dip_iter(numatoms,ind_dip,pol,field)
+subroutine dip_iter(numatoms,x,ind_dip,pol,polbnd,field,induced)
    implicit none
    integer numatoms
+   _REAL_ x(3,*)
    _REAL_ field(3,*)
    _REAL_ ind_dip(3,*),pol(*)
+   _REAL_ polbnd(3,*)
+   integer induced
+   
    integer n,istart,iend
 #ifdef MPI
 #  include "parallel.h"
@@ -208,12 +225,49 @@ subroutine dip_iter(numatoms,ind_dip,pol,field)
       ind_dip(2,n) = pol(n)*field(2,n)
       ind_dip(3,n) = pol(n)*field(3,n)
    end do
+
+   if ( induced == 5) then
+      call bond_pol(istart,iend,x,field,polbnd)
+      do n = istart,iend
+         ind_dip(1,n) = ind_dip(1,n) + polbnd(1,n)
+         ind_dip(2,n) = ind_dip(2,n) + polbnd(2,n)
+         ind_dip(3,n) = ind_dip(3,n) + polbnd(3,n)
+      end do
+   end if
    call timer_stop(TIME_DIPUP)
+
    return
 end subroutine dip_iter 
 !-------------------------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!+ [Enter a one-line description of subroutine bond_pol here]
+subroutine bond_pol(istart,iend,x,field,polbnd)
+
+   use bndpol, only : nbnd, ibnd, pbnd
+
+   implicit none
+
+   integer istart, iend
+   _REAL_ x(3,*), field(3,*)
+   _REAL_ polbnd(3,*)
+
+   integer l, m, n
+   _REAL_ rnorm(3), ind_bnd
+
+   polbnd(1:3,istart:iend) = 0.0d0
+   do n = istart,iend
+      do l = 1, nbnd(n) ! loop over all bondh and bonda
+         m = ibnd(l,n)
+         rnorm(1:3) = (x(1:3,m) - x(1:3,n))/sqrt(sum((x(1:3,m) - x(1:3,n))**2))
+         ind_bnd = rnorm(1)*field(1,n) + rnorm(2)*field(2,n) + rnorm(3)*field(3,n)
+         polbnd(1:3,n) = polbnd(1:3,n) + pbnd(l,n)*ind_bnd*rnorm(1:3)
+      end do
+   end do
+
+end subroutine bond_pol
+!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 !+ [Enter a one-line description of subroutine dip_fin here]
 subroutine dip_fin(numatoms,field,eold1,eold2,eold3,indmeth)
    implicit none

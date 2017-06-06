@@ -17,7 +17,7 @@ SET(LIBS_STATIC             OFF CACHE BOOL "Should the static version of pmflib 
 # ==============================================================================
 
 # define project name ----------------------------
-SET(SANDER_PMF_VERSION 15.05)
+SET(SANDER_PMF_VERSION 17.05)
 
 # what languages we use --------------------------
 ENABLE_LANGUAGE(C)
@@ -62,9 +62,10 @@ INCLUDE_DIRECTORIES(${NETCDF_ROOT}/include SYSTEM)
 SET(NETCDF_FLIB_NAME fnetcdf)
 
 # FFTW3 =======================
-SET(FFTW3_ROOT ${DEVELOPMENT_ROOT}/thirdparty/fftw/3.3.4)
+SET(FFTW3_ROOT ${DEVELOPMENT_ROOT}/thirdparty/fftw/3.3.6)
 IF(EXISTS "${FFTW3_ROOT}/")
     LINK_DIRECTORIES(${FFTW3_ROOT}/lib)
+    INCLUDE_DIRECTORIES(${FFTW3_ROOT}/include SYSTEM)
     SET(FFTW3_LIB_NAME fftw3)
     SET(HAVE_FFTW3 TRUE)
 ENDIF(EXISTS "${FFTW3_ROOT}/")

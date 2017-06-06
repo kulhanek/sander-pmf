@@ -6,9 +6,9 @@
 subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
       itree,igroup,jgroup,index,irespw,npdec, &
       weit,xc,konst,dotgtmd,belly,idecomp,nfu,writeout)
-   
+
    implicit none
-   
+
    integer:: i, i1, i2, idecomp, iend, ifld, igroup, igrp, iii, &
         index, ipres, irespw, isear, isrch, istart, itime, ivar, izero, j, &
         jfld, jgroup, jgrp, k, l, lfind, lsign, natc, natmg, natom, nf, &
@@ -22,7 +22,7 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    !     - unreferenced statement labels removed
    !     - changed title write from 12 to 19 A4. (not 20 to avoid wraps)
    !     - changed to read from unit nf -- dac 12/90
-   
+
    logical konst,misc,belly,flres,frres,dotgtmd
    character(len=4) lbres,igraph,isymbl,itree
 
@@ -32,7 +32,7 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    logical writeout
 
    !     ----- READ IN GROUPS EACH ATOM IS IN -----
-   
+
    !           WILL KEEP READING IN GROUPS OF CARDS UNTIL A BLANK CARD IS
    !           READ
    !           ALL ATOMS IN THIS CARD GROUP WILL BE PUT IN THE SAME GROUP
@@ -45,19 +45,19 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    !           WILL BE INCLUDED IN THE GROUP
    !           THIS OPTION MAY BE ENDED BY READING IN "NFIND",TERMINATING
    !           THE INPUT FOR THE GROUPS, OR BY READING IN ANOTHER "FIND"
-   
+
    integer, parameter :: max_finds=100
    character(len=4), dimension(1:max_finds) :: jgraph,jresnm,jsymbl,jtree
    common/propf/jgraph,jresnm,jsymbl,jtree,isrch
    character(len=4) title1(20)
-   
+
    dimension ipres(*),igroup(*),jgroup(*),index(*),irespw(*), &
          weit(*),igrp(8),jgrp(8)
    dimension lbres(*),igraph(*),isymbl(*),itree(*),xc(*)
    character(len=4) ihol,katn,ifind,nfind,iiend,ksear,ires,ilres,irres,ktypg
    dimension ifld(20),jfld(20),ihol(20),ivar(20),fvar(20)
    character(len=4) igrap(8),isymb(8),iwild,jwild
-   
+
    data ifld  / 2*0, 13*2 , 5*0 /
    data jfld  / 4*1, 16*0 /
    data katn  /'ATOM'/
@@ -75,9 +75,9 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
          'H1  ','H1  ','H1  '/
    data iwild /'*   '/
    data jwild /'*   '/
-   
+
    !     ----- RES CARD LISTS RESIDUE GROUPS IGRP(I) TO JGRP(I) ----
-   
+
    !           IF 1ST VALUE IS NEGATIVE, THEN EVERY RESIDUE FROM IGRP(I)
    !           TO JGRP(I) IS CONSIDERED A SEPARATE GROUP
    !           IF 2ND VALUE   = 0, THEN SUBGROUP CONSISTS OF 1 RESIDUE
@@ -85,10 +85,10 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    !           IF 2ND ATOM IN EACH PAIR  = 0 , THEN SUBGROUP CONSISTS OF
    !           1 ATOM RES AND ATOM CARDS MAY BE READ IN ANY ORDER
    !           END INPUT WITH AN "END " CARD
-   
+
    !           ZERO NGRP BEFORE CALLING THIS ROUTINE
    !           ROUTINE WILL RETURN WITH THE NUMBER OF THE LAST GROUP READ
-   
+
 
    ngrp = 0
    npdec = 0
@@ -96,9 +96,9 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    frres = .false.
    nf = nfu
    if (nf <= 0) nf=5
-   
+
    !     ----- INITIALISE THE GROUP ARRAY -----
-   
+
    do 100 i = 1,natom
       igroup(i) = 0
       if (konst) weit(i) = 0.0d0
@@ -110,9 +110,9 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    izero = 0
    isrch = 0
    natmg = 0
-   
+
    !       ----- READ DIFFERENT GROUPS -----
-   
+
    read(nf,9208) (title1(k),k=1,19)
    if(title1(1) == iiend) then
       if(writeout) write(6, '(4x,a)') '----- END OF GROUP READ -----'
@@ -123,10 +123,10 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
      write(6,'(4x,a,i5,a)') '----- READING GROUP ', ngrp, '; TITLE:'
      write(6,9218) (title1(k),k=1,19)
    end if
-   
+
    !       ----- IF CONSTRAINED GROUPS READ THE WEIGHT FOR EACH GROUP -----
    !       ----- NOTE NO WEIGHT FOR TARGETED MD -----
-   
+
    if (konst) then
       ifld(1) = 3
       ifld(2) = 0
@@ -138,7 +138,7 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
 
    10 continue
    !       ----- READ THE GROUP CARDS -----
-   
+
    ifld(1) = 1
    ifld(2) = 2
    call rfree(ifld,ihol,ivar,fvar,nf,6)
@@ -161,9 +161,9 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
       goto 10
    end if
    if (ktypg == ifind) then
-      
+
       !         ----- FIND OPTION ... READ THE ATOM SPECIFICS -----
-      
+
       if(writeout) write(6,200)
       do iii = 1,max_finds
          call rfree(jfld,ihol,ivar,fvar,nf,6)
@@ -174,22 +174,22 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
          if(jgraph(iii) == ksear) exit
          if(writeout) write(6,202) jgraph(iii),jsymbl(iii),jtree(iii),jresnm(iii)
       enddo
-      
+
       isrch = iii-1
       if(isrch > max_finds) then
         if(writeout) write(6,66) isrch
       end if
       !         ----- NOW READ IN RES AND ATOMS TO BE SEARCHED -----
-      
+
       goto 10
    end if
    itime = itime+1
-   
+
    if (idecomp > 0 .and. &
          (ktypg == ilres .or. ktypg == irres)) then
-      
+
       !         ----- CHECK LRES or RRES CARD -----
-      
+
       do 40 i = 1,7
          !           --- Sign does not play a role ---
          i1 = igrp(i)
@@ -237,14 +237,14 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
       ngrp = ngrp - 1
       goto 10
    end if
-   
+
    if (ktypg /= katn) then
-      
+
       !         ----- CHECK RES CARD -----
-      
+
       !         ----- 1ST GROUP OF 1ST CARD MUST BE - IF ANY - NUMBERS ARE
       !               FOUND -----
-      
+
       if(itime == 1.and.igrp(1) < 0) lsign = 1
       do 12 i = 1,7
          i1 = igrp(i)
@@ -277,9 +277,9 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
       12 continue
       goto 10
    end if
-   
+
    !       ----- ATOM TYPE CONSTRAINTS -----
-   
+
    if(lsign == 1) goto 36
    if(writeout) write(6,51) ngrp
    do 17 i = 1,7
@@ -300,35 +300,35 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
       18 continue
    17 continue
    goto 10
-   
+
    16 if(lsign == 1) ngrp = ngrp-1
    if(itime == 0) ngrp = ngrp-1
    !       IF(ISRCH.GT.0) WRITE(6,199)
    if(writeout) write(6,222) natmg
    goto 22
-   
+
    36 continue
    if(writeout) write(6,127) ktypg,(igrp(i),jgrp(i),i = 1,7)
    goto 10
-   
+
    !     ----- ALL GROUPS ARE READ RETURN -----
-   
+
    900 continue
    if (konst.or.dotgtmd) then
-      
+
       !       ----- GATHER ALL THE CONSTRAINED ATOMS TOGETHER -----
-      
+
       natc = 0
       do 920 i = 1,natom
          if(igroup(i) <= 0) goto 920
          natc = natc+1
          igroup(natc) = i
-         
+
          ! WEIT will not be used for targeted MD
-         
+
          weit(natc) = weit(i)
       920 continue
-      
+
       !       ----- do not PRINT THE HISTORY OF CONSTRAINED ATOMS -----
       ! if(writeout) write(6,9108)
       ! do i = 1,natc
@@ -337,11 +337,11 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
       !    if(writeout) write(6,9118) i,j,igraph(j),isymbl(j),itree(j), &
       !          (xc(j3+k),k=1,3), weit(i)
       ! end do
-      
+
    else if (idecomp > 0) then
-      
+
       !       ----- Special treatment for energy decomposition -----
-      
+
       if(.not.flres .and. .not.frres) then
          !         --- Assign all atoms to "Protein" ---
          !         --- Set all residues to be printed ---
@@ -382,12 +382,12 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
             if(writeout) write(6,'(a,i6,a,i6,a,2i6)') 'Atom ',k,' (',j,') : ',jgroup(k),igroup(k)
          48 continue
       47 continue
-      
+
    else if (.not.belly) then
-      
+
       !       ----- PUT THE ATOMS WHICH ARE NOT IN THE DEFINED GROUPS
       !             AS THE LAST GROUP -----
-      
+
       misc = .false.
       do 820 i = 1,natom
          if(igroup(i) /= 0) goto 820
@@ -397,9 +397,9 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
       if(misc) ngrp = ngrp+1
       !       IF(MISC) WRITE(6,9308) NGRP
    end if
-   
+
    ! for targeted MD, support only 1 group for now
-   
+
    if (dotgtmd.and.ngrp > 1) then
       write (6,9200)
       write (6,9205)
@@ -432,10 +432,10 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    !    +       ' AS GROUPS BY THE INPUT',/)
    return
 
-   contains   
+   contains
 
    subroutine findp(iatom,ires,iloc,nres,ipres,lbres,isymbl,itree,igraph)
-   
+
    implicit none
    integer:: iatom, iloc, ipres, ires, n, nres
 
@@ -445,11 +445,11 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    !     Changed iblank, jblank to iwild, jwild, to give the wildcard
    !     functionality promised by the doc.
    !     isymbl() dimensioned. (this was long-standing bug)
-   
+
    dimension ipres(*),lbres(*),itree(*),igraph(*),isymbl(*)
-   
+
    !     ----- CHECKS IF A GIVEN ATOM HAS CERTAIN CHARACTERISTICS -----
-   
+
    iwild = '*   '
    jwild = '*   '
    iloc = 0
@@ -464,18 +464,18 @@ subroutine rgroup(natom,natc,nres,ngrp,ipres,lbres,igraph,isymbl, &
    10 continue
    20 continue
    return
-   end subroutine findp 
+   end subroutine findp
 !-----------------------------------------------------------------------
-end subroutine rgroup 
+end subroutine rgroup
 !-----------------------------------------------------------------------
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine findrs here]
 subroutine findrs(numa,ires,nres,ipres)
-   
+
    dimension ipres(*)
-   
+
    if(numa <= 0) goto 11
    if(numa >= ipres(nres)) ires = nres
    if(numa >= ipres(nres)) return
@@ -490,4 +490,4 @@ subroutine findrs(numa,ires,nres,ipres)
    200 continue
    100 format(/2x,'PROBLEMS FINDING RESIDUE OF ATOM ',i5)
    call mexit(6, 1)
-end subroutine findrs 
+end subroutine findrs

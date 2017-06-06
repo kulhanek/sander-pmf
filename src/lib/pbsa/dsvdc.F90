@@ -64,7 +64,7 @@
 !                   singular values of x arranged in descending
 !                   order of magnitude.
 !
-!         e         double precision(p), 
+!         e         double precision(p),
 !                   e ordinarily contains zeros.  however see the
 !                   discussion of info for exceptions.
 !

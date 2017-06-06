@@ -25,7 +25,7 @@ module dispersion_cavity
    _REAL_ rhow_effect
    _REAL_ cavity_surften
    _REAL_ cavity_offset
- 
+
 contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -40,7 +40,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
 !#endif
 
    ! Common variables
-    
+
 #  include "../include/md.h"
 #  include "pb_md.h"
 #ifdef SANDER
@@ -52,13 +52,13 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
 #  include "flocntrl.h"
 
    ! Passed variables
-    
+
    integer natom, nres, ntypes, ipres(*), iac(*), ico(*)
    _REAL_ cn1(*), cn2(*), x(3,natom), f(3,natom)
    _REAL_ enbrfcav, enbrfdis
-    
+
    ! Local variables
-    
+
    integer ic, iatm
 !   _REAL_ area(natom), darea(3,natom)
 !   _REAL_, allocatable:: xarea(:,:), yarea(:,:), zarea(:,:)
@@ -68,9 +68,9 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
    if ( do_pbnp == 0 ) return
 
    enbrfcav= ZERO; enbrfdis = ZERO
-    
+
    ! compute sa surface and arcs for dispersion energy and forces
- 
+
 !#ifndef SANDER
    call pbtimer_start(PBTIME_NPSAS)
 !#endif
@@ -82,7 +82,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
          if ( use_rmin == 1 ) then
          call sa_init(pbverbose,pbprint,natom,natom,ifcap,sprob,rmin,radip,radip2,outflag)
          end if
-      else 
+      else
          call sa_init(pbverbose,pbprint,natom,natom,ifcap,sprob,radi,radip,radip2,outflag)
       end if
       call sa_driver(pbverbose,pbprint,pqropt,ipb,inp,natom,natom,dosas,ndosas,npbstep,nsaslag,&
@@ -101,7 +101,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
 !   allocate(xarea(natom,natom))
 !   allocate(yarea(natom,natom))
 !   allocate(zarea(natom,natom))
-!   call np_cavity(natom,cavity_surften,radip,x,enbrfcav,area,darea,xarea,yarea,zarea) 
+!   call np_cavity(natom,cavity_surften,radip,x,enbrfcav,area,darea,xarea,yarea,zarea)
    if ( use_sav == 0 ) enbrfcav = cavity_surften * prtsas + cavity_offset
    if ( use_sav == 1 ) enbrfcav = cavity_surften * prtsav + cavity_offset
    if ( pbprint ) then
@@ -111,7 +111,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
 !#ifndef SANDER
    call pbtimer_stop(PBTIME_NPCAV)
 !#endif
- 
+
    ! compute dispersion solvation energy forces
    ! first obtain van der Waals A and B parameters between iatm and TIP3P/OW
 
@@ -124,7 +124,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
          ic = ico(ntypes*(iac(iatm)-1) + iac(iatm))
          if (cn2(ic) /= ZERO) then
             mdsig_iatm = (cn1(ic)/cn2(ic))**SIXTH/2
-            epsln_iatm = cn2(ic)/(256.0d0*mdsig(iatm)**6)   
+            epsln_iatm = cn2(ic)/(256.0d0*mdsig(iatm)**6)
          else
             mdsig_iatm = ZERO
             epsln_iatm = ZERO
@@ -138,7 +138,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
          b(iatm) = FOUR*epsow(iatm)*sigow6
          a(iatm) = b(iatm)*sigow6
       enddo
-   
+
       call np_dispersion( )
       if ( pbprint ) then
          write(6, '(1x,a,f12.4)') 'Dispersion solvation energy', enbrfdis
@@ -152,7 +152,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
    call pbtimer_start(PBTIME_NPSAS)
 !#endif
    if ( donpsa ) then
-      call sa_free( dosas, ndosas, .true. )
+      call sa_free
    end if
 !#ifndef SANDER
    call pbtimer_stop(PBTIME_NPSAS)
@@ -161,7 +161,7 @@ subroutine np_force( natom,nres,ntypes,ipres,iac,ico,cn1,cn2,x,f,enbrfcav,enbrfd
    ! returning:
 
 contains
- 
+
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ dispersion solvation energy and force
 subroutine np_dispersion( )
@@ -169,7 +169,7 @@ subroutine np_dispersion( )
 #  include "pb_constants.h"
 
    ! Passed variables
-    
+
    ! integer natom              ! no of atoms
    ! integer nres               ! no of residues
    ! integer ipres(*)           ! first atom of a residue
@@ -209,7 +209,7 @@ subroutine np_dispersion( )
    _REAL_ snorm(3), r_1, dotprot
    ! _REAL_ rls(3), rls2, rls4
    _REAL_ adis
-   _REAL_ cutoff, cutoff4, cutlng, rcut2    
+   _REAL_ cutoff, cutoff4, cutlng, rcut2
    ! _REAL_ rarc_1, rarcx, rarcy, rarcz
    ! _REAL_ avegamma, tmpgamma
    _REAL_ costheta, cross_sect
@@ -231,7 +231,7 @@ subroutine np_dispersion( )
    !   enddo
    !enddo
    !close(55)
- 
+
    adis = ZERO
 
    if (cutnb == ZERO) then
@@ -288,8 +288,8 @@ subroutine np_dispersion( )
                nbindex = nbindex + 1
                nbd2(nbindex) = d2
                nblist(nbindex) = j
-               nbdx(nbindex) = dx; nbdy(nbindex) = dy; nbdz(nbindex) = dz 
-            endif 
+               nbdx(nbindex) = dx; nbdy(nbindex) = dy; nbdz(nbindex) = dz
+            endif
 
          enddo ! do j = ip1, ip2
 
@@ -332,15 +332,15 @@ subroutine np_dispersion( )
                ! dispersion energy
 
                ! 6/12 decomposition
-                
+
                if ( decompopt == 1 ) then
-                
+
                   adis = - b(iatm)/(ris2*ris4)
-                
+
                ! sigma decomposition
-                
+
                else if  ( decompopt == 2 ) then
-                   
+
                   if ( ris1 > sigow(iatm) ) then
                      adis = - b(iatm)/( ris2*ris4     ) &
                             + a(iatm)/( ris4*ris4*ris4)
@@ -348,9 +348,9 @@ subroutine np_dispersion( )
                      adis = - b(iatm)/((sigow(iatm)   *ris1 )**3) &
                             + a(iatm)/( sigow(iatm)**3*ris1 )**3
                   endif
-                
+
                ! WCA decomposition
-                
+
                else if ( decompopt == 3 ) then
                   if ( ris1 > rminow(iatm) ) then
                      adis = - b(iatm)/(ris2*ris4) &
@@ -358,11 +358,11 @@ subroutine np_dispersion( )
                   else
                      adis = epsow(iatm)*(ONE - (rminow(iatm)/ris1)**3) &
                          - b(iatm)/((rminow(iatm)*ris1)**3) &
-                         + a(iatm)/(rminow(iatm)**3*ris1)**3              
+                         + a(iatm)/(rminow(iatm)**3*ris1)**3
                   endif
-                
+
                end if
-                
+
                tmpg = tmpg + adis*dotprot
 
                ! derivative of dispersion energy
@@ -375,7 +375,7 @@ subroutine np_dispersion( )
                tmpfy = tmpfy - adis*snorm(2) - tmpf*risnorm(2)
                tmpfz = tmpfz - adis*snorm(3) - tmpf*risnorm(3)
 
-            enddo ! do jdot = fstsdot(jatm), lstsdot(jatm) 
+            enddo ! do jdot = fstsdot(jatm), lstsdot(jatm)
 
          ! if the pair of atoms are too far away from each other
          ! add energy correction. However, if jatm is exposed, do not
@@ -399,7 +399,7 @@ subroutine np_dispersion( )
 !           fzcorrec  = fzcorrec - tmpf*(nbdz(j)/nbd)*cross_sect
 
          endif
-                
+
          enbrfdis = enbrfdis + tmpg*delts(jatm) + gcorrec
          f(1, iatm) = f(1, iatm) + tmpfx*delts(jatm) !+ fxcorrec
          f(2, iatm) = f(2, iatm) + tmpfy*delts(jatm) !+ fycorrec
@@ -416,7 +416,7 @@ subroutine np_dispersion( )
 !      ! two atoms that generate it. To do this, the average of integrand over all the arcdot
 !      ! on the arc is calculated.
 !      !
-! 
+!
 !      firstdot = fstadot(iatm)
 !      lastarc = dotarc(firstdot)
 !      narcik = 0
@@ -427,7 +427,7 @@ subroutine np_dispersion( )
 !         ! Retrieve the arc that generates the dot
 !
 !         iarc = dotarc(idot)
-!          
+!
 !         ! Get the norm of this dot
 !
 !         rarcx = arccrd(1, idot) - savactr(1, iarc)
@@ -444,7 +444,7 @@ subroutine np_dispersion( )
 !         ! because the correction is very small just like above
 !
 !         tmpgamma = ZERO
-! 
+!
 !         do j = 1, nbindex
 !
 !            jatm = nblist(j)
@@ -465,17 +465,17 @@ subroutine np_dispersion( )
 !         ! Are we still on the same arc .AND. NOT the last arcdot of this atom?
 !
 !         if ( (iarc == lastarc) .and. (idot /= lstadot(iatm)) ) then
-! 
+!
 !            ! We are on the same arc and not the last arcdot of iatm.
 !
 !            narcik = narcik + 1
-!            avegamma = avegamma + tmpgamma  
+!            avegamma = avegamma + tmpgamma
 !
 !         elseif ( iarc /= lastarc ) then
 !
 !            ! We are on the next arc, so accumulate the force for the previous pair of atoms.
 !            ! retrieve katm that generates the arc with iatm
-!              
+!
 !            if ( iatm == arcatm(1,lastarc) ) then
 !               katm = arcatm(2,lastarc)
 !            else
@@ -505,7 +505,7 @@ subroutine np_dispersion( )
 !            ! for the previous pair of atoms. Accumulate this dot's contribution first.
 !
 !            narcik = narcik + 1
-!            avegamma = avegamma + tmpgamma 
+!            avegamma = avegamma + tmpgamma
 !
 !            ! Retrieve katm that generates the arc
 !
@@ -532,7 +532,7 @@ subroutine np_dispersion( )
 !
 !      enddo ! do idot = fstadot(iatm), lstadot(iatm)
 
-   enddo ! do iatm = 1, natom                
+   enddo ! do iatm = 1, natom
 
 end subroutine np_dispersion
 

@@ -98,8 +98,8 @@ logical, allocatable, save :: even_replica(:)
 logical, allocatable, save :: even_exchanges(:)
 
 ! ... integer variables:
-! mdloop      - Current exchange index. mdloop will be always 0 unless rem>0
-! rem         - The type of replica exchange
+! mdloop      - Current exchange index. mdloop will be always 0 unless rem>0.
+! rem         - The type of replica exchange:
 !              -1, multi-D REMD
 !               0, regular MPI/MD
 !               1, conventional REM
@@ -107,25 +107,27 @@ logical, allocatable, save :: even_exchanges(:)
 !               3, h-remd
 !               4, pH-REMD
 ! next_rem_method - same as "rem", but is the "rem" for the next dimension we
-!                 - are exchanging in
-! rremd       - The type of reservoir replica exchange
+!                   are exchanging in.
+! rremd       - The type of reservoir replica exchange:
 !               0, no reservoir
 !               1, Boltzmann weighted reservoir
 !               2, 1/N weighted reservoir
 !               3, reservoir with weights defined by dihedral clustering
-! repnum      - Replica number
-! numreps     - Total # of replicas, set equal to numgroup
-! remd_dimension - The total number of exchange dimensions we have
-! exchsuccess - The number of successful exchanges between each neighbor pair
-!               for printing acceptance %
-! group_num   - Which group we are a part of in each dimension
+! repnum          - Replica number.
+! numreps         - Total # of replicas, set equal to numgroup.
+! remd_dimension  - The total number of exchange dimensions we have.
+! remd_repidx     - Overall replica index for this replica.
+! remd_crdidx     - Overall coordinate index for this replica.
+! exchsuccess     - The number of successful exchanges between each neighbor
+!                   pair for printing acceptance %.
+! group_num       - Which group we are a part of in each dimension.
 ! replica_indexes - A collection of which ranks this replica is in each of its
-!                   REMD dimensions
-! partners    - repnums of replica to the left and replica to the right
+!                   REMD dimensions.
+! partners    - repnums of replica to the left and replica to the right.
 ! index_list  - Ordered list of repnum for each replica in the active dimension.
 !               This is updated in subroutine set_partners(), which should be
-!               called at the beginning of each exchange subroutine
-! remd_types  - What type of exchange attempt we make in each dimension
+!               called at the beginning of each exchange subroutine.
+! remd_types  - What type of exchange attempt we make in each dimension:
 !               TEMPERATURE : 1
 !               HAMILTONIAN : 3
 !               pH          : 4
@@ -136,6 +138,8 @@ integer, save :: rremd
 integer, save :: repnum
 integer, save :: numreps
 integer, save :: remd_dimension
+integer, save :: remd_repidx
+integer, save :: remd_crdidx
 integer, allocatable, save  :: exchsuccess(:,:)
 integer, allocatable, save  :: group_num(:)
 integer, allocatable, save  :: replica_indexes(:)
@@ -634,6 +638,7 @@ subroutine multid_remd_setup(numexchg, numwatkeep, temp0, &
    !  &multirem namelist
    integer, dimension(GRPS,GRPS) :: group
    character(80)                 :: exch_type, desc
+   integer                       :: repidxIn, crdidxIn
 
    ! Utility variables (counters, error markers, etc.)
    integer              :: i, j, idx
@@ -998,13 +1003,22 @@ subroutine multid_remd_setup(numexchg, numwatkeep, temp0, &
 
       if (irest == 1) then
          ierror = NC_readRestartIndices(inpcrd, replica_indexes, group_num, &
-                                        remd_dimension)
+                                        repidxIn, crdidxIn, remd_dimension)
+         if (repidxIn .gt. -1 .and. crdidxIn .gt. -1) then
+           remd_repidx = repidxIn
+           remd_crdidx = crdidxIn
+           write(6,'(2(a,i6))') '| Overall replica indices from restart: RepIdx=',&
+                                remd_repidx, ' CrdIdx=', remd_crdidx
+         else
+           write(6,'(2(a,i6))') '| Initial overall replica indices: RepIdx=',&
+                                remd_repidx, ' CrdIdx=', remd_crdidx
+         endif
          if (ierror.ne.0) then ! TODO: mexit if -1?
             write(6,'(a)') '| Warning: Replica indices will NOT be used to &
                            &restart Multi-D run.'
          else
-            write(6,'(a)') 'Restarting REMD run. This replica will use indices:'
-            write(6,'(13i6)') (replica_indexes(i),i=1,remd_dimension)
+            write(6,'(a)') '| Restarting REMD run. This replica will use indices:'
+            write(6,'(a,13i6)') '| ', (replica_indexes(i),i=1,remd_dimension)
          end if
       end if
 
@@ -1233,10 +1247,11 @@ subroutine subrem(rem_dim)
 
    use constants, only : TWO
 
-#ifndef DISABLE_NCSU
-   use ncsu_sander_hooks, only: &
-      ncsu_on_delta => on_delta, ncsu_on_exchange => on_exchange
-#endif /* DISABLE_NCSU */
+#ifndef DISABLE_NFE
+   use nfe_sander_hooks, only: &
+      nfe_on_delta => on_delta, nfe_on_exchange => on_exchange
+   use nfe_sander_proxy, only: infe
+#endif /* DISABLE_NFE */
 
    use sgld, only : isgld, tsgset, sgft, tempsg, temprxlf, epotlf, avgtlf, &
                     avgeflf, avgefhf, avgcflf, avgcfhf, myscalsg, sgld_exchg, &
@@ -1280,9 +1295,9 @@ subroutine subrem(rem_dim)
 
    logical exchange
 
-#ifndef DISABLE_NCSU
+#ifndef DISABLE_NFE
    _REAL_ U_mm, U_mo, U_om, U_oo, beta_m, beta_o
-#endif /* DISABLE_NCSU */
+#endif /* DISABLE_NFE */
 
 ! ---------------------
    ! Initialize variables
@@ -1441,10 +1456,12 @@ subroutine subrem(rem_dim)
          end if
       end if  ! (even/odd rank check)
 
-#ifndef DISABLE_NCSU
-      call ncsu_on_delta(o_repnum - 1, &
+#ifndef DISABLE_NFE
+      if ( infe == 1 ) then
+      call nfe_on_delta(o_repnum - 1, &
          mod(myindex, 2) == 0, U_mm, U_mo, U_om, U_oo)
-#endif /* DISABLE_NCSU */
+      end if
+#endif /* DISABLE_NFE */
 
       ! RREMD: If jumpright and this replica has highest T, then attempt an
       !  exchange with a random structure in the reservoir.
@@ -1526,12 +1543,12 @@ subroutine subrem(rem_dim)
                   / (my_remd_data%mytargettemp * o_temp0)
          end if ! REMD exchange calculation
 
-#ifndef DISABLE_NCSU
+#ifndef DISABLE_NFE
          ! from Y.Sugita at al (JCP v=113 p=6042 year=2000)
          beta_m = 503.01D0 / my_remd_data%mytargettemp
          beta_o = 503.01D0 / o_temp0
          delta = delta + beta_m*(U_mo - U_mm) - beta_o*(U_oo - U_om)
-#endif /* DISABLE_NCSU */
+#endif /* DISABLE_NFE */
 
          metrop = exp(-delta)
          if (rremd==3 .and. myindex==remd_size .and. jumpright(rem_dim)) &
@@ -1656,10 +1673,12 @@ subroutine subrem(rem_dim)
                if(stagid /= o_stagid) &
                   write(6,*) "Problem in exchange ID!", stagid, o_stagid
              end if
-         ! DAN ROE: No NCSU for RREMD?
-#ifndef DISABLE_NCSU
-            call ncsu_on_exchange(o_repnum - 1)
-#endif /* DISABLE_NCSU */
+         ! DAN ROE: No NFE for RREMD?
+#ifndef DISABLE_NFE
+         if ( infe == 1 ) then
+            call nfe_on_exchange(o_repnum - 1)
+         end if
+#endif /* DISABLE_NFE */
          else ! RREMD highest replica
             my_remd_data%newtargettemp = my_remd_data%mytargettemp
             exchange = .true.
@@ -1674,6 +1693,9 @@ subroutine subrem(rem_dim)
                      remd_comm, istatus, ierror)
          call mpi_sendrecv_replace(group_num, remd_dimension, mpi_integer, &
                      o_repnum-1, 23, o_repnum-1, 23, remd_comm, istatus, ierror)
+         call mpi_sendrecv_replace(remd_repidx, 1, mpi_integer, &
+                                   o_repnum-1, 24, o_repnum-1, 24, &
+                                   remd_comm, istatus, ierror)
       end if
 
       ! REM: gather exchange log data
@@ -1764,6 +1786,7 @@ subroutine subrem(rem_dim)
          write(6,'(a16,a7,f6.2,2(a7,i2),a7,f10.2)') &
           "Replica         "," Temp= ", my_remd_data%mytargettemp, &
           " Indx= ", myindex, " Rep#= ", repnum, " EPot= ", my_remd_data%myEptot
+         write(6,'(a7,i6,a8,i6)') 'RepIdx=', remd_repidx, ' CrdIdx=', remd_crdidx
          ! Partner Information
          ! use .not.jumpright since jumpright has already been toggled
          if (rremd>0 .and. .not. jumpright(rem_dim) &
@@ -3226,6 +3249,11 @@ subroutine hremd_exchange(rem_dim, x, ix, ih, ipairs, qsetup, do_list_update)
                x(lvel+3*i - 1) = ftemp(3*i) * my_remd_data%myscaling
             end do
 
+            ! Exchange coordinate indices (even replica call)
+            call mpi_sendrecv_replace(remd_crdidx, 1, mpi_integer, &
+                                      o_repnum-1, 24, o_repnum-1, 24, &
+                                      remd_comm, istatus, ierror) 
+
             ! Increment exchsuccess for lower replica #
             ! Use index, not repnum, since this is a property of temperatures
             if (jumpright(rem_dim)) then
@@ -3274,6 +3302,11 @@ subroutine hremd_exchange(rem_dim, x, ix, ih, ipairs, qsetup, do_list_update)
                x(lvel+3*i - 2) = ftemp(3*i - 1) * my_remd_data%myscaling
                x(lvel+3*i - 1) = ftemp(3*i) * my_remd_data%myscaling
             end do
+
+            ! Exchange coordinate indices (odd replica call)
+            call mpi_sendrecv_replace(remd_crdidx, 1, mpi_integer, &
+                                      o_repnum-1, 24, o_repnum-1, 24, &
+                                      remd_comm, istatus, ierror) 
 
          end if
       end if ! replica controlling the exchange (even #)
@@ -3613,6 +3646,9 @@ subroutine ph_remd_exchange(rem_dim, solvph)
                      remd_comm, istatus, ierror)
          call mpi_sendrecv_replace(group_num, remd_dimension, mpi_integer, &
                      o_repnum-1, 23, o_repnum-1, 23, remd_comm, istatus, ierror)
+         call mpi_sendrecv_replace(remd_repidx, 1, mpi_integer, &
+                                   o_repnum-1, 24, o_repnum-1, 24, &
+                                   remd_comm, istatus, ierror)
       end if
       ! Reduce our success array to master for printing
       call mpi_reduce(suc_arry, suc_buf, remd_size, mpi_integer, &

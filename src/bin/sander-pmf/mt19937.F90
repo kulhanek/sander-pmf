@@ -31,8 +31,8 @@
 ! use. 2002-versions mt19937ar.c, mt19937ar-cok.c are considered to be usable
 ! freely.
 
-#include "ncsu-utils.h"
-#include "ncsu-config.h"
+#include "nfe-utils.h"
+#include "nfe-config.h"
 
 #define ASSUME_GFORTRAN yes
 
@@ -81,11 +81,11 @@ module mt19937
 
   public :: random_res53
 
-# ifndef NCSU_NO_NETCDF
+# ifndef NFE_NO_NETCDF
   private :: check_ncrc
   public :: mt19937_save
   public :: mt19937_load
-# endif /* NCSU_NO_NETCDF */
+# endif /* NFE_NO_NETCDF */
 
 # ifdef MPI
   public :: mt19937_bcast
@@ -437,12 +437,12 @@ module mt19937
   end function random_res53
   ! These real versions are due to Isaku Wada, 2002/01/09 added
 
-#ifndef NCSU_NO_NETCDF
+#ifndef NFE_NO_NETCDF
 subroutine check_ncrc(rc, sbrtn, filename)
 
    use netcdf
-   use ncsu_constants, only : ERR_UNIT
-   use ncsu_sander_proxy, only : terminate
+   use nfe_constants, only : ERR_UNIT
+   use nfe_sander_proxy, only : terminate
 
    implicit none
 
@@ -454,7 +454,7 @@ subroutine check_ncrc(rc, sbrtn, filename)
 
    if (rc.ne.nf90_noerr) then
       errmsg = nf90_strerror(rc)
-      write (unit = ERR_UNIT, fmt = '(/a,a,a,a,a,a/)') NCSU_ERROR, &
+      write (unit = ERR_UNIT, fmt = '(/a,a,a,a,a,a/)') NFE_ERROR, &
          trim(sbrtn), '(filename=''', trim(filename), ''') : ', trim(errmsg)
       call terminate()
    end if
@@ -499,7 +499,7 @@ end subroutine mt19937_save
 
 subroutine mt19937_load(self, filename)
 
-   NCSU_USE_AFAILED
+   NFE_USE_AFAILED
 
    use netcdf
 
@@ -527,7 +527,7 @@ subroutine mt19937_load(self, filename)
       case (1)
          self%mtinit = .true.
       case default
-         ncsu_assert_not_reached()
+         nfe_assert_not_reached()
          continue
    end select
 
@@ -538,32 +538,32 @@ subroutine mt19937_load(self, filename)
    call check_ncrc(rc, sbrtn, filename)
 
 end subroutine mt19937_load
-#endif /* NCSU_NO_NETCDF */
+#endif /* NFE_NO_NETCDF */
 
 #ifdef MPI
 subroutine mt19937_bcast(self, comm, root)
 
-   use ncsu_utils
+   use nfe_utils
 
    implicit none
 
    type(mt19937_t), intent(inout) :: self
    integer, intent(in) :: comm, root
 
-#  include "ncsu-mpi.h"
+#  include "nfe-mpi.h"
 
    integer :: error
 
-   ncsu_assert(comm.ne.MPI_COMM_NULL)
+   nfe_assert(comm.ne.MPI_COMM_NULL)
 
    call mpi_bcast(self%mt, size(self%mt), MPI_INTEGER, root, comm, error)
-   ncsu_assert(error.eq.0)
+   nfe_assert(error.eq.0)
 
    call mpi_bcast(self%mtinit, 1, MPI_INTEGER, root, comm, error)
-   ncsu_assert(error.eq.0)
+   nfe_assert(error.eq.0)
 
    call mpi_bcast(self%mti, 1, MPI_INTEGER, root, comm, error)
-   ncsu_assert(error.eq.0)
+   nfe_assert(error.eq.0)
 
 end subroutine mt19937_bcast
 #endif /* MPI */

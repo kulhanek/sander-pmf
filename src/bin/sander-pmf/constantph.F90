@@ -958,7 +958,7 @@ subroutine cnstph_explicitmd(xx,ix,ih,ipairs,x,winv,amass,f,v,vold, &
 !  iselres        : constant pH residue selection (change prot state)
 !  iselstat       : constant pH state selection for chosen residues
 !  vtemp          : temporary array holder for the velocities
-!  vtemp          : holder array for velocities
+!  voldtemp       : temporary array holder for the old velocities
 !  natom3         : natom * 3
 !  selres_holder  : residues that have been chosen to titrate
 
@@ -987,7 +987,7 @@ subroutine cnstph_explicitmd(xx,ix,ih,ipairs,x,winv,amass,f,v,vold, &
                        i, k, natom3, selres_holder(1:TITR_RES_C),&
                        holder_ntp, holder_ips, holder_iamd
    type (state_rec) :: cph_ener
-   _REAL_, dimension(natom*3) :: vtemp
+   _REAL_, dimension(natom*3) :: vtemp, voldtemp
    _REAL_           :: holder_cut
 
    ! This subroutine is the main driver for running constant pH MD in explicit
@@ -1099,6 +1099,7 @@ subroutine cnstph_explicitmd(xx,ix,ih,ipairs,x,winv,amass,f,v,vold, &
 
    do i = 1, cphfirst_sol * 3 - 3
       vtemp(i) = v(i)
+      voldtemp(i) = vold(i)
       v(i)     = 0
    end do
 
@@ -1110,6 +1111,7 @@ subroutine cnstph_explicitmd(xx,ix,ih,ipairs,x,winv,amass,f,v,vold, &
    ! restore the original values
    do i = 1, cphfirst_sol * 3 - 3
       v(i) = vtemp(i)
+      vold(i) = voldtemp(i)
    end do
    
    ! restore iamd

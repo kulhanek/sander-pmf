@@ -5,39 +5,39 @@
 subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
       x,u,iout,ifail,iprint,war,lwar,iwar,liwar,eps)
    implicit none
-   
+
    !**************************************************************************
-   
-   
+
+
    !             SOLUTION OF QUADRATIC PROGRAMMING PROBLEMS
-   
-   
-   
+
+
+
    !   QL0001 SOLVES THE QUADRATIC PROGRAMMING PROBLEM
-   
+
    !   MINIMIZE        .5*X'*C*X + D'*X
    !   SUBJECT TO      A(J)*X  +  B(J)   =  0  ,  J=1,...,ME
    !                   A(J)*X  +  B(J)  >=  0  ,  J=ME+1,...,M
    !                   XL  <=  X  <=  XU
-   
+
    !   HERE C MUST BE AN N BY N SYMMETRIC AND POSITIVE MATRIX, D AN N-DIMENSIONAL
    !   VECTOR, A AN M BY N MATRIX AND B AN M-DIMENSIONAL VECTOR. THE ABOVE
    !   SITUATION IS INDICATED BY IWAR(1)=1. ALTERNATIVELY, I.E. IF IWAR(1)=0,
    !   THE OBJECTIVE FUNCTION MATRIX CAN ALSO BE PROVIDED IN FACTORIZED FORM.
    !   IN THIS CASE, C IS AN UPPER TRIANGULAR MATRIX.
-   
+
    !   THE SUBROUTINE REORGANIZES SOME DATA SO THAT THE PROBLEM CAN BE SOLVED
    !   BY A MODIFICATION OF AN ALGORITHM PROPOSED BY POWELL (1983).
-   
-   
+
+
    !   USAGE:
-   
+
    !      QL0001(M,ME,MMAX,N,NMAX,MNN,C,D,A,B,XL,XU,X,U,IOUT,IFAIL,IPRINT,
    !             WAR,LWAR,IWAR,LIWAR)
-   
-   
+
+
    !   DEFINITION OF THE PARAMETERS:
-   
+
    !   M :        TOTAL NUMBER OF CONSTRAINTS.
    !   ME :       NUMBER OF EQUALITY CONSTRAINTS.
    !   MMAX :     ROW DIMENSION OF A. MMAX MUST BE AT LEAST ONE AND GREATER
@@ -83,24 +83,24 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    !              IT IS ASSUMED THAT THE USER PROVIDES THE INITIAL FAC-
    !              TORIZATION BY HIMSELF AND STORES IT IN THE UPPER TRIAN-
    !              GULAR PART OF THE ARRAY C.
-   
+
    !   A NAMED COMMON-BLOCK  /CMACHE/EPS   MUST BE PROVIDED BY THE USER,
    !   WHERE EPS DEFINES A GUESS FOR THE UNDERLYING MACHINE PRECISION.
-   
-   
+
+
    !   AUTHOR (C): K. SCHITTKOWSKI,
    !               MATHEMATISCHES INSTITUT,
    !               UNIVERSITAET BAYREUTH,
    !               95440 BAYREUTH,
    !               GERMANY, F.R.
-   
-   
+
+
    !   VERSION:    1.5  (JUNE, 1991)
-   
-   
+
+
    !*********************************************************************
-   
-   
+
+
    !Passed variables  lw ??
    integer m,me,nmax,mmax,n,mnn,lwar,liwar,iout,ifail,iprint,iwar(liwar)
    _REAL_  c(nmax,n),d(n),a(mmax,n),b(mmax), &
@@ -108,15 +108,15 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    _REAL_  diag,zero,eps,qpeps,ten
    integer inw1,inw2,j,lw,mn,i,idiag,info,nact,maxit,in
    logical lql
-   
+
 
 
    !     INTRINSIC FUNCTIONS:  sqrt
-   
+
    !common /cmache/eps
-   
+
    !     CONSTANT DATA
-   
+
 
 
    lql=.false.
@@ -127,9 +127,9 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    qpeps=eps
    inw1=1
    inw2=inw1+mmax
-   
+
    !     PREPARE PROBLEM DATA FOR EXECUTION
-   
+
    if (m <= 0) goto 20
    in=inw1
    do j=1,m
@@ -141,15 +141,15 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    if (liwar < n) goto 81
    if (mnn < m+n+n) goto 82
    mn=m+n
-   
+
    !     CALL OF QL0002
-   
+
    call ql0002(n,m,me,mmax,mn,mnn,nmax,lql,a,war(inw1), &
          d,c,xl,xu,x,nact,iwar,maxit,qpeps,info,diag, &
          war(inw2),lw)
-   
+
    !     TEST OF MATRIX CORRECTIONS
-   
+
    ifail=0
    if (info == 1) goto 40
    if (info == 2) goto 90
@@ -158,9 +158,9 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    if ((iprint > 0).and.(idiag > 0)) &
          write(iout,1000) idiag
    if (info < 0) goto  70
-   
+
    !     REORDER MULTIPLIER
-   
+
    do j=1,mnn
       u(j)=zero
    end do
@@ -172,9 +172,9 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    end do
    30 continue
    return
-   
+
    !     ERROR MESSAGES
-   
+
    70 ifail=-info+10
    if ((iprint > 0).and.(nact > 0)) &
          write(iout,1100) -info,(iwar(i),i=1,nact)
@@ -194,9 +194,9 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    90 ifail=2
    if (iprint > 0) write(iout,1400)
    return
-   
+
    !     FORMAT-INSTRUCTIONS
-   
+
    1000 format(/8x,28h***ql: matrix g was enlarged,i3, &
          20h-times by unitmatrix)
    1100 format(/8x,18h***ql: constraint ,i5, &
@@ -206,7 +206,7 @@ subroutine ql0001(m,me,mmax,n,nmax,mnn,c,d,a,b,xl,xu, &
    1220 format(/8x,20h***ql: mnn too small)
    1300 format(/8x,37h***ql: too many iterations (more than,i6,1h))
    1400 format(/8x,50h***ql: accuracy insufficient to attain convergence)
-end subroutine ql0001 
+end subroutine ql0001
 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -214,17 +214,17 @@ end subroutine ql0001
 subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       xl,xu,x,nact,iact,maxit,vsmall,info,diag,w,lw)
    implicit none
-   
+
    !**************************************************************************
-   
-   
+
+
    !   THIS SUBROUTINE SOLVES THE QUADRATIC PROGRAMMING PROBLEM
-   
+
    !       MINIMIZE      GRAD'*X  +  0.5 * X*G*X
    !       SUBJECT TO    A(K)*X  =  B(K)   K=1,2,...,MEQ,
    !                     A(K)*X >=  B(K)   K=MEQ+1,...,M,
    !                     XL  <=  X  <=  XU
-   
+
    !   THE QUADRATIC PROGRAMMING METHOD PROCEEDS FROM AN INITIAL CHOLESKY-
    !   DECOMPOSITION OF THE OBJECTIVE FUNCTION MATRIX, TO CALCULATE THE
    !   UNIQUELY DETERMINED MINIMIZER OF THE UNCONSTRAINED PROBLEM.
@@ -232,10 +232,10 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    !   AND A MINIMIZER OF THE OBJECTIVE FUNCTION SUBJECT TO ALL CONSTRAINTS
    !   IN THIS WORKING SET IS COMPUTED. IT IS POSSIBLE THAT CONSTRAINTS
    !   HAVE TO LEAVE THE WORKING SET.
-   
-   
+
+
    !   DESCRIPTION OF PARAMETERS:
-   
+
    !     N        : IS THE NUMBER OF VARIABLES.
    !     M        : TOTAL NUMBER OF CONSTRAINTS.
    !     MEQ      : NUMBER OF EQUALITY CONTRAINTS.
@@ -277,7 +277,7 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    !                FINAL ACTIVE CONSTRAINTS ARE HELD IN W(K), K=1,2,...,NACT.
    !   THE VALUES OF N, M, MEQ, MMAX, MN, MNN AND NMAX AND THE ELEMENTS OF
    !   A, B, GRAD AND G ARE NOT ALTERED.
-   
+
    !   THE FOLLOWING INTEGERS ARE USED TO PARTITION W:
    !     THE FIRST N ELEMENTS OF W HOLD LAGRANGE MULTIPLIER ESTIMATES.
    !     W(IWZ+I+(N-1)*J) HOLDS THE MATRIX ELEMENT Z(I,J).
@@ -292,31 +292,31 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    !     W(IWA+K) (K=1,2,...,M) USUALLY HOLDS THE RECIPROCAL OF THE
    !       LENGTH OF THE K-TH CONSTRAINT, BUT ITS SIGN INDICATES
    !       WHETHER THE CONSTRAINT IS ACTIVE.
-   
-   
+
+
    !   AUTHOR:    K. SCHITTKOWSKI,
    !              MATHEMATISCHES INSTITUT,
    !              UNIVERSITAET BAYREUTH,
    !              8580 BAYREUTH,
    !              GERMANY, F.R.
-   
+
    !   AUTHOR OF ORIGINAL VERSION:
    !              M.J.D. POWELL, DAMTP,
    !              UNIVERSITY OF CAMBRIDGE, SILVER STREET
    !              CAMBRIDGE,
    !              ENGLAND
-   
-   
+
+
    !   REFERENCE: M.J.D. POWELL: ZQPCVX, A FORTRAN SUBROUTINE FOR CONVEX
    !              PROGRAMMING, REPORT DAMTP/1983/NA17, UNIVERSITY OF
    !              CAMBRIDGE, ENGLAND, 1983.
-   
-   
+
+
    !   VERSION :  2.0 (MARCH, 1987)
-   
-   
+
+
    !*************************************************************************
-   
+
 !subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
 !      xl,xu,x,nact,iact,maxit,vsmall,info,diag,w,lw)
 
@@ -327,32 +327,32 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    _REAL_ cvmax,diag,diagr,fdiff,fdiffa,ga,gb,parinc,parnew &
          ,ratio,res,step,sum,sumx,sumy,suma,sumb,sumc,temp,tempa, &
          vsmall,xmag,xmagr,zero,one,two,onha,vfact
-   
+
    !   INTRINSIC FUNCTIONS:   DMAX1,sqrt,abs,fmin
-   
+
    integer iwz,iwr,iww,iwd,iwa,ifinc,kfinc,k,i,ia,id,ii,ir,ira, &
          irb,j,nm,iz,iza,iterc,itref,jfinc,iflag,iws,is,k1,iw,kk,ip, &
          ipp,il,iu,ju,kflag,lflag,jflag,kdrop,nu,mflag,knext,ix,iwx, &
          iwy,iy,jl
    logical lql,lower
-   
+
    !   INITIAL ADDRESSES
-   
+
    iwz=nmax
    iwr=iwz+nmax*nmax
    iww=iwr+(nmax*(nmax+3))/2
    iwd=iww+nmax
    iwx=iwd+nmax
    iwa=iwx+nmax
-   
+
    !     SET SOME CONSTANTS.
-   
+
    zero=0.d+0
    one=1.d+0
    two=2.d+0
    onha=1.5d+0
    vfact=1.d+0
-   
+
    !     SET SOME PARAMETERS.
    !     NUMBER LESS THAN VSMALL ARE ASSUMED TO BE NEGLIGIBLE.
    !     THE MULTIPLE OF I THAT IS ADDED TO G IS AT MOST DIAGR TIMES
@@ -361,16 +361,16 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    !       FACTOR XMAGR.
    !     A CHECK IS MADE FOR AN INCREASE IN F EVERY IFINC ITERATIONS,
    !       AFTER KFINC ITERATIONS ARE COMPLETED.
-   
+
    diagr=two
    diag=zero
    xmagr=1.0d-2
    ifinc=3
    kfinc=max0(10,n)
-   
+
    !     FIND THE RECIPROCALS OF THE LENGTHS OF THE CONSTRAINT NORMALS.
    !     RETURN IF A CONSTRAINT IS INFEASIBLE DUE TO A ZERO NORMAL.
-   
+
    nact=0
    if (m <= 0) goto 45
    do k=1,m
@@ -391,9 +391,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       ia=iwa+m+k
       w(ia)=one
    end do
-   
+
    !     IF NECESSARY INCREASE THE DIAGONAL ELEMENTS OF G.
-   
+
    if (.not. lql) goto 165
    do i=1,n
       id=iwd+i
@@ -414,10 +414,10 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       id=iwd+i
       g(i,i)=diag+w(id)
    end do
-   
+
    !     FORM THE CHOLESKY FACTORISATION OF G. THE TRANSPOSE
    !     OF THE FACTOR WILL BE PLACED IN THE R-PARTITION OF W.
-   
+
    90 ir=iwr
    do j=1,n
       ira=iwr
@@ -437,9 +437,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       w(ir)=sqrt(temp)
    end do
    goto 170
-   
+
    !     INCREASE FURTHER THE DIAGONAL ELEMENT OF G.
-   
+
    140 w(j)=one
    sumx=one
    k=j
@@ -456,10 +456,10 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    if (k >= 2) goto 150
    diag=diag+vsmall-temp/sumx
    goto 70
-   
+
    !     STORE THE CHOLESKY FACTORISATION IN THE R-PARTITION
    !     OF W.
-   
+
    165 ir=iwr
    do i=1,n
       do j=1,i
@@ -467,9 +467,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
          w(ir)=g(j,i)
       end do
    end do
-      
+
    !     SET Z THE INVERSE OF THE MATRIX IN R.
-      
+
    170 nm=n-1
    do i=1,n
       iz=iwz+i
@@ -493,19 +493,19 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
          w(iz)=-sum/w(ir)
       end do
    end do
-   
+
    !     SET THE INITIAL VALUES OF SOME VARIABLES.
    !     ITERC COUNTS THE NUMBER OF ITERATIONS.
    !     ITREF IS SET TO ONE WHEN ITERATIVE REFINEMENT IS REQUIRED.
    !     JFINC INDICATES WHEN TO TEST FOR AN INCREASE IN F.
-   
+
    iterc=1
    itref=0
    jfinc=-kfinc
-   
+
    !     SET X TO ZERO AND SET THE CORRESPONDING RESIDUALS OF THE
    !     KUHN-TUCKER CONDITIONS.
-   
+
    230 iflag=1
    iws=iww-n
    do i=1,n
@@ -529,9 +529,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    xmag=zero
    vfact=1.d+0
    if (nact) 340,340,280
-   
+
    !     SET THE RESIDUALS OF THE KUHN-TUCKER CONDITIONS FOR GENERAL X.
-   
+
    250 iflag=2
    iws=iww-n
    do i=1,n
@@ -575,10 +575,10 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       w(iw)=w(iw)+w(k)
       w(is)=-xu(k1)+x(k1)
    end do
-   
+
    !     PRE-MULTIPLY THE VECTOR IN THE S-PARTITION OF W BY THE
    !     INVERS OF R TRANSPOSE.
-   
+
    280 ir=iwr
    ip=iww+1
    ipp=iww+n
@@ -595,10 +595,10 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       300 ir=ir+1
       w(i)=(w(i)-sum)/w(ir)
    end do
-   
+
    !     SHIFT X TO SATISFY THE ACTIVE CONSTRAINTS AND MAKE THE
    !     CORRESPONDING CHANGE TO THE GRADIENT RESIDUALS.
-   
+
    do i=1,n
       iz=iwz+i
       sum=zero
@@ -624,17 +624,17 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
          w(iw)=w(iw)+sum*g(i,j)
       end do
    end do
-   
+
    !     FORM THE SCALAR PRODUCT OF THE CURRENT GRADIENT RESIDUALS
    !     WITH EACH COLUMN OF Z.
-   
+
    340 kflag=1
    goto 930
    350 if (nact == n) goto 380
-   
+
    !     SHIFT X SO THAT IT SATISFIES THE REMAINING KUHN-TUCKER
    !     CONDITIONS.
-   
+
    il=iws+nact+1
    iza=iwz+nact*n
    do i=1,n
@@ -648,26 +648,26 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    end do
    info=0
    if (nact == 0) goto 410
-   
+
    !     UPDATE THE LAGRANGE MULTIPLIERS.
-   
+
    380 lflag=3
    goto 740
    390 do k=1,nact
       iw=iww+k
       w(k)=w(k)+w(iw)
    end do
-   
+
    !     REVISE THE VALUES OF XMAG.
    !     BRANCH IF ITERATIVE REFINEMENT IS REQUIRED.
-   
+
    410 jflag=1
    goto 910
    420 if (iflag == itref) goto 250
-   
+
    !     DELETE A CONSTRAINT IF A LAGRANGE MULTIPLIER OF AN
    !     INEQUALITY CONSTRAINT IS NEGATIVE.
-   
+
    kdrop=0
    goto 440
    430 kdrop=kdrop+1
@@ -677,10 +677,10 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    mflag=1
    goto 800
    440 if (kdrop < nact) goto 430
-   
+
    !     SEEK THE GREATEAST NORMALISED CONSTRAINT VIOLATION, DISREGARDING
    !     ANY THAT MAY BE DUE TO COMPUTER ROUNDING ERRORS.
-   
+
    450 cvmax=zero
    if (m <= 0) goto 481
    do k=1,m
@@ -721,15 +721,15 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       knext=k+mn
    end do
    485 continue
-   
+
    !     TEST FOR CONVERGENCE
-   
+
    info=0
    if (cvmax <= vsmall) goto 700
-   
+
    !     RETURN IF, DUE TO ROUNDING ERRORS, THE ACTUAL CHANGE IN
    !     X MAY NOT INCREASE THE OBJECTIVE FUNCTION
-   
+
    jfinc=jfinc+1
    if (jfinc == 0) goto 510
    if (jfinc /= ifinc) goto 530
@@ -773,11 +773,11 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       ix=iwx+i
       w(ix)=x(i)
    end do
-   
+
    !     FORM THE SCALAR PRODUCT OF THE NEW CONSTRAINT NORMAL WITH EACH
    !     COLUMN OF Z. PARNEW WILL BECOME THE LAGRANGE MULTIPLIER OF
    !     THE NEW CONSTRAINT.
-   
+
    530 iterc=iterc+1
    if (iterc <= maxit) goto 531
    info=1
@@ -818,17 +818,17 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    549 kflag=2
    goto 930
    550 parnew=zero
-   
+
    !     APPLY GIVENS ROTATIONS TO MAKE THE LAST (N-NACT-2) SCALAR
    !     PRODUCTS EQUAL TO ZERO.
-   
+
    if (nact == n) goto 570
    nu=n
    nflag=1
    goto 860
-   
+
    !     BRANCH IF THERE IS NO NEED TO DELETE A CONSTRAINT.
-   
+
    560 is=iws+nact
    if (nact == 0) goto 640
    suma=zero
@@ -856,18 +856,18 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    if (temp <= sumc) goto 567
    if (tempa <= temp) goto 567
    goto 640
-   
+
    !     CALCULATE THE MULTIPLIERS FOR THE NEW CONSTRAINT NORMAL
    !     EXPRESSED IN TERMS OF THE ACTIVE CONSTRAINT NORMALS.
    !     THEN WORK OUT WHICH CONTRAINT TO DROP.
-   
+
    567 lflag=4
    goto 740
    570 lflag=1
    goto 740
-   
+
    !     COMPLETE THE TEST FOR LINEARLY DEPENDENT CONSTRAINTS.
-   
+
    571 if (knext > m) goto 574
    do i=1,n
       suma=a(knext,i)
@@ -929,16 +929,16 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    end do
    lflag=1
    goto 775
-   
+
    !     BRANCH IF THE CONTRAINTS ARE INCONSISTENT.
-   
+
    580 info=-knext
    if (kdrop == 0) goto 700
    parinc=ratio
    parnew=parinc
-   
+
    !     REVISE THE LAGRANGE MULTIPLIERS OF THE ACTIVE CONSTRAINTS.
-   
+
    590 if (nact == 0) goto 601
    do k=1,nact
       iw=iww+k
@@ -946,11 +946,11 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       if (iact(k) > meq) w(k)=fmax(zero,w(k))
    end do
    601 if (kdrop == 0) goto 680
-   
+
    !     DELETE THE CONSTRAINT TO BE DROPPED.
    !     SHIFT THE VECTOR OF SCALAR PRODUCTS.
    !     THEN, IF APPROPRIATE, MAKE ONE MORE SCALAR PRODUCT ZERO.
-   
+
    nu=nact+1
    mflag=2
    goto 800
@@ -963,18 +963,18 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    end do
    nflag=2
    goto 860
-   
+
    !     CALCULATE THE STEP TO THE VIOLATED CONSTRAINT.
-   
+
    630 is=iws+nact
    640 sumy=w(is+1)
    step=-res/sumy
    parinc=step/sumy
    if (nact == 0) goto 660
-   
+
    !     CALCULATE THE CHANGES TO THE LAGRANGE MULTIPLIERS, AND REDUCE
    !     THE STEP ALONG THE NEW SEARCH DIRECTION IF NECESSARY.
-   
+
    lflag=2
    goto 740
    650 if (kdrop == 0) goto 660
@@ -984,10 +984,10 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    step=ratio*sumy
    parinc=ratio
    res=temp*res
-   
+
    !     UPDATE X AND THE LAGRANGE MULTIPIERS.
    !     DROP A CONSTRAINT IF THE FULL STEP IS NOT TAKEN.
-   
+
    660 iwy=iwz+nact*n
    do i=1,n
       iy=iwy+i
@@ -995,27 +995,27 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    end do
    parnew=parnew+parinc
    if (nact >= 1) goto 590
-   
+
    !     ADD THE NEW CONSTRAINT TO THE ACTIVE SET.
-   
+
    680 nact=nact+1
    w(nact)=parnew
    iact(nact)=knext
    ia=iwa+knext
    if (knext > mn) ia=ia-n
    w(ia)=-w(ia)
-   
+
    !     ESTIMATE THE MAGNITUDE OF X. THEN BEGIN A NEW ITERATION,
    !     RE-INITILISING X IF THIS MAGNITUDE IS SMALL.
-   
+
    jflag=2
    goto 910
    690 if (sum < (xmagr*xmag)) goto 230
    if (itref) 450,450,250
-   
+
    !     INITIATE ITERATIVE REFINEMENT IF IT HAS NOT YET BEEN USED,
    !     OR RETURN AFTER RESTORING THE DIAGONAL ELEMENTS OF G.
-   
+
    700 if (iterc == 0) goto 710
    itref=itref+1
    jfinc=-1
@@ -1026,17 +1026,17 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       g(i,i)=w(id)
    end do
    730 return
-   
-   
+
+
    !     THE REMAINING INSTRUCTIONS ARE USED AS SUBROUTINES.
-   
-   
+
+
    !********************************************************************
-   
-   
+
+
    !     CALCULATE THE LAGRANGE MULTIPLIERS BY PRE-MULTIPLYING THE
    !     VECTOR IN THE S-PARTITION OF W BY THE INVERSE OF R.
-   
+
    740 ir=iwr+(nact+nact*nact)/2
    i=nact
    sum=zero
@@ -1057,9 +1057,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    if (i > 1) goto 750
    if (lflag == 3) goto 390
    if (lflag == 4) goto 571
-   
+
    !     CALCULATE THE NEXT CONSTRAINT TO DROP.
-   
+
    775 ip=iww+1
    ipp=iww+nact
    kdrop=0
@@ -1075,21 +1075,21 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       ratio=temp
    end do
    791 goto (580,650), lflag
-   
-   
+
+
    !********************************************************************
-   
-   
+
+
    !     DROP THE CONSTRAINT IN POSITION KDROP IN THE ACTIVE SET.
-   
+
    800 ia=iwa+iact(kdrop)
    if (iact(kdrop) > mn) ia=ia-n
    w(ia)=-w(ia)
    if (kdrop == nact) goto 850
-   
+
    !     SET SOME INDICES AND CALCULATE THE ELEMENTS OF THE NEXT
    !     GIVENS ROTATION.
-   
+
    iz=iwz+kdrop*n
    ir=iwr+(kdrop+kdrop*kdrop)/2
    810 ira=ir
@@ -1098,9 +1098,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    sum=temp*sqrt((w(ir-1)/temp)**2+(w(ir)/temp)**2)
    ga=w(ir-1)/sum
    gb=w(ir)/sum
-   
+
    !     EXCHANGE THE COLUMNS OF R.
-   
+
    do i=1,kdrop
       ira=ira+1
       j=ira-kdrop
@@ -1109,9 +1109,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       w(j)=temp
    end do
    w(ir)=zero
-   
+
    !     APPLY THE ROTATION TO THE ROWS OF R.
-   
+
    w(j)=sum
    kdrop=kdrop+1
    do i=kdrop,nu
@@ -1120,9 +1120,9 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       w(ira)=temp
       ira=ira+i
    end do
-   
+
    !     APPLY THE ROTATION TO THE COLUMNS OF Z.
-   
+
    do i=1,n
       iz=iz+1
       j=iz-n
@@ -1130,22 +1130,22 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
       w(iz)=ga*w(iz)-gb*w(j)
       w(j)=temp
    end do
-   
+
    !     REVISE IACT AND THE LAGRANGE MULTIPLIERS.
-   
+
    iact(kdrop-1)=iact(kdrop)
    w(kdrop-1)=w(kdrop)
    if (kdrop < nact) goto 810
    850 nact=nact-1
    goto (250,610), mflag
-   
-   
+
+
    !********************************************************************
-   
-   
+
+
    !     APPLY GIVENS ROTATION TO REDUCE SOME OF THE SCALAR
    !     PRODUCTS IN THE S-PARTITION OF W TO ZERO.
-   
+
    860 iz=iwz+nu*n
    870 iz=iz-n
    880 is=iws+nu
@@ -1166,13 +1166,13 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    end do
    goto 880
    900 goto (560,630), nflag
-   
-   
+
+
    !********************************************************************
-   
-   
+
+
    !     CALCULATE THE MAGNITUDE OF X AN REVISE XMAG.
-   
+
    910 sum=zero
    do i=1,n
       sum=sum+abs(x(i))*vfact*(abs(grad(i))+abs(g(i,i)*x(i)))
@@ -1184,13 +1184,13 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    end do
    925 xmag=fmax(xmag,sum)
    goto (420,690), jflag
-   
-   
+
+
    !********************************************************************
-   
-   
+
+
    !     PRE-MULTIPLY THE VECTOR IN THE W-PARTITION OF W BY Z TRANSPOSE.
-   
+
    930 jl=iww+1
    iz=iwz
    do i=1,n
@@ -1204,4 +1204,4 @@ subroutine ql0002(n,m,meq,mmax,mn,mnn,nmax,lql,a,b,grad,g, &
    end do
    goto (350,550), kflag
    return
-   end subroutine ql0002 
+   end subroutine ql0002

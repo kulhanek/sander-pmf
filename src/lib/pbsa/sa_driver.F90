@@ -4,6 +4,8 @@
 #include "pb_def.h"
 #include "timer.h"
 
+#define REQUIRE(e) if(.not.(e)) call croak(__FILE__,__LINE__)
+
 module solvent_accessibility
 
    implicit none
@@ -15,11 +17,12 @@ module solvent_accessibility
    integer               :: nsrfdot       ! no of sa surface dots
    integer               :: narcdot       ! no of sa arc dots
    integer               :: narc          ! no of sa arcs
-   integer               :: triopt 
+   integer               :: triopt
    _REAL_                :: radiscale     ! scale factor of radii
    _REAL_                :: sprob         ! solvent probe for dispersion surface
    _REAL_                :: vprob         ! solvent probe for cavity volume
    _REAL_                :: dprob         ! solvent probe for dielectric surface
+   _REAL_                :: mprob         ! membrane probe for dielectric surface
    _REAL_                :: iprob         ! ion probe for stern surface
    _REAL_                :: arcres        ! arc dot resolution, with respect to the grid spacing
    _REAL_                :: prtsas        ! total sa surface area for printout
@@ -51,12 +54,12 @@ module solvent_accessibility
    integer               :: ntri          ! SES trimer arc point number
    integer               :: maxtri        ! limit of trimer arc points
    integer , allocatable ::   triatm(:,:) ! atoms forming trimer arcs
-   integer , allocatable ::  triatm1(:,:) ! 
-   integer , allocatable ::   triarc(:,:) ! 
-   integer , allocatable ::  triarc1(:,:) ! 
-   _REAL_  , allocatable ::   tricrd(:,:) ! 
-   _REAL_  , allocatable ::  tricrd1(:,:) ! 
-   logical , allocatable :: knocktri(:)   ! 
+   integer , allocatable ::  triatm1(:,:) !
+   integer , allocatable ::   triarc(:,:) !
+   integer , allocatable ::  triarc1(:,:) !
+   _REAL_  , allocatable ::   tricrd(:,:) !
+   _REAL_  , allocatable ::  tricrd1(:,:) !
+   logical , allocatable :: knocktri(:)   !
 
    logical , allocatable :: knockout(:)   ! auxiliary flags for checking surface/arcs
    integer , allocatable ::   spharc(:)   ! auxiliary arc index
@@ -84,41 +87,27 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Cleanup routine of solvent accessible surface and arcs
-subroutine sa_free ( dosas,ndosas,npsa )
+subroutine sa_free
 
-   integer dosas, ndosas, alloc_err(16)
+   integer dosas, ndosas, ier
    logical npsa
 
-   alloc_err = 0
-
-   if ( dosas .eq. ndosas ) then
-      deallocate( fstsdot, stat = alloc_err(1 ) )
-      deallocate( lstsdot, stat = alloc_err(2 ) )
-      deallocate(  srfcrd, stat = alloc_err(3 ) )
-      if ( .not. npsa ) then
-         deallocate( fstadot, stat = alloc_err(4 ) )
-         deallocate( lstadot, stat = alloc_err(5 ) )
-         deallocate(  fstarc, stat = alloc_err(6 ) ) 
-         deallocate(  lstarc, stat = alloc_err(7 ) )
-         deallocate(    marc, stat = alloc_err(8 ) )
-         deallocate(  m2narc, stat = alloc_err(9 ) )
-         deallocate(  arcatm, stat = alloc_err(10) )
-         deallocate(  savarc, stat = alloc_err(11) )
-         deallocate( savactr, stat = alloc_err(12) )
-         deallocate(  dotarc, stat = alloc_err(13) )
-         deallocate(  arccrd, stat = alloc_err(14) )
-         deallocate(  triatm, stat = alloc_err(15) )
-         deallocate(  triarc, stat = alloc_err(16) )
-      end if
-
-      if ( alloc_err(1)+alloc_err(2)+alloc_err(3)+alloc_err(4)+alloc_err( 5)+&
-           alloc_err(6)+alloc_err(7)+alloc_err(8)+alloc_err(9)+alloc_err(10)+&
-           alloc_err(11)+alloc_err(12)+alloc_err(13)+alloc_err(14)+&
-           alloc_err(15)+alloc_err(16) /= 0 ) then
-         write(6,'(a,16i6)') 'SA Bomb in sa_free(): DeAllocation aborted', alloc_err(1:16)
-         call mexit(6, 1)
-      end if
-   end if
+   if ( allocated(fstsdot) ) deallocate( fstsdot, stat = ier); REQUIRE(ier==0)
+   if ( allocated(lstsdot) ) deallocate( lstsdot, stat = ier); REQUIRE(ier==0)
+   if ( allocated(srfcrd ) ) deallocate(  srfcrd, stat = ier); REQUIRE(ier==0)
+   if ( allocated(fstadot) ) deallocate( fstadot, stat = ier); REQUIRE(ier==0)
+   if ( allocated(lstadot) ) deallocate( lstadot, stat = ier); REQUIRE(ier==0)
+   if ( allocated(fstarc ) ) deallocate(  fstarc, stat = ier); REQUIRE(ier==0)
+   if ( allocated(lstarc ) ) deallocate(  lstarc, stat = ier); REQUIRE(ier==0)
+   if ( allocated(marc   ) ) deallocate(    marc, stat = ier); REQUIRE(ier==0)
+   if ( allocated(m2narc ) ) deallocate(  m2narc, stat = ier); REQUIRE(ier==0)
+   if ( allocated(arcatm ) ) deallocate(  arcatm, stat = ier); REQUIRE(ier==0)
+   if ( allocated(savarc ) ) deallocate(  savarc, stat = ier); REQUIRE(ier==0)
+   if ( allocated(savactr) ) deallocate( savactr, stat = ier); REQUIRE(ier==0)
+   if ( allocated(dotarc ) ) deallocate(  dotarc, stat = ier); REQUIRE(ier==0)
+   if ( allocated(arccrd ) ) deallocate(  arccrd, stat = ier); REQUIRE(ier==0)
+   if ( allocated(triatm ) ) deallocate(  triatm, stat = ier); REQUIRE(ier==0)
+   if ( allocated(triarc ) ) deallocate(  triarc, stat = ier); REQUIRE(ier==0)
 
 end subroutine sa_free
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -134,7 +123,7 @@ subroutine sa_free_mb ( dosas,ndosas )
       !deallocate(  srfcrd, stat = alloc_err(3 ) )
       deallocate( fstadot, stat = alloc_err(4 ) )
       deallocate( lstadot, stat = alloc_err(5 ) )
-      deallocate(  fstarc, stat = alloc_err(6 ) ) 
+      deallocate(  fstarc, stat = alloc_err(6 ) )
       deallocate(  lstarc, stat = alloc_err(7 ) )
       deallocate(    marc, stat = alloc_err(8 ) )
       deallocate(  m2narc, stat = alloc_err(9 ) )
@@ -178,9 +167,9 @@ subroutine sa_init( verbose, pbprint, natom, atmlast, ifcap, prob, r, rp, rp2, o
    _REAL_ prob, r(natom), rp(natom), rp2(natom)
 
    ! Local variables
-    
+
    integer iatm
-    
+
    ! for InsightII surface display only
 
    !do iatm = 1, natom
@@ -201,8 +190,8 @@ subroutine sa_init( verbose, pbprint, natom, atmlast, ifcap, prob, r, rp, rp2, o
    !      call mexit(6, 1)
    !   end if
    !end do
-   
-   if ( verbose .and. pbprint ) then 
+
+   if ( verbose .and. pbprint ) then
       write(6,'()')
       write(6,'(a)') '======== Setting up Solvent Accessibility Data ========'
       write(6,'(a)') 'Setting up working radii'
@@ -312,12 +301,12 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
    ! ions in the database files.
    !
    ! However, small organic molecules generated by Antechamber use parm file radii!
-   ! 
+   !
    ! Dielectric assignment use a solvent probe of 1.6 A and solvent excluded surface.
    ! fdpb used a grid spacing of 0.5 A with the harmonic smoothing method to
    ! define the dielectric boundary. fdpb energy was averaged over 27 different
    ! grid positions. See Tan, Yang and Luo, In Prep. 2006 for more information.
-   ! 
+   !
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    implicit none
@@ -332,10 +321,10 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
    _REAL_ radi(*), acrg(*), ucrgh(*), ucrga(*), rin(*)
 
    ! Local variables
-    
+
    integer nhn(natom)
    integer iatm, jatm, idum
-    
+
    ! accumulate no. of H attached to N
 
    nhn(1:natom) = 0
@@ -357,9 +346,9 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
 
    ! ::::: radii are zero by default :::::
    ! this takes care of All zero H's
-    
+
    radi(1:natom) = ZERO
-    
+
    ! ::::: radii for heavy atoms without H :::::
 
    do iatm = 1, natom
@@ -367,7 +356,11 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
       if     ( isymbl(iatm)(1:1) == 'H' ) cycle
 
       ! ----- radii of CT without H -----
-      if     ( isymbl(iatm)(1:2) == 'CT' ) then
+      !       extensions to 2C/3C/C8 added for newer ff
+      if     ( isymbl(iatm)(1:2) == 'CT' .or. &
+               isymbl(iatm)(1:2) == '2C' .or. &
+               isymbl(iatm)(1:2) == '3C' .or. &
+               isymbl(iatm)(1:2) == 'C8' ) then
          radi(iatm) = 2.00d0
       ! ----- radii of CX without H -----
       elseif ( isymbl(iatm)(1:2) == 'CX' ) then
@@ -389,8 +382,10 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
          else
             radi(iatm) = 1.75d0
          endif
-      ! ----- radii of C  -----
-      elseif ( isymbl(iatm)(1:2) == 'C ' ) then
+      ! ----- radii of C -----
+      !       extension to CO added for newer ff.
+      elseif ( isymbl(iatm)(1:2) == 'C ' .or. &
+               isymbl(iatm)(1:2) == 'CO' ) then
          if ( ucrga(iatm) < -0.5d0 ) then
             radi(iatm) = 1.65d0
          else
@@ -434,11 +429,11 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
       ! ----- radii of Ions -----
       elseif ( isymbl(iatm)(1:2) == 'Li' ) then
          radi(iatm) = 1.481d0
-      elseif ( isymbl(iatm)(1:2) == 'Na' ) then
+      elseif ( isymbl(iatm)(1:2) == 'Na' .or. isymbl(iatm)(1:3) == 'Na+' ) then
          radi(iatm) = 1.875d0
       elseif ( isymbl(iatm)(1:2) == 'IP' ) then
          radi(iatm) = 1.875d0
-      elseif ( isymbl(iatm)(1:2) == 'K ' ) then
+      elseif ( isymbl(iatm)(1:2) == 'K ' .or. isymbl(iatm)(1:2) == 'K+' ) then
          radi(iatm) = 2.288d0
       elseif ( isymbl(iatm)(1:2) == 'Rb' ) then
          radi(iatm) = 2.448d0
@@ -446,7 +441,7 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
          radi(iatm) = 2.712d0
       elseif ( isymbl(iatm)(1:2) == 'F ' ) then
          radi(iatm) = 1.223d0
-      elseif ( isymbl(iatm)(1:2) == 'Cl' ) then
+      elseif ( isymbl(iatm)(1:2) == 'Cl' .or. isymbl(iatm)(1:3) == 'Cl-' ) then
          radi(iatm) = 1.516d0
       elseif ( isymbl(iatm)(1:2) == 'IM' ) then
          radi(iatm) = 1.815d0
@@ -454,11 +449,11 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
          radi(iatm) = 1.745d0
       elseif ( isymbl(iatm)(1:2) == 'I ' ) then
          radi(iatm) = 1.870d0
-      elseif ( isymbl(iatm)(1:2) == 'MG' ) then
+      elseif ( isymbl(iatm)(1:2) == 'MG' .or. isymbl(iatm)(1:4) == 'Mg2+' ) then
          radi(iatm) = 1.515d0
-      elseif ( isymbl(iatm)(1:2) == 'C0' ) then
+      elseif ( isymbl(iatm)(1:2) == 'C0' .or. isymbl(iatm)(1:4) == 'Ca2+' ) then
          radi(iatm) = 2.126d0
-      elseif ( isymbl(iatm)(1:2) == 'Zn' ) then
+      elseif ( isymbl(iatm)(1:2) == 'Zn' .or. isymbl(iatm)(1:4) == 'Zn2+' ) then
          radi(iatm) = 1.469d0
 
       endif
@@ -472,8 +467,12 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
       if ( isymbl(iatm)(1:1) == 'H' ) cycle
 
       ! ----- radii of CT/HC_n, CT/H1_n, and CT/HP_n -----
+      !       extensions to 2C/3C/C8 added for newer ff
 
-      if     ( isymbl(iatm)(1:2) == 'CT' ) then
+      if     ( isymbl(iatm)(1:2) == 'CT' .or. &
+               isymbl(iatm)(1:2) == '2C' .or. &
+               isymbl(iatm)(1:2) == '3C' .or. &
+               isymbl(iatm)(1:2) == 'C8' ) then
          if ( abs(ucrgh(iatm) - acrg(iatm)) .gt. 1.0d-4 ) then
             if ( ucrga(iatm) > 0.9d0 ) then      ! LYS
                radi(iatm) = 2.50d0
@@ -588,7 +587,7 @@ subroutine pb_aaradi( natom, nbonh, ibh, jbh, radi, acrg, ucrgh, ucrga, resid, i
       ! OS not on rings, they behave like O2
 
       if ( isymbl(iatm)(1:2) == 'OS' ) then
-         if ( igraph(iatm)(1:2) == 'O4' ) radi(iatm) = 1.25d0 
+         if ( igraph(iatm)(1:2) == 'O4' ) radi(iatm) = 1.25d0
       endif
 
    enddo
@@ -678,7 +677,7 @@ end subroutine sa_sphere
 !+ Driver of solvent accessible surface and arcs
 subroutine sa_driver( verbose,pbprint,pqropt,ipb,inp,natom,atmlast,dosas,ndosas,&
            npbstep,nsaslag,ligand,outflag,acrd,iar1pb,iprshrt,nex,iex,npsa )
- 
+
    use pbtimer_module
    implicit none
 
@@ -687,18 +686,18 @@ subroutine sa_driver( verbose,pbprint,pqropt,ipb,inp,natom,atmlast,dosas,ndosas,
    ! Passed variables
 
    logical verbose, pbprint, ligand
-   integer pqropt    
+   integer pqropt
    integer ipb, inp, natom, atmlast, dosas, ndosas, npbstep, nsaslag
    integer iar1pb(4,0:natom), iprshrt(*), nex(natom), iex(64,natom)
    integer outflag(natom)
    _REAL_ acrd(3,1:natom)
    logical npsa
-    
+
    ! Local variables
-    
+
    integer iatm
    _REAL_ wf0, wf1, exposure, increase, smallsas
- 
+
    prtsas = ZERO
    prtsav = ZERO
 
@@ -728,51 +727,53 @@ subroutine sa_driver( verbose,pbprint,pqropt,ipb,inp,natom,atmlast,dosas,ndosas,
       end if
    end if
    ! mjhsieh: 1st level doesn't need sa_arc
-    
-   ! compute time-averaged atomic exposures over the last nsaslag steps
-    
-!  if ( npbstep <= nsaslag ) then
-!     do ip = 1, nsatm
-!        sumnmax(ip) = sumnmax(ip) + nmax(ip)
-!        avnmax(ip) = sumnmax(ip)/dble(npbstep)
-!        sumnexp(ip) = sumnexp(ip) + nexp(ip)
-!        avnexp(ip) = sumnexp(ip)/dble(npbstep)
-!     end do
-!  else
-!     wf0 = ONE/dble(nsaslag)
-!     wf1 = ONE - wf0
-!     do ip = 1, nsatm
-!        avnmax(ip) = wf1*avnmax(ip) + wf0*nmax(ip)
-!        avnexp(ip) = wf1*avnexp(ip) + wf0*nexp(ip)
-!     end do
-!  end if
 
-   !  GET RADIP3 FOR THE FIRST TIME SA_DRIVER GOT CALLED OR WHEN NO LIGAND/MULTIBLOCK SPECIFIED
+   ! CQ: the following feature has been delted permanently
+   ! compute time-averaged atomic exposures over the last nsaslag steps
+   !
+   !if ( npbstep <= nsaslag ) then
+   !   do ip = 1, nsatm
+   !      sumnmax(ip) = sumnmax(ip) + nmax(ip)
+   !      avnmax(ip) = sumnmax(ip)/dble(npbstep)
+   !      sumnexp(ip) = sumnexp(ip) + nexp(ip)
+   !      avnexp(ip) = sumnexp(ip)/dble(npbstep)
+   !   end do
+   !else
+   !   wf0 = ONE/dble(nsaslag)
+   !   wf1 = ONE - wf0
+   !   do ip = 1, nsatm
+   !      avnmax(ip) = wf1*avnmax(ip) + wf0*nmax(ip)
+   !      avnexp(ip) = wf1*avnexp(ip) + wf0*nexp(ip)
+   !   end do
+   !end if
+
+   ! compute RADIP3 for modified van der Waals surface
+   ! only for the first time sa_driver got called or when
+
    if ( done_sa_driver ) then
-!write(600+mytaskid,*)radi(1:natom),radip2(1:natom),radip3(1:natom),avnmax(1:natom),avnexp(1:natom);call mexit(0,0)
       continue
    else
-      ! CQ, the average values are fixed for easy reproduction of different runs
+      ! CQ: the average values are fixed for easy reproduction of different runs
       do iatm = 1, natom
          avnmax(iatm) = nmax(iatm)
          avnexp(iatm) = nexp(iatm)
       end do
-    
+
       ! use the exposure information to determine the effective dynamic cavity radii
       ! for modified van der Waals surface for MD
-       
+
       smallsas = 0.05d0*maxsph
       if ( verbose .and. pbprint ) then
          write(6, *)
          write(6, '(a)') 'Atomic solvent accessible surface area:'
       end if
-      
-      ! In the future radip3 should be read-in for docking
-      
+
+      ! In the future radip3 should be read-in for ligand docking
+
       radip3 = ZERO
       do iatm = 1, natom
          if ( radip(iatm) == ZERO ) cycle
-      
+
          if ( avnmax(iatm) <= smallsas ) then
             exposure = ONE ! buried by 1-4 pairs only, no need to increase radius
          else if ( avnmax(iatm) <= 2*smallsas ) then
@@ -783,60 +784,53 @@ subroutine sa_driver( verbose,pbprint,pqropt,ipb,inp,natom,atmlast,dosas,ndosas,
          end if
          if ( exposure > expthresh ) then
             increase = ZERO
-         else 
-!           increase = ONE - exposure/expthresh
+         else
             increase = HALF*( cos( PI*(exposure/expthresh) ) + ONE )
          end if
-      
+
          radip3(iatm) = radi(iatm) + increase*radinc
-          
+
          ! compute SASA for printout
-          
+
          prtsas = prtsas + FOURPI*radip2(iatm)*nexp(iatm)/dble(maxsph)
          if ( verbose .and. pbprint ) write(6, '(i12,f19.13)') &
             iatm, FOURPI*radip2(iatm)*nexp(iatm)/dble(maxsph)
-         !           1   126.721289834435
-         !1234567890123456789012345678901
-         !           1     126.721289834
       end do
-      ! This is for future dry-run functionality
-      !if (dumpsas) then
-      !endif
    end if
 
    ! Ligand Mask / Traditional Focusing / Multiple-block Focusing
 
    done_sa_driver = .true.
-    
+
 contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Solvent accessible surface calculation
 subroutine sa_srf( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
-    
+
    implicit none
- 
+
    ! Passed variables
- 
+
    logical verbose, pbprint
    integer pqropt,natom, atmfirst, atmlast
-    
+
    ! Local variables
-    
+
    integer alloc_err(4)
    integer iatm, jatm, jfirst, jlast, ilast, isph, jsph, jp
    integer nsrf, nsurf
    integer fstsph(natom), lstsph(natom)
    _REAL_ sx, sy, sz, xi, yi, zi, dx, dy, dz, dxij, dyij, dzij, d2
    _REAL_, parameter :: small = 0.0001d0
-    
+
    allocate(knockout(  maxsph*natom), stat = alloc_err(1) )
    allocate(  sphcrd(3,maxsph*natom), stat = alloc_err(2) )
    if ( alloc_err( 1)+alloc_err( 2) /= 0 ) then
       write(6,'(a,2i6)') 'SA Bomb in sa_srf(): Allocation aborted', alloc_err(1:2)
       call mexit(6, 1)
    end if
-   
+
    if ( pqropt == 0 ) then
 
    ! generate solvent accessible points using excluded atoms only
@@ -849,16 +843,16 @@ subroutine sa_srf( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
       fstsph(iatm) = nsrf + 1
       xi = acrd(1,iatm); yi = acrd(2,iatm); zi = acrd(3,iatm)
       jfirst = 1; jlast  = nex(iatm)
-        
+
       ! working on iatm's points
-        
+
       do isph = 1, maxsph
          sx = radip(iatm)*scrd(1,isph) + xi
          sy = radip(iatm)*scrd(2,isph) + yi
          sz = radip(iatm)*scrd(3,isph) + zi
-            
+
          ! loop over exclusion pairs:
-            
+
          do jp = jfirst, jlast
             jatm = iex(jp,iatm)
             if ( radip(jatm) == ZERO )  cycle
@@ -964,9 +958,9 @@ subroutine sa_srf( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
             d2 = dx*dx + dy*dy + dz*dz + small
             if ( d2 < radip2(iatm) ) knockout(jsph) = .true.
          end do
-       
+
       end do  ! jatm = iprshrt(ip), jp = jfirst, jlast
- 
+
    end do  ! iatm = atmfirst, atmlast
 
    ! determine the exposed atoms and buried atoms
@@ -1008,7 +1002,7 @@ subroutine sa_srf( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
       write(6,'(a,2i6)') 'SA Bomb in sa_srf(): Deallocation aborted', alloc_err(1:2)
       call mexit(6, 1)
    end if
-   
+
    if ( verbose .and. pbprint ) then
       write(6,'(a,i6)') 'Number of SA srf points exposed', nsrfdot
    end if
@@ -1033,16 +1027,16 @@ end subroutine sa_srf
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Solvent accessible arc calculation
 subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
-    
+
    implicit none
 
    ! passed variables
 
    logical verbose, pbprint
    integer pqropt, natom, atmfirst, atmlast
-   
+
    ! local variables
- 
+
    integer alloc_err(12)
    integer ksrf, lsrf, msrf, isph
    integer fstsph(natom), lstsph(natom), fstsph1(natom), lstsph1(natom)
@@ -1054,7 +1048,7 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
 
    allocate( fstadot(            natom), stat = alloc_err(1) )
    allocate( lstadot(            natom), stat = alloc_err(2) )
-   allocate(  fstarc(            natom), stat = alloc_err(3) ) 
+   allocate(  fstarc(            natom), stat = alloc_err(3) )
    allocate(  lstarc(            natom), stat = alloc_err(4) )
    allocate(    marc(            natom), stat = alloc_err(5) )
 
@@ -1086,16 +1080,16 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
       write(6,'(a,12i6)') 'SA Bomb in sa_arc(): Allocate aborted 1', alloc_err(1:12)
       call mexit(6, 1)
    end if
-    
-   ! safe initialization to silence potential compiler error messages 
+
+   ! safe initialization to silence potential compiler error messages
 
    triatm = 0; triatm1 = 0; triarc = 0; triarc1 = 0
-   fsttri = 0; lsttri = 0; fsttri1 = 0; lsttri1 =0 
+   fsttri = 0; lsttri = 0; fsttri1 = 0; lsttri1 =0
    ntri = 0; mtri = 0
-   fstarc = 0; lstarc = 0; marc = 0; fstsph = 0; lstsph = 0 
+   fstarc = 0; lstarc = 0; marc = 0; fstsph = 0; lstsph = 0
    fstsph1 = 0; lstsph1 = 0; ksrf = 0; msrf = 0; lsrf = 0
    tricrd = ZERO; tricrd1 = ZERO
-    
+
    ! get all possible arcs and arc dots
 
    allocate(  m2narc(  maxarc   ,natom), stat = alloc_err(1) )
@@ -1106,7 +1100,7 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
       write(6,'(a,4i6)') 'SA Bomb in sa_arc(): Allocates aborted 2', alloc_err(1:4)
       call mexit(6, 1)
    end if
-    
+
    allocate(knockout(  maxarcdot*natom), stat = alloc_err(1) )
    allocate(  sphcrd(3,maxarcdot*natom), stat = alloc_err(2) )
    allocate( sphcrd1(3,maxarcdot*natom), stat = alloc_err(3) )
@@ -1119,7 +1113,7 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
 
    call pbtimer_stop(PBTIME_PBSAARC_SETUP)
 
-   if ( pqropt == 0 ) then 
+   if ( pqropt == 0 ) then
 
    ! normal Amber files input
 
@@ -1132,7 +1126,7 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
    call pbtimer_stop(PBTIME_PBCIRCLE)
 
    ! knock out points on the circles occupied by other atoms
-   
+
    ! step 1: loop over exclusion list
 
    call pbtimer_start(PBTIME_PBEXCLUDE)
@@ -1142,16 +1136,16 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
    call pbtimer_stop(PBTIME_PBEXCLUDE)
 
    ! step 2: loop over short nblist with cutfd of 5 A
-    
+
    call pbtimer_start(PBTIME_PBEXCLUDE)
    call exclud( atmfirst,atmlast,1,2,lsrf,msrf,fstsph,lstsph,fstsph1,lstsph1,spharc,spharc1,sphcrd,sphcrd1, &
                 ntri,mtri,triatm,tricrd,fsttri,lsttri,triarc, &
                 triatm1,tricrd1,fsttri1,lsttri1,triarc1 )
    call pbtimer_stop(PBTIME_PBEXCLUDE)
-    
+
    ! step 3: loop over long nblist with cutsa of 9 A
    ! note that narcdot, fstadot, lstadot, dotarc, arccrd are returned and used elsewhere
-    
+
    call pbtimer_start(PBTIME_PBSAARC_SETUP)
    allocate(  dotarc(   msrf), stat = alloc_err(1) )
    allocate(  arccrd(3, msrf+mtri), stat = alloc_err(2) )
@@ -1160,7 +1154,7 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
       call mexit(6, 1)
    end if
    call pbtimer_stop(PBTIME_PBSAARC_SETUP)
-    
+
    call pbtimer_start(PBTIME_PBEXCLUDE)
    call exclud( atmfirst,atmlast,2,3,msrf,narcdot,fstsph1,lstsph1,fstadot,lstadot,spharc1,dotarc,sphcrd1,arccrd, &
                 mtri,ntri,triatm1,tricrd1,fsttri1,lsttri1,triarc1, &
@@ -1174,25 +1168,25 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
    ! generate all circles due to overlapping dimers/trimers
 
    call pbtimer_start(PBTIME_PBCIRCLE)
-   call circle( natom,atmfirst,atmlast,lsrf,arcres,fstsph,lstsph,spharc,sphcrd, & 
+   call circle( natom,atmfirst,atmlast,lsrf,arcres,fstsph,lstsph,spharc,sphcrd, &
                 mtri,ntri,triatm1,tricrd1,fsttri1,lsttri1,triarc1, &
                 triatm,tricrd,fsttri,lsttri,triarc )
    call pbtimer_stop(PBTIME_PBCIRCLE)
 
    ! knock out points on the circles occupied by other atoms
-   
+
    ! step 2: loop over short nblist with cutfd of 5 A
    ! note there is no exclusion list
-    
+
    call pbtimer_start(PBTIME_PBEXCLUDE)
-   call exclud( atmfirst,atmlast,4,2,lsrf,msrf,fstsph,lstsph,fstsph1,lstsph1,spharc,spharc1,sphcrd,sphcrd1, & 
+   call exclud( atmfirst,atmlast,4,2,lsrf,msrf,fstsph,lstsph,fstsph1,lstsph1,spharc,spharc1,sphcrd,sphcrd1, &
                 ntri,mtri,triatm,tricrd,fsttri,lsttri,triarc, &
                 triatm1,tricrd1,fsttri1,lsttri1,triarc1 )
    call pbtimer_stop(PBTIME_PBEXCLUDE)
-    
+
    ! step 3: loop over long nblist with cutsa of 9 A
    ! note that narcdot, fstadot, lstadot, dotarc, arccrd are returned and used elsewhere
-    
+
    call pbtimer_start(PBTIME_PBSAARC_SETUP)
    allocate(  dotarc(   msrf), stat = alloc_err(1) )
    allocate(  arccrd(3, msrf+mtri), stat = alloc_err(2) )
@@ -1201,15 +1195,15 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
       call mexit(6, 1)
    end if
    call pbtimer_stop(PBTIME_PBSAARC_SETUP)
-    
+
    call pbtimer_start(PBTIME_PBEXCLUDE)
-   call exclud( atmfirst,atmlast,2,3,msrf,narcdot,fstsph1,lstsph1,fstadot,lstadot,spharc1,dotarc,sphcrd1,arccrd, & 
+   call exclud( atmfirst,atmlast,2,3,msrf,narcdot,fstsph1,lstsph1,fstadot,lstadot,spharc1,dotarc,sphcrd1,arccrd, &
                 mtri,ntri,triatm1,tricrd1,fsttri1,lsttri1,triarc1, &
                 triatm,tricrd,fsttri,lsttri,triarc )
    call pbtimer_stop(PBTIME_PBEXCLUDE)
 
-   end if ! ( pqropt == 0 ) 
-    
+   end if ! ( pqropt == 0 )
+
    call pbtimer_start(PBTIME_PBSAARC_SETUP)
    ! put trimer dots at the end ...
    if ( triopt > 0 ) then
@@ -1238,7 +1232,7 @@ subroutine sa_arc( verbose,pbprint,pqropt,natom,atmfirst,atmlast )
       call mexit(6, 1)
    end if
    call pbtimer_stop(PBTIME_PBSAARC_SETUP)
-    
+
    if ( verbose .and. pbprint ) then
       write(6,'(a,i6)') ' Number of SA arcs generated', narc
       write(6,'(2(a,i12),/a,e11.6)') &
@@ -1290,11 +1284,11 @@ end subroutine sa_arc
 subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd, &
                    ntri,mtri,triatm,tricrd,fsttri,lsttri,triarc, &
                    triatm1,tricrd1,fsttri1,lsttri1,triarc1 )
-    
+
    implicit none
-    
+
    ! Passed variables
-    
+
    integer natom, atmfirst, atmlast, msrf
    _REAL_ cstep
    integer fstsph(natom), lstsph(natom)
@@ -1303,9 +1297,9 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
    integer ntri, mtri, triatm(3,*), triatm1(3,*), triarc(3,*), triarc1(3,*)
    integer fsttri(natom), lsttri(natom), fsttri1(natom), lsttri1(natom)
    _REAL_  tricrd(3,*), tricrd1(3,*)
-    
+
    ! Local variables
-    
+
    integer  jp, iatm, ifirst, ilast, jatm, jfirst, jlast, isph, nspha
    _REAL_ ri, xi, yi, zi, radius, aphi, rj
    _REAL_ x, y, dxij, dyij, dzij, d2, d, rd, d1, d3, side2(3)
@@ -1328,7 +1322,7 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
    n1 = 0; n2 = 0; n3 = 0
    narc = 0; msrf = 0
    do iatm = atmfirst, atmlast
-       
+
       ri = radip(iatm)
       if ( ri == ZERO ) then
          fstsph(iatm) = lstsph(iatm) + 1
@@ -1338,30 +1332,30 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
       fstsph(iatm) = msrf + 1
       fsttri1(iatm) = mtri + 1
       xi = acrd(1,iatm); yi = acrd(2,iatm); zi = acrd(3,iatm)
-       
+
       jfirst = iar1pb(4,iatm-1) + 1; jlast  = iar1pb(3,iatm)
       do jp = jfirst, jlast
-          
+
          jatm = iprshrt(jp)
          rj = radip(jatm)
          if ( rj == ZERO ) cycle
-          
+
          xj = acrd(1,jatm); yj = acrd(2,jatm); zj = acrd(3,jatm)
          dxij = xj - xi
          dyij = yj - yi
          dzij = zj - zi
          d2 = dxij**2 + dyij**2 + dzij**2
          if ( d2 >= (ri + rj)**2 .or. d2 <= (ri - rj)**2 ) cycle
-          
+
          ! setting up indexes ...
-          
+
          narc = narc + 1
          marc(iatm) = marc(iatm) + 1; marc(jatm) = marc(jatm) + 1
          m2narc(marc(iatm),iatm) = narc
          m2narc(marc(jatm),jatm) = narc
-          
+
          ! getting the center of the arc circle
-          
+
          d = sqrt(d2); rd = ONE/d
          cosaij = (d2 + radip2(iatm) - radip2(jatm))/(TWO*d*ri)
          cosaji = (d2 + radip2(jatm) - radip2(iatm))/(TWO*d*rj)
@@ -1374,9 +1368,9 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
          arcctr(2) = yi + frc_ctr*dyij
          arcctr(3) = zi + frc_ctr*dzij
          savactr(1:3,narc) = arcctr(1:3)
-          
+
          ! determining the orientation of the arc w.r.t. the z-axis
-          
+
          if ( abs(dyij) < small .and. abs(dxij) < small ) then
             ! the vector is aligned with the z-axis
             cosphi = ONE
@@ -1403,9 +1397,9 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
          end if
          costheta = dzij/d
          sintheta = sqrt(ONE - costheta**2)
-          
+
          ! generating dots on the arc
-          
+
          nspha = int(TWOPI*radius/cstep/EIGHT)*8
          psi = ZERO
          do isph = 1, nspha
@@ -1429,12 +1423,12 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
                katm = iprshrt(kp)
                rk = radip(katm)
                if ( rk == ZERO ) cycle
-             
+
                iscycle = .true.
                if ( jatm < katm ) then
                   kfirst = iar1pb(4,jatm-1) + 1
                   klast  = iar1pb(3,jatm)
-                  pp = kfirst 
+                  pp = kfirst
                   do while ( pp <= klast )
                      atm = iprshrt(pp)
                      if ( katm == atm ) then
@@ -1443,10 +1437,10 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
                      end if
                      pp = pp + 1
                   end do
-               else 
+               else
                   kfirst = iar1pb(4,katm-1) + 1
                   klast  = iar1pb(3,katm)
-                  pp = kfirst 
+                  pp = kfirst
                   do while ( pp <= klast )
                      atm = iprshrt(pp)
                      if ( jatm == atm ) then
@@ -1485,7 +1479,7 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
                side2(2) = d3
                side2(3) = d1
 
-               ! ruling out groups of three atoms 
+               ! ruling out groups of three atoms
                ! whose three arcs can't cross each other
 
                call get_arccrn(natom,acrd,atms,isexist,crn1,crn2)
@@ -1536,14 +1530,14 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
                      triarc1(1,mtri) = narc
                   end if
                end if
-            end do 
+            end do
          end if
-          
+
       end do  ! jatm = iprshrt(ip), jp =  jfirst, jlast
       lstarc(iatm) = narc
       lstsph(iatm) = msrf
       lsttri1(iatm) = mtri
-       
+
       if ( narc > maxarc*natom ) then
          write(6,'(a,2i6)') 'SA Bomb in circle(): Stored surface arcs over limit', iatm, narc
          call mexit(6,1)
@@ -1556,7 +1550,7 @@ subroutine circle( natom,atmfirst,atmlast,msrf,cstep,fstsph,lstsph,spharc,sphcrd
          write(6,'(a,i6)') 'SA Bomb in circle(): Stored surface points over limit', msrf
          call mexit(6,1)
       end if
-        
+
    end do  ! iatm = atmfirst, atmlast
    fstarc(atmlast) = narc + 1
    lstarc(atmlast) = narc + 1
@@ -1595,7 +1589,7 @@ subroutine get_arccrn(natom,crd,idx,isexist,crn1,crn2)
 
    ! Passed
    integer natom, idx(3)
-   _REAL_ crd(3,natom) 
+   _REAL_ crd(3,natom)
    _REAL_ prob, r(natom)
    _REAL_ crn1(3), crn2(3)
    logical isexist
@@ -1607,7 +1601,7 @@ subroutine get_arccrn(natom,crd,idx,isexist,crn1,crn2)
    _REAL_ u(3,3), v(3,3), w(3), b(3), t(3)
    _REAL_ TOL, wmax, thresh, h, d1, d2
    _REAL_ m1,m2,m3,t1,t2,t3,det,tt(3)
- 
+
    isexist = .true.
    crn1 = ZERO; crn2 = ZERO
    a1 = crd(1:3,idx(1)); a2 = crd(1:3,idx(2)); a3 = crd(1:3,idx(3))
@@ -1625,7 +1619,7 @@ subroutine get_arccrn(natom,crd,idx,isexist,crn1,crn2)
    u(1,1:3) = p1
    u(2,1:3) = p2
    u(3,1:3) = p
-  
+
    TOL = 1.d-5
    m1 = u(2,1)*u(3,2)-u(2,2)*u(3,1)
    m2 = u(1,1)*u(3,2)-u(1,2)*u(3,1)
@@ -1635,7 +1629,7 @@ subroutine get_arccrn(natom,crd,idx,isexist,crn1,crn2)
    if ( abs(det) < TOL ) then
       isexist = .false.
       return
-   end if 
+   end if
    t3 = b(1)*m1-b(2)*m2+b(3)*m3
    t(3) = t3/det
    if ( abs(m1) > TOL ) then
@@ -1664,7 +1658,7 @@ subroutine get_arccrn(natom,crd,idx,isexist,crn1,crn2)
       isexist = .false.
       return
    end if
-      
+
 !  tt = t
 !  mp = 3; np = 3
 !  m = 3; n = 3
@@ -1680,7 +1674,7 @@ subroutine get_arccrn(natom,crd,idx,isexist,crn1,crn2)
 !  end do
 !  call svbksb(u,w,v,m,n,mp,np,b,t)
 
-!  if ( dot_product(tt-t,tt-t) > 1.d-14 ) then 
+!  if ( dot_product(tt-t,tt-t) > 1.d-14 ) then
 !     write(6,'(a)') "inconsistent",tt(1:3),t(1:3)
 !     write(6,'(a)') "u1",u(1,1:3)
 !     write(6,'(a)') "u2",u(2,1:3)
@@ -1701,7 +1695,7 @@ subroutine get_arccrn(natom,crd,idx,isexist,crn1,crn2)
    if ( d1 <= d2 ) then
       isexist = .false.
       return
-   end if 
+   end if
    h = sqrt((d1-d2)/dot_product(p,p))
    crn1 = t + h*p
    crn2 = t - h*p
@@ -1710,16 +1704,16 @@ end subroutine get_arccrn
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Knock out dots on the circles that are overlapped by close pairs
 subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
-                   fstsph,lstsph,fstsph1,lstsph1,spharc,spharc1,sphcrd,sphcrd1, & 
+                   fstsph,lstsph,fstsph1,lstsph1,spharc,spharc1,sphcrd,sphcrd1, &
                    ntri,mtri,triatm,tricrd,fsttri,lsttri,triarc, &
                    triatm1,tricrd1,fsttri1,lsttri1,triarc1 )
-    
+
    implicit none
-    
+
    integer atmfirst, atmlast, istart, istop, lsrf, msrf
    integer fstsph(*), lstsph(*), fstsph1(*), lstsph1(*), spharc(*), spharc1(*)
    _REAL_ sphcrd(3,*), sphcrd1(3,*)
-    
+
    integer ntri, mtri, triatm(3,*), triatm1(3,*), triarc(3,*), triarc1(3,*)
    integer fsttri(natom),lsttri(natom),fsttri1(natom),lsttri1(natom)
    _REAL_  tricrd(3,*), tricrd1(3,*)
@@ -1733,7 +1727,7 @@ subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
 
    knockout(1:lsrf) = .false.
    knocktri(1:ntri) = .false.
-   
+
 !if ( ligand ) then
 !  myoutflag=outflag
 !else
@@ -1745,11 +1739,11 @@ subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
 !rewind
 !endif
    do iatm = atmfirst, atmlast
-       
+
       ri2 = radip2(iatm)
-      if ( ri2 == ZERO ) cycle 
+      if ( ri2 == ZERO ) cycle
       xi = acrd(1,iatm); yi = acrd(2,iatm); zi = acrd(3,iatm)
-       
+
       if ( istart == 4 ) then
          jfirst = iar1pb(istart,iatm-1) + 1
       else
@@ -1757,13 +1751,13 @@ subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
       end if
       jlast  = iar1pb(istop,iatm)
       do jp = jfirst, jlast
-          
+
          jatm = iprshrt(jp); rj2 = radip2(jatm)
          if ( rj2 == ZERO ) cycle
          xj = acrd(1,jatm); yj = acrd(2,jatm); zj = acrd(3,jatm)
-           
+
          ! working on iatm's points
-          
+
          do isph = fstsph(iatm), lstsph(iatm)
             if ( knockout(isph) ) cycle
             dx = sphcrd(1,isph) - xj
@@ -1778,9 +1772,9 @@ subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
 !else
 !write(3333,*) iatm,jatm,myoutflag(iatm)
 !endif
-          
+
          ! working on jatm's points
-           
+
          do jsph = fstsph(jatm), lstsph(jatm)
             if ( knockout(jsph) ) cycle
             dx = sphcrd(1,jsph) - xi
@@ -1799,14 +1793,14 @@ subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
                d2 = dx*dx + dy*dy + dz*dz + small
                if ( d2 < ri2 ) knocktri(jsph) = .true.
             end do
-         end if 
-       
+         end if
+
       end do  ! jatm = iprshrt(ip), jp = jfirst, jlast
-    
+
    end do  ! iatm = atmfirst, atmlast
-    
+
    ! condense exposed points
-    
+
    msrf = 0
    do iatm = atmfirst, atmlast
       if ( radip2(iatm) == ZERO ) then
@@ -1821,8 +1815,8 @@ subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
          sphcrd1(2,msrf) = sphcrd(2,isph)
          sphcrd1(3,msrf) = sphcrd(3,isph)
          spharc1(msrf) = spharc(isph)
-!jatm = arcatm(1,spharc(isph)) 
-!katm = arcatm(2,spharc(isph)) 
+!jatm = arcatm(1,spharc(isph))
+!katm = arcatm(2,spharc(isph))
 !if ( myoutflag(jatm) == 0 .or. myoutflag(katm) == 0 ) &
 !write(3333,*) min(jatm,katm), max(jatm,katm), iatm, sngl(sphcrd1(1:3, msrf))
       end do
@@ -1830,7 +1824,7 @@ subroutine exclud( atmfirst,atmlast,istart,istop,lsrf,msrf,&
 !write(2020,*) msrf, fstsph1(iatm), lstsph1(iatm), iatm, outflag(iatm)
    end do
    fstsph1(atmlast) = lstsph1(atmlast) + 1
-    
+
    if ( triopt > 0 ) then
       mtri = 0
       do iatm = atmfirst, atmlast
@@ -1855,32 +1849,32 @@ end subroutine exclud
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Volume within the solvent accessible surface
 subroutine sa_vol( verbose,pbprint,atmlast )
-    
+
    implicit none
-    
+
    ! Passed variables
-    
+
    logical verbose, pbprint
    integer atmlast
-    
+
    ! Local variables
-    
+
    integer alloc_err
    integer iatm, volnum, nbuffer, xm, ym, zm, xmymzm!, i, j, k
-   integer, allocatable :: insas(:) 
-    
+   integer, allocatable :: insas(:)
+
    _REAL_ xmin, xmax, ymin, ymax, zmin, zmax, xbox, ybox, zbox
    _REAL_ htmp, rh, gox, goy, goz, range1, xi, yi, zi
    _REAL_ gcrd(3, atmlast)
-    
+
    ! to silence valgrind errors
    volnum = 0
 
    htmp = 0.5d0; rh = ONE/htmp
    nbuffer = 2*(int(TWO*vprob*rh)+1)+1
-    
+
    ! set bounding box center for all atoms
-    
+
    xmin = 9999.0d0; ymin = 9999.0d0; zmin = 9999.0d0
    xmax = -9999.0d0; ymax = -9999.0d0; zmax = -9999.0d0
    do iatm = 1, atmlast
@@ -1899,7 +1893,7 @@ subroutine sa_vol( verbose,pbprint,atmlast )
       write(6, '(1x,a,3f10.3)') ' SAV: Ymin, Ymax, Ymax-Ymin:', ymin, ymax, ymax-ymin
       write(6, '(1x,a,3f10.3)') ' SAV: Zmin, Zmax, Zmax-Zmin:', zmin, zmax, zmax-zmin
    end if
-    
+
    xm = nint( (xmax - xmin)*rh ) + nbuffer; xm = 2*nint( dble(xm)*HALF ) + 1
    ym = nint( (ymax - ymin)*rh ) + nbuffer; ym = 2*nint( dble(ym)*HALF ) + 1
    zm = nint( (zmax - zmin)*rh ) + nbuffer; zm = 2*nint( dble(zm)*HALF ) + 1
@@ -1909,15 +1903,15 @@ subroutine sa_vol( verbose,pbprint,atmlast )
    goy = - dble(ym+1)*htmp*HALF + ybox
    goz = - dble(zm+1)*htmp*HALF + zbox
    if ( verbose .and. pbprint ) write(6, '(a,1x,3f10.3)') ' SAV: Grid origin ', gox, goy, goz
-    
+
    do iatm = 1, atmlast
       gcrd(1,iatm) = (acrd(1,iatm) - gox)*rh
       gcrd(2,iatm) = (acrd(2,iatm) - goy)*rh
       gcrd(3,iatm) = (acrd(3,iatm) - goz)*rh
    end do
-    
+
    allocate( insas(xmymzm), stat = alloc_err )
-    
+
    insas(1:xmymzm) = -1
    do iatm = 1, atmlast
       range1 = radip(iatm)
@@ -1925,13 +1919,13 @@ subroutine sa_vol( verbose,pbprint,atmlast )
       range1 = (range1-sprob+vprob)*rh; xi = gcrd(1,iatm); yi = gcrd(2,iatm); zi = gcrd(3,iatm)
       call exsasph( xm, ym, zm, range1, xi, yi, zi, insas )
    end do
-    
+
    call calsav( volnum, xm, ym, zm, insas)
-    
+
    deallocate( insas, stat = alloc_err )
-    
+
    prtsav = volnum*(htmp)**3
-    
+
 end subroutine sa_vol
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Count molecular volume within solvent accessible surface
@@ -1941,7 +1935,7 @@ subroutine calsav( volnum, xm, ym, zm, insas )
    integer insas(xm, ym, zm)
 
    integer i, j, k
-    
+
 !   open (unit=57, file='sav.dot')
 !   write (57, '("DOTS")')
    volnum = 0
@@ -1960,7 +1954,7 @@ subroutine calsav( volnum, xm, ym, zm, insas )
    end do
 !  close(57)
 
-end subroutine calsav   
+end subroutine calsav
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Mark atomic volume within solvent accessible surface
 subroutine exsasph( xm,ym,zm,range1,xi,yi,zi,insph )
@@ -1971,7 +1965,7 @@ subroutine exsasph( xm,ym,zm,range1,xi,yi,zi,insph )
    ! Michael Gilson and Malcom Davis.
    !
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
+
    implicit none
 
    ! Passed variables
@@ -1979,9 +1973,9 @@ subroutine exsasph( xm,ym,zm,range1,xi,yi,zi,insph )
    integer  xm, ym, zm
    integer  insph(xm,ym,zm)
    _REAL_ range1, xi, yi, zi
- 
+
    ! Local variables
-    
+
    integer  i, j, k
    integer  lowi, lowj, lowk
    integer  highi, highj, highk
@@ -1993,71 +1987,23 @@ subroutine exsasph( xm,ym,zm,range1,xi,yi,zi,insph )
       range2 = sqrt(range1**2-(zi-dble(k))**2)
       lowj = max(1,ceiling(yi - range2)); highj = min(ym,floor(yi + range2))
       do j = lowj, highj
-          
+
          range3 = sqrt(range2**2-(yi-dble(j))**2)
          if ( range3 > ZERO ) then
-             
+
             lowi = max(1,ceiling(xi - range3)); highi = min(xm,floor(xi + range3))
             do i = lowi, highi
-               insph(i,j,k) = 1 
+               insph(i,j,k) = 1
             end do  ! i = lowi, highi
-             
+
          end if  ! ( range3 > ZERO )
-          
+
       end do  ! j = lowj, highj
-       
+
    end do  ! k = lowk, highk
-             
+
 end subroutine exsasph
 
 end subroutine sa_driver
-
-#if !defined SANDER && !defined LIBPBSA
-#ifdef MPI
-#define REQUIRE(e) if(.not.(e)) call croak(__FILE__,__LINE__)
-subroutine saslave_init(natom)
-   implicit none
-   include "mpif.h"
-#  include "parallel.h"
-#  include "extra.h"
-   integer natom
-   !LOCAL
-   integer ierr
-   !MPI initialization VERY BAD IMPLEMENTATION
-   if ( .not. master ) then
-      allocate(    radi(    natom),STAT=ierr)
-      allocate(   radip(    natom),STAT=ierr)
-      allocate(  radip2(    natom),STAT=ierr)
-      allocate(  radip3(    natom),STAT=ierr)
-      allocate(  nzratm(    natom),STAT=ierr)
-      allocate(    nmax(    natom),STAT=ierr)
-      allocate(    nexp(    natom),STAT=ierr)
-      allocate( sumnmax(    natom),STAT=ierr)
-      allocate( sumnexp(    natom),STAT=ierr)
-      allocate(  avnmax(    natom),STAT=ierr)
-      allocate(  avnexp(    natom),STAT=ierr)
-      allocate(   mdsig(    natom),STAT=ierr)!dummy for multiblock so far
-      allocate(    rmin(    natom),STAT=ierr)!dummy for multiblock so far
-   end if
-   call MPI_BCAST(   maxsph,       1,         MPI_INTEGER,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(   maxtri,       1,         MPI_INTEGER,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(   maxarc,       1,         MPI_INTEGER,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(maxarcdot,       1,         MPI_INTEGER,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(   arcres,       1,MPI_DOUBLE_PRECISION,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(    dprob,       1,MPI_DOUBLE_PRECISION,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(   radinc,       1,MPI_DOUBLE_PRECISION,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(    iprob,       1,MPI_DOUBLE_PRECISION,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(expthresh,       1,MPI_DOUBLE_PRECISION,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BCAST(  radi(1),   natom,MPI_DOUBLE_PRECISION,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BARRIER( CommSANDER, ierr );REQUIRE(ierr==0)
-   if ( .not. master ) then
-      allocate(scrd(3,maxsph),STAT=ierr);REQUIRE(ierr==0)
-   end if
-   call MPI_BCAST(scrd(1,1),3*maxsph,MPI_DOUBLE_PRECISION,0,CommSANDER,ierr);REQUIRE(ierr==0)
-   call MPI_BARRIER( CommSANDER, ierr );REQUIRE(ierr==0)
-!print *,radinc
-end subroutine saslave_init
-#endif /*def MPI*/
-#endif /*ndef SANDER or LIBPBSA*/
 
 end module solvent_accessibility

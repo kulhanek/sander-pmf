@@ -88,7 +88,7 @@ end subroutine deallocate_array
 !===========================================================================
 
 subroutine init_array( solvopt,epsx,epsy,epsz,p_bv,p_iv,p_xs )
-   
+
    implicit none
 
    integer solvopt
@@ -97,7 +97,7 @@ subroutine init_array( solvopt,epsx,epsy,epsz,p_bv,p_iv,p_xs )
    _REAL_ p_xs(1-l_xmym:l_xmymzm+l_xmym)
 
    integer lxmym,l,m,n,i
-   _REAL_,allocatable :: lepsx(:), lepsy(:), lepsz(:) 
+   _REAL_,allocatable :: lepsx(:), lepsy(:), lepsz(:)
    _REAL_ lfactor
 
       call feedepsintoam(l_xm, l_ym, l_zm, l_am1(1:l_xmymzm),  &
@@ -267,7 +267,7 @@ subroutine pb_iccg(phi,xs)
 
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6, *) 'PB warning in pb_miccg(): CG l_maxitn exceeded!'
+            write(6, *) 'PBSA Warning in pb_miccg(): CG l_maxitn exceeded!'
          end if
 
       else
@@ -353,7 +353,7 @@ subroutine pb_cg(phi,xs)
                  - l_am1(i     )*l_pv(i+1   ) &
                  - l_am2(i     )*l_pv(i+l_xm  ) &
                  - l_am3(i     )*l_pv(i+l_xmym) &
-                 + l_ad(i)      *l_pv(i)  
+                 + l_ad(i)      *l_pv(i)
          pdotz = pdotz + l_pv(i)*l_zv(i)
       end do
 !
@@ -384,7 +384,7 @@ subroutine pb_cg(phi,xs)
 
          uconvg = .false.
          if ( l_itn .ge. l_maxitn ) then
-            write(6, *) 'PBMD WARNING: CG l_maxitn exceeded!'
+            write(6, *) 'PBSA WARNING: CG l_maxitn exceeded!'
          endif
 
       else

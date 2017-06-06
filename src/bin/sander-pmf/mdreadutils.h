@@ -30,9 +30,6 @@ subroutine printflags()
 #ifdef HAS_10_12
    call printflags2(' HAS_10_12',10,n,line,.false.)
 #endif
-#ifdef DNA_SHIFT
-   call printflags2(' DNA_SHIFT',10,n,line,.false.)
-#endif
 
 #ifdef noVIRIAL
    call printflags2(' noVIRIAL',9,n,line,.false.)

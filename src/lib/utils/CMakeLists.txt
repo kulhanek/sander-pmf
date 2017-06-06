@@ -9,11 +9,11 @@ SET(UTILS_SRC
         veclib.F90  
         wallclock.c
         AmberNetcdf.F90
-        mexit.F90
-        amopen.F90
-        assert.F90	
-        amflsh.F90
-        sander_bomb.F90
+#        mexit.F90
+#        amopen.F90
+#        assert.F90	
+#        amflsh.F90
+#        sander_bomb.F90
         )
 
 # ------------------------------------------------------------------------------

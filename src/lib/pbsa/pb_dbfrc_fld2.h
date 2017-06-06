@@ -9,7 +9,8 @@
       ! part a: compute E_in and E_out ...
       !    compute E on the inner side of surface position crd(1:3)
 
-      call gradu(xm,ym,zm,-ONE,8,4,fx0,fy0,fz0,up,dudxi0,dudyi0,dudzi0,phi,zv)
+     !call gradu(xm,ym,zm,-ONE,8,4,fx0,fy0,fz0,up,dudxi0,dudyi0,dudzi0,phi,zv)
+      call onesided(xm,ym,zm,4,8,fx0,fy0,fz0,up,dudxi0,dudyi0,dudzi0,phi,zv,h)
 
       dudxi0 = -dudxi0*FOURPI*eps0*AMBER_ELECTROSTATIC
       dudyi0 = -dudyi0*FOURPI*eps0*AMBER_ELECTROSTATIC

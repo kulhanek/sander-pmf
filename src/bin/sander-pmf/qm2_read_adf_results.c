@@ -58,8 +58,8 @@ void read_adf_results_(int *natoms, double *energy, double *gradient, int *use_d
     }
     else //We are doing DFTB
     {
-      getKFData(&kf, "finalresults%.dftb.gradient", (void*) gradient);
-      getKFData(&kf, "finalresults%.dftb.energy", (void*) energy);
+      getKFData(&kf, "Properties%Value(2)", (void*) gradient);
+      getKFData(&kf, "Properties%Value(3)", (void*) energy);
     }
    
     closeKFFile(&kf);

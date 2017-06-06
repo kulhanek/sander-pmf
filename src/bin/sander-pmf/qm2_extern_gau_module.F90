@@ -12,6 +12,7 @@ module qm2_extern_gau_module
 ! Andreas Goetz and Ross Walker (SDSC)
 ! 
 ! Date: February 2011
+!       April 2015
 !
 ! Extensions by Andreas Goetz (SDSC)
 !
@@ -338,6 +339,8 @@ contains
        gau_nml, do_grad, charge, spinmult )
 
     use ElementOrbitalIndex, only : elementSymbol
+    use qm2_extern_util_module, only : is_empty_string
+    use UtilitiesModule, only: Upcase
 
     implicit none
 
@@ -351,12 +354,15 @@ contains
     logical, intent(in)            :: do_grad
     integer, intent(in)            :: charge, spinmult
 
+    intrinsic :: is_iostat_end
+
     integer, parameter :: iunit = 351, tplunit = 352
     integer            :: i, ierr
     integer            :: tplerr, ios
     character(len=256) :: route
     character(len=256) :: read_buffer
     logical, save      :: first_call = .true.
+    logical            :: empty_line, done
 
     call debug_enter_function( 'write_inpfile', module_name, gau_nml%debug )
 
@@ -417,7 +423,7 @@ contains
     ! read external point charges, print to .log
     if ( nclatoms > 0 ) then
       route = trim(route)//' Charge Prop=(Field,Read)'
-      if ( index(gau_nml%method, 'MP2') > 0 ) then
+      if ( index(Upcase(gau_nml%method), 'MP2') > 0 ) then
          route = trim(route)//' Density=MP2'
       end if
     end if
@@ -448,23 +454,76 @@ contains
         write(iunit,'(4f21.16)') clcoords(:,i)
       end do
       write(iunit,'()')
+   end if
 
-      ! Write a second time without charges
+   ! Write generic basis set / ecp information from template file
+   ! if available (check for EOF or 2 empty lines)
+   if ( gau_nml%use_template) then
+
+      open(tplunit, file=tplfile, iostat=tplerr)
+      if ( tplerr /= 0 ) then
+        call sander_bomb('write_inpfile (qm2_extern_gau_module)', &
+          'Error opening Gaussian template file '//tplfile//' for reading', &
+          'Will quit now.')
+      end if
+
+      ! discard first two lines (route plus empty line)
+      done = .false.
+      i = 0
+      do
+         read (tplunit, '(a)', iostat = ios) read_buffer
+         i = i + 1
+         done = is_iostat_end(ios) .or. (i == 3)
+         if (done) exit
+      end do
+
+      empty_line = is_empty_string(read_buffer)
+
+      ! we read the third line and it was not empty
+      if ( (i == 3) .and. (.not. empty_line) ) then
+
+         write(iunit, '(a)') trim(read_buffer)
+
+         ! now read/write until we hit eof or 2 empty lines
+         done = .false.
+         do
+            read (tplunit, '(a)', iostat = ios) read_buffer
+            done = (empty_line .and. is_empty_string(read_buffer))
+            done = done .or. is_iostat_end(ios)
+            if (done) exit
+            empty_line = is_empty_string(read_buffer)
+            write(iunit, '(a)') trim(read_buffer)
+
+         end do
+
+         if (.not. empty_line) then
+            ! last written line was not empty, add empty line
+            write(iunit,'()')
+         end if
+
+      end if
+
+      close(tplunit)
+
+   end if
+   
+   ! When electrostatic embedding is in use 
+   ! write point charge coordinates a second time (without charges)
+   ! These are points in space where electric field will be computeed
+   if ( nclatoms > 0 ) then
       do i = 1, nclatoms
         write(iunit,'(4f21.16)') clcoords(:3,i)
       end do
-
-      close(iunit)
+      write(iunit,'()')
     end if
 
-   write(iunit,'()')
    close(iunit, iostat=ierr)
-
    if ( ierr /= 0 ) then
      call sander_bomb('write_inpfile (qm2_extern_gau_module)', &
        'Error closing Gaussian runfile after writing', &
        'Will quit now.')
    end if
+
    first_call = .false.
 
    call debug_exit_function( 'write_inpfile', module_name, gau_nml%debug )

@@ -5,44 +5,43 @@
 #include "copyright.h"
 
 ! DFTB GB implementation by Gustavo Seabra (UFL) and Ross Walker (TSRI), 2005
+!
+! DFTB3 implementation by Andreas W Goetz (SDSC), 2016
 
-subroutine hamilshift(qm_coords,atomtype,uhubb,niter,gammamat,shift,scf_mchg)
+subroutine hamilshift(dftb3, natom, atomtype, gammamat, gamma_der, scf_mchg, &
+     shift, shift3, shift3A)
 
    !=======================================================
    ! get the hubbard contribution to the H matrix elements
    !=======================================================
 
-   use qmmm_module, only : qmmm_struct
    use qm2_dftb_module, only : mol, mcharge
 
    implicit none
 
    ! Passed in:
-   _REAL_ , intent(in)  :: qm_coords(3,qmmm_struct%nquant_nlink)          ! atomic coordinates
-   integer, intent(in)  :: atomtype(qmmm_struct%nquant_nlink)     ! 
-   _REAL_ , intent(in)  :: uhubb(*)          ! list of hubbard parameters
-   integer, intent(in)  :: niter             ! step in scf cycle if == 1: 
+   logical, intent(in)  :: dftb3
+   integer, intent(in)  :: natom               ! number of atoms
+   integer, intent(in)  :: atomtype(natom)     ! 
                                              !              build up gammamat
-   _REAL_ , intent(out) :: gammamat(qmmm_struct%nquant_nlink,qmmm_struct%nquant_nlink)
-   _REAL_ , intent(out) :: shift(qmmm_struct%nquant_nlink)        ! array contains shifts for hamilton matrix elements
-   _REAL_ , intent(out) :: scf_mchg(qmmm_struct%nquant_nlink)
-
+   _REAL_ , intent(in) :: gammamat(natom,natom)
+   _REAL_ , intent(in) :: gamma_der(natom,natom) !AWG DFTB3
+   _REAL_ , intent(out) :: scf_mchg(natom)
+   _REAL_ , intent(out) :: shift(natom)          ! array contains shifts for hamilton matrix elements
+   _REAL_ , intent(out) :: shift3(natom)  ! AWG DFTB3
+   _REAL_ , intent(out) :: shift3A(natom) ! AWG DFTB3
+   
    ! Locals
    integer :: i,j
-   _REAL_ :: tmpvalue
+   _REAL_ :: tmpvalue, qdiff_i, qdiff_j
 
   
-   scf_mchg(1:qmmm_struct%nquant_nlink) = mcharge%qzero(atomtype(1:qmmm_struct%nquant_nlink)) &
-                                        - mol%qmat(1:qmmm_struct%nquant_nlink)
-   ! build up gammamatrix before the first iteration. This matrix is
-   ! then reused at the following iterations
-   if (niter == 1) then
-      call gammamatrix(qmmm_struct%nquant_nlink,qm_coords,atomtype,uhubb,gammamat)
-   endif
+   scf_mchg(1:natom) = mcharge%qzero(atomtype(1:natom)) &
+                                        - mol%qmat(1:natom)
 
    ! Calculate atomic hamilton shift (=sum over gamma * charges)
-   do i=1,qmmm_struct%nquant_nlink
-      do j=1,qmmm_struct%nquant_nlink
+   do i=1,natom
+      do j=1,natom
          ! gammamat is lower diagonal. All elements where j > i are zero.
          if (j > i) then
             tmpvalue = gammamat(j,i)
@@ -50,10 +49,27 @@ subroutine hamilshift(qm_coords,atomtype,uhubb,niter,gammamat,shift,scf_mchg)
             tmpvalue = gammamat(i,j)
          endif
          shift(i) = shift(i) - scf_mchg(j)*tmpvalue
+!         write(6,*) 'shift  (',i,') =', shift(i)
       end do
    end do
 
-   return
+   if (dftb3) then
 
-end subroutine HAMILSHIFT
+      shift3(:) = 0.0d0
+      shift3A(:) = 0.0d0
+      do i = 1, natom
+         qdiff_i = -scf_mchg(i)
+         do j = 1, natom
+            qdiff_j = -scf_mchg(j)
+            shift3(i) = shift3(i) + qdiff_j*gamma_der(i,j)
+            shift3A(i) = shift3A(i) + qdiff_j*qdiff_j*gamma_der(j,i)
+         end do
+         shift3(i) = shift3(i)*qdiff_i
+!         write(6,*) 'shift3 (',i,') =', shift3(i)
+!         write(6,*) 'shift3A(',i,') =', shift3A(i)
+      end do
+
+   end if
+
+end subroutine hamilshift
 

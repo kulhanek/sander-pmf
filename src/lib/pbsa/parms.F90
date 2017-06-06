@@ -86,7 +86,7 @@ end subroutine allocate_parms
 subroutine add_qmmm_bonds(new_rk, new_req)
 
    implicit none
-   
+
    ! Formal arguments
    _REAL_, dimension(*), intent(in) :: new_rk      ! New force constants
    _REAL_, dimension(*), intent(in) :: new_req     ! New equilibrium values
@@ -160,61 +160,5 @@ subroutine clean_parms
    if (allocated(ipn))     deallocate(ipn)
 
 end subroutine clean_parms
-
-#if !defined SANDER  && !defined LIBPBSA && defined MPI
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ broadcast parm arrays
-subroutine bcast_parms
-
-   use memory_module, only : natyp
-
-   implicit none
-
-#  include "extra.h"
-   include 'mpif.h'
-#  include "parallel.h"
-
-   integer ierror
-
-   ! Broadcast the pointers
-   call mpi_bcast(numbnd, 1, MPI_INTEGER, 0, commsander, ierror)
-   call mpi_bcast(numang, 1, MPI_INTEGER, 0, commsander, ierror)
-   call mpi_bcast(nptra, 1, MPI_INTEGER, 0, commsander, ierror)
-   call mpi_bcast(nphb, 1, MPI_INTEGER, 0, commsander, ierror)
-   call mpi_bcast(nimprp, 1, MPI_INTEGER, 0, commsander, ierror)
-   call mpi_bcast(nttyp, 1, MPI_INTEGER, 0, commsander, ierror)
-
-   ! Our slave nodes have not yet allocated the arrays, so do that hee
-   if (.not. master) call allocate_parms()
-
-   ! Broadcast the real arrays
-   call mpi_bcast(rk, numbnd, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(req, numbnd, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(tk, numang, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(teq, numang, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(pk, nptra, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(pn, nptra, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(phase, nptra, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(one_scnb, nptra, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(one_scee, nptra, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(solty, natyp, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(gamc, nptra, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(gams, nptra, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(asol, nphb, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(bsol, nphb, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(hbcut, nphb, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(cn1, nttyp, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(cn2, nttyp, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(cn3, nttyp, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(cn4, nttyp, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-   call mpi_bcast(cn5, nttyp, MPI_DOUBLE_PRECISION, 0, commsander, ierror)
-
-   ! Broadcast the integer array
-   call mpi_bcast(ipn, nptra, MPI_INTEGER, 0, commsander, ierror)
-   
-   return
-
-end subroutine bcast_parms
-#endif /* !SANDER && !LIBPBSA && MPI */
 
 end module parms

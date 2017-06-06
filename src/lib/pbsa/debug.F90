@@ -17,7 +17,7 @@ subroutine load_debug(nf)
          atomn,nranatm, &
          ranseed,chkvir,dumpfrc,rmsfrc,do_tgt,&
          do_pbdir,do_pbnp,do_pbfd
-         
+
 
    ! default flow control all force routines turned on
    do_dir = 1
@@ -83,14 +83,14 @@ subroutine load_debug(nf)
    return
    190 write(6,'(a)')'Error in &debugf namelist'
    call mexit(6,1)
-end subroutine load_debug 
+end subroutine load_debug
 !----------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine debug_frc here]
 subroutine debug_frc(xx,ix,ih,ipairs,x,f, &
       cn1,cn2,r_stack,i_stack)
-   
+
    use memory_module
 
    implicit none
@@ -117,14 +117,10 @@ subroutine debug_frc(xx,ix,ih,ipairs,x,f, &
    if ( do_debugf == 0 )return
 
    ! first call force for analytic result
-   if ( master )then
-      write(6,'(a)')'DEBUG FORCE!; calling force routine'
-   end if
+   write(6,'(a)')'DEBUG FORCE!; calling force routine'
    call get_analfrc(xx,ix,ih,ipairs,x,f, &
          vir,ener,r_stack,i_stack)
-   if ( master )then
-      write(6,'(a)')'DEBUG FORCE!; back from force routine'
-   end if
+   write(6,'(a)')'DEBUG FORCE!; back from force routine'
    do j = 1,51
       ene(j) = ener(j)
    end do
@@ -140,9 +136,7 @@ subroutine debug_frc(xx,ix,ih,ipairs,x,f, &
    ene(3) = 0.d0
    ene(1) = ener(23)
    ene(22) = vir(1) + vir(2) + vir(3)
-   if ( master )then
-      call prntmd(nstep,nitp,nits,t,ene,onefac,iout7,.false.)
-   end if
+   call prntmd(nstep,nitp,nits,t,ene,onefac,iout7,.false.)
 
    ! get the delta for numerical force, virial calcs
    del = 1.d0
@@ -159,7 +153,7 @@ subroutine debug_frc(xx,ix,ih,ipairs,x,f, &
    end do
    50 continue
    if ( nranatm > natomn )then
-      if ( master) write(6,166)natomn
+      write(6,166)natomn
       166 format(1x,'MAX NUM Random atoms: ',i6)
       call mexit(6,1)
    end if
@@ -178,9 +172,8 @@ subroutine debug_frc(xx,ix,ih,ipairs,x,f, &
    end if
    ! now do user defined atoms
    if ( atomn(1) > 0 )then
-      if ( master )write(6,168)
-      if ( master ) &
-            write(6,'(a)')'----------------------------------------------'
+      write(6,168)
+      write(6,'(a)')'----------------------------------------------'
    end if
    do j = 1,natomn
       atomnum = atomn(j)
@@ -188,51 +181,41 @@ subroutine debug_frc(xx,ix,ih,ipairs,x,f, &
       call get_numfrc(xx,ix,ih,ipairs,x,f, &
             vir,ener,atomnum,del,apfrc,r_stack,i_stack)
       call rmsdiff(apfrc,cpfrc1(1,j),rms)
-      if ( master )then
-         write(6,60)atomnum
-         do k = 1,3
-            diff=apfrc(k)-cpfrc1(k,j)
-            write(6,66)k,apfrc(k),cpfrc1(k,j),diff
-         end do
-         write(6,70)rms
-      end if
+      write(6,60)atomnum
+      do k = 1,3
+         diff=apfrc(k)-cpfrc1(k,j)
+         write(6,66)k,apfrc(k),cpfrc1(k,j),diff
+      end do
+      write(6,70)rms
    end do
    100 continue
-   if ( master ) &
-         write(6,'(a)')'--------------------------------------------'
+   write(6,'(a)')'--------------------------------------------'
    if ( nranatm > 0 )then
-      if ( master )write(6,167)
-      if ( master ) &
-            write(6,'(a)')'--------------------------------------------'
+      write(6,167)
+      write(6,'(a)')'--------------------------------------------'
       do j = 1,nranatm
          atomnum = ranatm(j)
          call get_numfrc(xx,ix,ih,ipairs,x,f, &
                vir,ener,atomnum,del,apfrc,r_stack,i_stack)
          call rmsdiff(apfrc,cpfrc2(1,j),rms)
-         if ( master )then
-            write(6,60)atomnum
-            do k = 1,3
-               diff = apfrc(k)-cpfrc2(k,j)
-               write(6,66)k,apfrc(k),cpfrc2(k,j),diff
-            end do
-            write(6,70)rms
-         end if
+         write(6,60)atomnum
+         do k = 1,3
+            diff = apfrc(k)-cpfrc2(k,j)
+            write(6,66)k,apfrc(k),cpfrc2(k,j),diff
+         end do
+         write(6,70)rms
       end do
-      if ( master ) &
-            write(6,'(a)')'--------------------------------------------'
+      write(6,'(a)')'--------------------------------------------'
    end if
-   if ( master )then
-      call mexit(6,0)
-   else
-      call mexit(0,0)
-   end if
+   call mexit(6,0)
    60 format(9x,'NUMERICAL, ANALYTICAL FORCES (diff) from atom ',i6)
    66 format(1x,i6,f14.8,1x,f14.8,1x,f14.8)
    67 format(1x,3(1x,f14.8))
    70 format(1x,'RMS force error = ',e10.3)
-   167 format(1x,'Checking numerical force for random atoms')
-   168 format(1x,'Checking numerical force for user chosen atoms')
-end subroutine debug_frc 
+  167 format(1x,'Checking numerical force for random atoms')
+  168 format(1x,'Checking numerical force for user chosen atoms')
+
+end subroutine debug_frc
 !----------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -245,7 +228,7 @@ subroutine crd_mod(crd,atomn,j,del,save)
    save = crd(j,atomn)
    crd(j,atomn) = save + del
    return
-end subroutine crd_mod 
+end subroutine crd_mod
 !----------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -257,7 +240,7 @@ subroutine crd_rst(crd,atomn,j,del,save)
 
    crd(j,atomn) = save
    return
-end subroutine crd_rst 
+end subroutine crd_rst
 !----------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -283,7 +266,7 @@ subroutine get_analfrc(xx,ix,ih,ipairs,x,f, &
    call force(xx,ix,ih,ipairs,x,f,ene(23),vir,r_stack,i_stack, &
          xx(l96), xx(l97), xx(l98), do_list_update)
    return
-end subroutine get_analfrc 
+end subroutine get_analfrc
 !----------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -300,14 +283,14 @@ subroutine fix_xr(x,natom,nspm,nsp,tma,ekcmt,xr,v,amass)
       xr(3,i) = x(3,i)
    end do
    return
-end subroutine fix_xr 
+end subroutine fix_xr
 !----------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine get_numfrc here]
 subroutine get_numfrc(xx,ix,ih,ipairs,x,f, &
       vir,ene,atomn,del,apfrc,r_stack,i_stack)
-   
+
    use memory_module
 
    implicit none
@@ -338,7 +321,7 @@ subroutine get_numfrc(xx,ix,ih,ipairs,x,f, &
       apfrc(j) = -(enep - enem)/(2.d0*del)
    end do
    return
-end subroutine get_numfrc 
+end subroutine get_numfrc
 !----------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -353,5 +336,5 @@ subroutine rmsdiff(apfrc,frc,rms)
          (apfrc(3)-frc(3))**2
    rms = sqrt(num/den)
    return
-end subroutine rmsdiff 
+end subroutine rmsdiff
 !----------------------------------------------------

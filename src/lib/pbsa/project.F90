@@ -4,7 +4,7 @@
 !+ [Enter a one-line description of subroutine project here]
 subroutine project(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, x1,y1,z1)
   implicit none
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  project find the projection of the interface of a given   *
@@ -12,16 +12,16 @@ subroutine project(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, x1,y1,z1)
    !       *                                                            *
    !       **************************************************************
 
-   !common /lmn/l, m, n, nirreg
    integer l,m,n,i,j,k
-   !common /hxyz/hx,hy,hz,hmax
-  
-  !passed variables
+
+   ! passed variables
+
    _REAL_ h,hx,hy,hz,x1,y1,z1
    _REAL_ x(0:l+1),y(0:m+1),z(0:n+1)
    _REAL_ phi(0:l+1,0:m+1,0:n+1)
-  
-  !local variables
+
+   ! local variables
+
    _REAL_ hmax,phx,phy,phz,phxx,phyy,phzz,phxy,phyz,phxz,phn,phn1,&
           px,py,pz,temp1,temp2,temp3,a0,a1,a2,r1,r2,r3,r4,r5,drop,&
           dproj,xx,yy,zz
@@ -31,12 +31,10 @@ subroutine project(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, x1,y1,z1)
    !       locates the control points on the level set
 
    hmax=h
-   !ph0 = phi(i,j,k)
-   !       write(100,*) phi
    call phidv1(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, phx,phy,phz)
    call phidv2(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, phxx,phyy,phzz,phxy,phxz,phyz)
- 
-   
+
+
    phn = phx*phx + phy*phy + phz*phz
    phn1 = sqrt(phn)
 
@@ -271,71 +269,7 @@ subroutine project(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, x1,y1,z1)
 
    !       call newsol(x,y,z,x1,y1,z1,phi)
 
-  ! write(1010,*) x1,y1,z1,px,py,pz !used to collect projection info
-   return
-end subroutine project 
-
-
-
-
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ [Enter a one-line description of subroutine newsol here]
-!XP: newsol not called..
-subroutine newsol(l,m,n,h,hx,hy,hz,x,y,z,x1,y1,z1,phi)
-  implicit _REAL_ (a-h,o-z) !Not used, not optimized.
-  !implicit none
-   
-   !       **************************************************************
-   !       *                                                            *
-   !       *  newsol uses Newton method to update (x1,y1,z1) so that it *
-   !       *  is indeed on the interface.                               *
-   !       *                                                            *
-   !       **************************************************************
-
-   !common /lmn/l, m, n, nirreg
-   integer l,m,n
-   !common /hxyz/hx,hy,hz,hmax
-
-   _REAL_ x(0:l+1),y(0:m+1),z(0:n+1)
-   _REAL_ phi(0:l+1,0:m+1,0:n+1)
-
-   iter = 0
-   call grtopr(l,m,n,x,y,z,h,hx,hy,hz,x1,y1,z1,phi,1,1,0, &
-         q0,qx,qy,qz,qxx,qyy,qzz,qxy,qxz,qyz)
-   111 if (qx /= 0.0) then
-      x1 = x1 - q0/qx
-      call grtopr(l,m,n,x,y,z,h,hx,hy,hz,x1,y1,z1,phi,1,1,0, &
-            q0,qx,qy,qz,qxx,qyy,qzz,qxy,qxz,qyz)
-      if(abs(q0) < 1.0e-14) goto 777
-      iter = iter + 1
-      if (iter < 101) goto 111
-   end if
-
-   iter = 0
-   222 if (qy /= 0.0) then
-      y1 = y1 - q0/qy
-      call grtopr(l,m,n,x,y,z,h,hx,hy,hz,x1,y1,z1,phi,1,1,0, &
-            q0,qx,qy,qz,qxx,qyy,qzz,qxy,qxz,qyz)
-      if(abs(q0) < 1.0e-14) goto 777
-      iter = iter + 1
-      if (iter < 101) goto 222
-   end if
-
-   iter = 0
-   333 if (qz /= 0.0) then
-      z1 = z1 - q0/qz
-      call grtopr(l,m,n,x,y,z,h,hx,hy,hz,x1,y1,z1,phi,1,1,0, &
-            q0,qx,qy,qz,qxx,qyy,qzz,qxy,qxz,qyz)
-      if(abs(q0) < 1.0e-14) goto 777
-      iter = iter + 1
-      if (iter < 101) goto 333
-   end if
-
-   write(*,*) "   Warning: Some projection point NOT on the interface!"
-
-   777 return
-end subroutine newsol 
-
+end subroutine project
 
 
 
@@ -343,7 +277,7 @@ end subroutine newsol
 !+ [Enter a one-line description of subroutine newint here]
 subroutine newint(x0,x1,x2,y0,y1,y2, a0, a1, a2)
    implicit none
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  newint uses Newton interpolation to determine the 2-nd    *
@@ -353,7 +287,7 @@ subroutine newint(x0,x1,x2,y0,y1,y2, a0, a1, a2)
    !       *  The resulted polynomial is p(x)=a2*x^2+a1*x+a0            *
    !       *                                                            *
    !       **************************************************************
-  
+
    !Passed variables
    _REAL_ x0,x1,x2,y0,y1,y2,a0,a1,a2
 
@@ -369,7 +303,7 @@ subroutine newint(x0,x1,x2,y0,y1,y2, a0, a1, a2)
    a0 = x0*x1*f210 - x0*f10 + y0
 
    return
-end subroutine newint 
+end subroutine newint
 
 
 
@@ -377,18 +311,18 @@ end subroutine newint
 !+ [Enter a one-line description of subroutine update here]
 subroutine update(x0,x1,x2,y0,y1,y2,info,xx)
    implicit none
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  update finds one of two zeros of p(x)=a2*x^2+a1*x+a0      *
    !       *  which is in [x0,x1] if info=0 or in [x1,x2] if info=1     *
    !       *                                                            *
    !       **************************************************************
-  
+
    !Passed variables:
    _REAL_ x0,x1,x2,y0,y1,y2,xx
    integer info
-  
+
    !Local variables:
    _REAL_ a0,a1,a2,r1,r2
    integer info1
@@ -428,7 +362,7 @@ subroutine update(x0,x1,x2,y0,y1,y2,info,xx)
       end if
    end if
    return
-end subroutine update 
+end subroutine update
 
 
 

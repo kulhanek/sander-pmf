@@ -3,7 +3,7 @@
 
 ! maximum number of neighboring atoms per atom
 
-#define MAXNEI 4096
+#define MAXNEI 30000
 
 ! maximum levels of focusing in fdpb
 

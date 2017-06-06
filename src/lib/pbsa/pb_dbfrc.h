@@ -8,7 +8,7 @@
 
       ! collect reentry forces
 
-      else 
+      else
          if ( triopt == 1 ) then
             if ( -iatm > narcdot-ntri ) then
 !              write(58,'(a,3f20.15,i,3i5,f)') "H",crd(1),crd(2),crd(3)

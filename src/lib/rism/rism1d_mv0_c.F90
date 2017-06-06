@@ -150,17 +150,17 @@ contains
 !!!   gvv  : site-site pair correlation function
 !!!   cvv  : site-site direct correlation function
 !!!   mtv  : multiplicity of each site
-!!!   rhov : number density of each site
-!!!   rhotrgt : (optional) The final, physical density for thermodynamics.  This
+!!!   densityv : number density of each site
+!!!   densitytrgt : (optional) The final, physical density for thermodynamics.  This
 !!!             can be used as an effective correction for some closures that
 !!!             over estimate the pressure (e.g. MV0 and MV0)
 !!!   dr   : r-space grid spacing
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  function rism1d_mv0_exchem(this, gvv, cvv, mtv, jvv, rhov, rhotrgtv, dr) result(exchem)
+  function rism1d_mv0_exchem(this, gvv, cvv, mtv, jvv, densityv, densitytrgtv, dr) result(exchem)
     use constants, only : pi
     implicit none
     type(rism1d_mv0), intent(in) :: this
-    _REAL_, intent(in) :: gvv(:,:),cvv(:,:), rhov(:), rhotrgtv(:), dr
+    _REAL_, intent(in) :: gvv(:,:),cvv(:,:), densityv(:), densitytrgtv(:), dr
     integer, intent(in) :: mtv(:),jvv(:,:)
     _REAL_ :: exchem(ubound(mtv,1))
     
@@ -179,17 +179,17 @@ end function rism1d_mv0_exchem
 !!!   gvv  : site-site pair correlation function
 !!!   cvv  : site-site direct correlation function
 !!!   mtv  : multiplicity of each site
-!!!   rhov : number density of each site
-!!!   rhotrgt : (optional) The final, physical density for thermodynamics.  This
+!!!   densityv : number density of each site
+!!!   densitytrgt : (optional) The final, physical density for thermodynamics.  This
 !!!             can be used as an effective correction for some closures that
 !!!             over estimate the pressure (e.g. MV0 and MV0)
 !!!   dr   : r-space grid spacing
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  function rism1d_mv0_exchemIon(this, gvv, cvv, mtv, jvv, rhov, rhotrgtv, dr) result(exchem)
+  function rism1d_mv0_exchemIon(this, gvv, cvv, mtv, jvv, densityv, densitytrgtv, dr) result(exchem)
     use constants, only : pi
     implicit none
     type(rism1d_mv0), intent(in) :: this
-    _REAL_, intent(in) :: gvv(:,:),cvv(:,:), rhov(:), rhotrgtv(:), dr
+    _REAL_, intent(in) :: gvv(:,:),cvv(:,:), densityv(:), densitytrgtv(:), dr
     integer, intent(in) :: mtv(:),jvv(:,:)
     _REAL_ :: exchem(ubound(mtv,1))
 
@@ -206,14 +206,14 @@ end function rism1d_mv0_exchem
 !!!   gvv  : site-site pair correlation function
 !!!   cvv  : site-site direct correlation function
 !!!   mtv  : multiplicity of each site
-!!!   rhov : number density of each site
+!!!   densityv : number density of each site
 !!!   dr   : r-space grid spacing
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  function rism1d_mv0_pressureFE(this, gvv, cvv, mtv, rhov, dr) result(pr)
+  function rism1d_mv0_pressureFE(this, gvv, cvv, mtv, densityv, dr) result(pr)
     use constants, only : pi
     implicit none
     type(rism1d_mv0), intent(in) :: this
-    _REAL_, intent(in) :: gvv(:,:),cvv(:,:),rhov(:),dr
+    _REAL_, intent(in) :: gvv(:,:),cvv(:,:),densityv(:),dr
     integer, intent(in) :: mtv(:)
     _REAL_ :: pr
 
@@ -229,14 +229,14 @@ end function rism1d_mv0_exchem
 !!!   gvv  : site-site pair correlation function
 !!!   cvv  : site-site direct correlation function
 !!!   mtv  : multiplicity of each site
-!!!   rhov : number density of each site
+!!!   densityv : number density of each site
 !!!   dr   : r-space grid spacing
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  function rism1d_mv0_freeEnergy(this, gvv, cvv, mtv, rhov, dr) result(fe)
+  function rism1d_mv0_freeEnergy(this, gvv, cvv, mtv, densityv, dr) result(fe)
     use constants, only : pi
     implicit none
     type(rism1d_mv0), intent(in) :: this
-    _REAL_, intent(in) :: gvv(:,:),cvv(:,:),rhov(:),dr
+    _REAL_, intent(in) :: gvv(:,:),cvv(:,:),densityv(:),dr
     integer, intent(in) :: mtv(:)
     _REAL_ :: fe
 

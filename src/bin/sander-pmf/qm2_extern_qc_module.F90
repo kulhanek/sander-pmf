@@ -43,6 +43,7 @@ module qm2_extern_qc_module
      integer :: scf_conv
      integer :: debug
      integer :: ntpr
+     integer :: num_mpi_prcs
      integer :: num_threads 
      logical :: dipole
      logical :: use_template
@@ -145,9 +146,15 @@ contains
     call_buffer = trim(call_buffer)//' '//program
 
     ! parallelization
-    if (qc_nml%num_threads > 1) then
+    if (qc_nml%num_mpi_prcs > 1 .and. qc_nml%num_threads == 1) then
        write(call_buffer, '(2a,i0)') &
-            trim(call_buffer), ' -np ', qc_nml%num_threads
+            trim(call_buffer), ' -np ', qc_nml%num_mpi_prcs
+    else if (qc_nml%num_mpi_prcs == 1 .and. qc_nml%num_threads > 1) then
+       write(call_buffer, '(2a,i0)') &
+            trim(call_buffer), ' -nt ', qc_nml%num_threads
+    else if (qc_nml%num_mpi_prcs > 1 .and. qc_nml%num_threads > 1) then
+       write(call_buffer, '(2a,i0,a,i0)') &
+            trim(call_buffer), ' -np ', qc_nml%num_mpi_prcs, ' -nt ', qc_nml%num_threads
     end if
 
     ! input/output/scratch files
@@ -228,9 +235,9 @@ contains
     character(len=20) :: method, basis, exchange, correlation, aux_basis, guess
     character(len=20) :: default_method, default_basis, default_mp2_basis, default_aux_basis
     integer :: debug
-    integer :: scf_conv, ntpr, num_threads, dipole, use_template
+    integer :: scf_conv, ntpr, num_mpi_prcs, num_threads, dipole, use_template
     namelist /qc/ method, basis, exchange, correlation, aux_basis, guess, scf_conv, ntpr, &
-      num_threads, debug, dipole, use_template
+      num_mpi_prcs, num_threads, debug, dipole, use_template
 
     integer :: ierr
 
@@ -249,6 +256,7 @@ contains
     guess             = 'read' ! have qchem read restart files by default
     scf_conv          = 6 
     ntpr              = ntpr_default
+    num_mpi_prcs      = 1
     num_threads       = 1
     dipole            = 0
     use_template      = 0
@@ -309,6 +317,7 @@ contains
     qc_nml%guess        = guess
     qc_nml%scf_conv     = scf_conv
     qc_nml%ntpr         = ntpr
+    qc_nml%num_mpi_prcs = num_mpi_prcs
     qc_nml%num_threads  = num_threads
     qc_nml%debug        = debug
 
@@ -356,6 +365,7 @@ contains
     write(6, '(2a)')      '|   scf_guess    = ', qc_nml%guess   
     write(6, '(a,i2)')    '|   scf_conv     = ', qc_nml%scf_conv
     write(6, '(a,i0)')    '|   ntpr         = ', qc_nml%ntpr
+    write(6, '(a,i2)')    '|   num_mpi_prcs = ', qc_nml%num_mpi_prcs
     write(6, '(a,i2)')    '|   num_threads  = ', qc_nml%num_threads
     write(6, '(a,i2)')    '|   debug        = ', qc_nml%debug
     write(6, '(a,l)')     '|   dipole       = ', qc_nml%dipole

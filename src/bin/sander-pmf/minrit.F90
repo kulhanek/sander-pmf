@@ -29,27 +29,19 @@ subroutine minrit(n_force_calls,nrp,ntxo,x)
    if ( ntxo == 2) then
      call write_nc_restart(restrt,title,owrite,nrp,ntb,first,x,x,0.0d0,.false.&
 #    ifdef MPI
-                 , 0.0d0, 0, 0, (/ 0 /), (/ 0 /), (/ 0 /), 0 &
+                 , 0.0d0, 0, 0, (/ 0 /), (/ 0 /), (/ 0 /), 0, 0, 0 &
 #    endif
                           )
      if (first) first=.false.
    else
    ! Standard formatted/unformatted restart   
       if (first) then
-         if (ntxo == 0) then
-            call amopen(16,restrt,owrite,'U','W')
-         else
-            call amopen(16,restrt,owrite,'F','W')
-         end if
+         call amopen(16,restrt,owrite,'F','W')
          first = .false.
       else
-         if (ntxo == 0) then
-            call amopen(16,restrt,'O','U','W')
-         else
-            call amopen(16,restrt,'O','F','W')
-         end if
+         call amopen(16,restrt,'O','F','W')
       end if
-      call minri2(16,nrp,ntxo,x)
+      call minri2(16,nrp,x)
       close(16)
    endif
    
@@ -80,18 +72,16 @@ subroutine minrit(n_force_calls,nrp,ntxo,x)
    if (ntxo == 2) then
       call write_nc_restart(restrt2,title,owrite,nrp,ntb,.true.,x,x,0.0d0,.false.&
 #    ifdef MPI
-                 , 0.0d0, 0, 0, (/ 0 /), (/ 0 /), (/ 0 /), 0 &
+                 , 0.0d0, 0, 0, (/ 0 /), (/ 0 /), (/ 0 /), 0, 0, 0 &
 #    endif
                           )
       return
-   else if (ntxo == 0) then
-      call amopen(17,restrt2,owrite,'U','W')
    else
       call amopen(17,restrt2,owrite,'F','W')
    end if
    
    ! Write coordinates to filehandle 17
-   call minri2(17,nrp,ntxo,x)
+   call minri2(17,nrp,x)
    close(17)
    
    return
@@ -107,36 +97,29 @@ end subroutine minrit
 ! writing of multiple restart files during a minimisation.
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Write restart data (coords only) to an arbitrary filehandle
-subroutine minri2(nf,nrp,ntxo,x)
+subroutine minri2(nf,nrp,x)
    
    use nblist, only: a,b,c,alpha,beta,gamma
    use file_io_dat
    
    implicit none
    
-   integer i,nf,nr,nrp,nr3,ntxo
-   _REAL_ x(*),tt,dumm
+   integer i,nf,nr,nrp,nr3
+   _REAL_ x(*),tt
 #  include "box.h"
    
    nr = nrp
    nr3 = 3*nr
    tt = 0.0d0
    
-   if (ntxo /= 0) then
-      write(nf,40) title
-      if( nr > 99999 ) then
-         write(nf,221) nr
-      else
-         write(nf,220) nr
-      end if
-      write(nf,292) (x(i),i=1,nr3)
-      if ( ntb /= 0 ) write(nf,292) a,b,c,alpha,beta,gamma
+   write(nf,40) title
+   if( nr > 99999 ) then
+      write(nf,221) nr
    else
-      write(nf) title
-      dumm = 0.0d0
-      write(nf) nr,dumm
-      write(nf) (x(i),i = 1,nr3)
+      write(nf,220) nr
    end if
+   write(nf,292) (x(i),i=1,nr3)
+   if ( ntb /= 0 ) write(nf,292) a,b,c,alpha,beta,gamma
    
    40 format(20a4)
    220 format(i5,1x,f10.5,i5)

@@ -201,8 +201,6 @@ logical function check_wmass (atomic_number, rmass)
    integer,          intent(in) :: atomic_number
    double precision, intent(in) :: rmass
 
-   integer :: j, k, coincidence
-
    double precision, dimension(109):: wmass=(/  &
   1.0079,  4.0026,6.941   ,9.0122  ,10.811  , 12.0107,14.0067 , 15.9994, 18.9984, 20.1797, &   
  22.9897, 24.305 ,26.9815 ,28.0855 ,30.9738 , 32.065 ,35.453  , 39.948 , 39.0983, 40.078 , &  
@@ -315,7 +313,7 @@ subroutine add_vdwqmqm ( q, f, ener, ntypes, atom_name,     &
 !       that belongs to different QM Domains
 !
 
-   use parms,         only: cn1, cn2, nttyp
+   use parms,         only: cn1, cn2
    use pupildata,     only: pupqmatoms,atmqmdomains
    use memory_module, only: natom
    use nblist,        only: cutoffnb, ucell
@@ -333,9 +331,9 @@ subroutine add_vdwqmqm ( q, f, ener, ntypes, atom_name,     &
    character(len=4), intent(in) :: atom_type(natom)
    
    integer :: m, n, i, j, idx, jdx, ic, idom, jdom, itype, jtype
-   integer :: a, b, k, l, p 
+   integer :: a, b
    _REAL_  :: dx, dy, dz, fx, fy, fz, rij2, rij2_inv, r6, f6, f12, ff, rcut2
-   _REAL_  :: dxi, dyi, dzi, okx, oky, okz, olx, oly, olz, opx, opy, opz
+   _REAL_  :: dxi, dyi, dzi
    _REAL_  :: evdw,vdwpot,dvdwpot,sw,dsw
 
 !  +---------------------------------------------------------------------------+

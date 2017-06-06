@@ -518,7 +518,7 @@ subroutine setpar(nspm, nsp, ntp, ipres, amass)
 #endif
 #  include "extra.h"
 #  include "nmr.h"
-   integer target,i,iat,imol,ipmol(nspm),node,j,ires,fraction
+   integer target,i,iat,imol,ipmol(nspm),node,j,ires,portion
 
 
    if (mpi_orig) then
@@ -568,12 +568,12 @@ subroutine setpar(nspm, nsp, ntp, ipres, amass)
             write(6,*) 'Must have more residues than processors!'
             call mexit(6,1)
          end if
-         fraction = natom/numtasks
+         portion = natom/numtasks
          target = 0
          iparpt(0) = 0
          iparpt(numtasks) = natom
          nodes: do node=1,numtasks-1
-            target = target + fraction
+            target = target + portion
             residues: do ires=1,nres
 
                !  don't stop before a residue whose single atom is a hydrogen:

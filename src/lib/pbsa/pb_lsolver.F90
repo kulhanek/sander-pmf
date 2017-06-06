@@ -26,7 +26,7 @@ module pb_lsolver
 
    _REAL_,allocatable :: pl_am1(:,:,:), pl_am2(:,:,:), pl_am3(:,:,:)
    _REAL_,allocatable :: pl_am4(:,:,:), pl_am5(:,:,:), pl_am6(:,:,:)
-   _REAL_,allocatable :: pl_bv(:,:,:), pl_ad(:,:,:), pl_rd(:,:,:)
+   _REAL_,allocatable :: pl_bv(:,:,:), pl_iv(:,:,:), pl_ad(:,:,:), pl_rd(:,:,:)
    _REAL_,allocatable :: pl_pv(:,:,:), pl_tv(:,:,:), pl_zv(:,:,:)
 
    ! MG
@@ -107,6 +107,7 @@ subroutine allocate_array( solvopt )
          allocate( pl_am3(0:l_xm,0:l_ym,0:l_zm),pl_am4(0:l_xm,0:l_ym,0:l_zm) )
          allocate( pl_am5(0:l_xm,0:l_ym,0:l_zm),pl_am6(0:l_xm,0:l_ym,0:l_zm) )
          allocate( pl_ind(1:l_xmymzm,3) )
+         allocate( pl_iv(1:l_xm,1:l_ym,1:l_zm) )
       end if
    case (2)
       allocate ( mg_index(1:mg_nlevel+1),mg_index_ext(1:mg_nlevel+1))
@@ -160,13 +161,13 @@ subroutine allocate_array( solvopt )
    case (3)
       allocate(l_ad(1:l_xmymzm),l_am1(1-l_xmym:l_xmymzm),l_am2(1-l_xmym:l_xmymzm),l_am3(1-l_xmym:l_xmymzm))
       allocate(l_bv(1:l_xmymzm),l_pv(1-l_xmym:l_xmymzm+l_xmym),l_zv(1:l_xmymzm))
-      if (l_bcopt==10) then 
+      if (l_bcopt==10) then
          allocate(l_am4(1-l_xmym:l_xmymzm),l_am5(1-l_xmym:l_xmymzm),l_am6(1-l_xmym:l_xmymzm))
       end if
    case (4)
       allocate(l_ad(1:l_xmymzm),l_am1(1-l_xmym:l_xmymzm),l_am2(1-l_xmym:l_xmymzm),l_am3(1-l_xmym:l_xmymzm))
       allocate(l_bv(1:l_xmymzm),l_zv(1:l_xmymzm))
-      if (l_bcopt==10) then 
+      if (l_bcopt==10) then
          allocate(pl_ind3d(0:(l_xm+1),0:(l_ym+1),0:(l_zm+1)))
          allocate(pl_ind(1:l_xmymzm,1:3))
       end if
@@ -196,7 +197,7 @@ subroutine deallocate_array(solvopt)
          deallocate( pl_am1,pl_am2 )
          deallocate( pl_am3,pl_am4 )
          deallocate( pl_am5,pl_am6 )
-         deallocate( pl_ind )
+         deallocate( pl_ind,pl_iv )
       end if
    case (2)
       deallocate( mg_index, mg_index_ext )
@@ -217,7 +218,7 @@ subroutine deallocate_array(solvopt)
       end if
    case (3)
       deallocate( l_ad,l_am1,l_am2,l_am3 )
-      if (l_bcopt == 10) then 
+      if (l_bcopt == 10) then
          deallocate( l_am4,l_am5,l_am6 )
       end if
       deallocate( l_bv,l_pv,l_zv )
@@ -235,7 +236,7 @@ end subroutine deallocate_array
 !===========================================================================
 
 subroutine init_array( solvopt,epsx,epsy,epsz,p_bv,p_iv,p_xs )
-   
+
    implicit none
 
    integer solvopt
@@ -246,7 +247,7 @@ subroutine init_array( solvopt,epsx,epsy,epsz,p_bv,p_iv,p_xs )
    integer lxmym,l,m,n,i,j,k
    integer ii, xi, yi, zi
    integer xsi, ysi, zsi, xn, yn, zn
-   _REAL_,allocatable :: lepsx(:), lepsy(:), lepsz(:) 
+   _REAL_,allocatable :: lepsx(:), lepsy(:), lepsz(:)
    _REAL_ lfactor
 
    select case ( solvopt )
@@ -298,7 +299,7 @@ subroutine init_array( solvopt,epsx,epsy,epsz,p_bv,p_iv,p_xs )
          ! initialize all to zero first
 
          pl_ad = ZERO
-         pl_am1 = ZERO; pl_am2 = ZERO; pl_am3 = ZERO 
+         pl_am1 = ZERO; pl_am2 = ZERO; pl_am3 = ZERO
          pl_am4 = ZERO; pl_am5 = ZERO; pl_am6 = ZERO
          pl_bv = ZERO
          pl_tv = ZERO
@@ -341,7 +342,7 @@ subroutine init_array( solvopt,epsx,epsy,epsz,p_bv,p_iv,p_xs )
          call feedepsintoad( l_xm, l_ym, l_zm, l_ad, epsx, epsy, epsz )
          l_ad(1:l_xmymzm) = l_ad(1:l_xmymzm) + lfactor*p_iv(1:l_xmymzm)
       end if
-       
+
       ! padding the lower faces.
 
       l_am1(1-l_xmym:0) = ZERO
@@ -561,7 +562,8 @@ subroutine feedepsintoad_piccg(xm, ym, zm, ad, eps1, eps2, eps3, piv)
     ad(1:xm,1:ym,1:zm) = ad(1:xm,1:ym,1:zm)+eps3(1:xm,  1:ym,  0:zm-1)
     if ( l_pbkappa /= ZERO ) then
        lfactor = l_epsout*(l_h*l_pbkappa)**2
-       ad(1:xm,1:ym,1:zm) = piv(1:xm,1:ym,1:zm)*lfactor + ad(1:xm,1:ym,1:zm)
+       pl_iv(1:xm,1:ym,1:zm) = piv(1:xm,1:ym,1:zm)*lfactor
+       ad(1:xm,1:ym,1:zm) = pl_iv(1:xm,1:ym,1:zm) + ad(1:xm,1:ym,1:zm)
     end if
 
 
@@ -662,13 +664,12 @@ subroutine setupper2( l_am1, l_am2, l_am3, l_am4, l_am5, l_am6 )
 
 end subroutine setupper2
 
-
 end subroutine init_array
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 ! pb_iccg
 !
-! ICGG core routine for linearized FDPB equation, non-periodic version.  
+! ICGG core routine for linearized FDPB equation, non-periodic version.
 ! This version uses 1-d padded arrays for performance.
 !
 ! Authors:
@@ -722,7 +723,7 @@ subroutine pb_iccg( phi, xs )
 
 
    l_inorm = ZERO
-   do i = 1, l_xmymzm 
+   do i = 1, l_xmymzm
       l_ad(i) = l_ad(i) - TWO ! this would yield -1 in unmodified version
 
       ! WMBS - apply L matrix to l_bv.
@@ -735,7 +736,7 @@ subroutine pb_iccg( phi, xs )
    do i = l_xmymzm, 1, -1
       ! WMBS - l_tv is the transpose of the lower triangular
       !        this loop is applying (D+U) part of M to initial guess xs
-      !        l_tv(i) = 0 when i > l_xmymzm or i < 1 here 
+      !        l_tv(i) = 0 when i > l_xmymzm or i < 1 here
       l_tv(i) = xs(i) + l_am1(i     )*l_tv(i+1     ) &
                       + l_am2(i     )*l_tv(i+l_xm  ) &
                       + l_am3(i     )*l_tv(i+l_xmym)
@@ -759,7 +760,7 @@ subroutine pb_iccg( phi, xs )
       l_pv(i)  = l_bv(i)
 
       ! first step of the matrix vector multiplication, see below
-      ! WMBS - apply (D+U) part of M 
+      ! WMBS - apply (D+U) part of M
       l_tv(i) = l_pv(i) + l_am1(i     )*l_tv(i+1   ) &
                     + l_am2(i     )*l_tv(i+l_xm  ) &
                     + l_am3(i     )*l_tv(i+l_xmym)
@@ -807,7 +808,7 @@ subroutine pb_iccg( phi, xs )
 
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6,'(a)') 'PB Warning in pb_iccg(): maxitn exceeded!'
+            write(6,'(a)') ' PBSA Warning in pb_iccg(): maxitn exceeded!'
          end if
 
       else
@@ -843,7 +844,7 @@ end subroutine pb_iccg
 !
 ! pb_piccg
 !
-! ICGG core routine for linearized FDPB equation, periodic version.  
+! ICGG core routine for linearized FDPB equation, periodic version.
 ! This version uses 3-d arrays for ease of implementation.
 !
 ! Authors:
@@ -865,8 +866,10 @@ subroutine pb_piccg( phi, xs )
    integer xi, yi, zi, xp, yp, zp
    _REAL_ alpha, beta, pdotz, bdotb1, bdotb2
 
+   _REAL_, allocatable :: pl_bv0(:,:,:)
+
    ! initialization
- 
+
    call pb_piccg_initialize(pl_ind,pl_rd,pl_ad,pl_am1,pl_am2,pl_am3,&
            pl_am4,pl_am5,pl_am6,pl_bv,pl_tv,pl_pv,pl_zv,            &
            alpha,bdotb1,bdotb2,pdotz,beta,l_inorm,uconvg,           &
@@ -891,7 +894,7 @@ subroutine pb_piccg( phi, xs )
                                               + pl_am3(xi,yi,zi-1)*pl_zv(xi,yi,zi-1)&
                                               + pl_am4(xp,yi,zi  )*pl_zv(xp,yi,zi  )&
                                               + pl_am5(xi,yp,zi  )*pl_zv(xi,yp,zi  )&
-                                              + pl_am6(xi,yi,zp  )*pl_zv(xi,yi,zp  )    
+                                              + pl_am6(xi,yi,zp  )*pl_zv(xi,yi,zp  )
       end do
 
       ! we are not done yet ...
@@ -933,7 +936,7 @@ subroutine pb_piccg( phi, xs )
       if ( l_itn >= l_maxitn .or. l_norm <= l_accept*l_inorm ) then
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6,'(a)') 'PB Warning in pb_piccg(): maxitn exceeded!'
+            write(6,'(a)') ' PBSA Warning in pb_piccg(): maxitn exceeded!'
          end if
       else
          beta = bdotb2/bdotb1
@@ -948,7 +951,7 @@ subroutine pb_piccg( phi, xs )
          pl_pv(1:l_xm,1:l_ym,1:l_zm) = pl_bv(1:l_xm,1:l_ym,1:l_zm) + beta*pl_pv(1:l_xm,1:l_ym,1:l_zm)
          do ii = l_xmymzm, 1, -1
             xi = pl_ind(ii,1); yi = pl_ind(ii,2); zi = pl_ind(ii,3)
-            xp = mod(xi+l_xm-2,l_xm)+1; yp = mod(yi+l_ym-2,l_ym)+1; zp = mod(zi+l_zm-2,l_zm)+1 
+            xp = mod(xi+l_xm-2,l_xm)+1; yp = mod(yi+l_ym-2,l_ym)+1; zp = mod(zi+l_zm-2,l_zm)+1
             pl_tv(xi,yi,zi) = pl_pv (xi,yi,zi) + pl_am1(xi,yi,zi)*pl_tv(xi+1,yi,zi) &
                                                + pl_am2(xi,yi,zi)*pl_tv(xi,yi+1,zi) &
                                                + pl_am3(xi,yi,zi)*pl_tv(xi,yi,zi+1) &
@@ -963,8 +966,8 @@ subroutine pb_piccg( phi, xs )
    ! back scaling of the solution
 
    do ii = l_xmymzm, 1, -1
-      xi = pl_ind(ii,1); yi = pl_ind(ii,2); zi = pl_ind(ii,3)   
-      xp = mod(xi+l_xm-2,l_xm)+1; yp = mod(yi+l_ym-2,l_ym)+1; zp = mod(zi+l_zm-2,l_zm)+1 
+      xi = pl_ind(ii,1); yi = pl_ind(ii,2); zi = pl_ind(ii,3)
+      xp = mod(xi+l_xm-2,l_xm)+1; yp = mod(yi+l_ym-2,l_ym)+1; zp = mod(zi+l_zm-2,l_zm)+1
       pl_tv(xi,yi,zi) = xs(xi,yi,zi) + pl_am1(xi,yi,zi)*pl_tv(xi+1,yi,zi) &
                                      + pl_am2(xi,yi,zi)*pl_tv(xi,yi+1,zi) &
                                      + pl_am3(xi,yi,zi)*pl_tv(xi,yi,zi+1) &
@@ -981,7 +984,14 @@ subroutine pb_piccg( phi, xs )
    ! onto the uniform distribution. This is particularly important for non-charge neutral
    ! systems to which a uniform neutralizing charge was added in order to solve the system.
 
-   phi(1:l_xm,1:l_ym, 1:l_zm) = phi(1:l_xm, 1:l_ym, 1:l_zm) - sum(phi(1:l_xm,1:l_ym,1:l_zm)) / l_xmymzm
+   if ( l_pbkappa == ZERO ) then
+      phi(1:l_xm,1:l_ym, 1:l_zm) = phi(1:l_xm, 1:l_ym, 1:l_zm) - sum(phi(1:l_xm,1:l_ym,1:l_zm)) / l_xmymzm
+   else
+      write(6,'(a,es15.6)') ' PB Info: Net Charge Achieved for bcopt=10: ',&
+      sum(pl_bv0(1:l_xm,1:l_ym,1:l_zm)) - sum(phi(1:l_xm,1:l_ym,1:l_zm)*pl_iv(1:l_xm,1:l_ym,1:l_zm))
+      deallocate(pl_bv0)
+   end if
+
 
 contains
 
@@ -1000,7 +1010,7 @@ subroutine pb_piccg_initialize(lind,lrd,lad,lam1,lam2,lam3,lam4,lam5,lam6,&
    _REAL_ lbv (0:l_xm, 0:l_ym, 0:l_zm), lpv (0:l_xm  ,0:l_ym  ,0:l_zm  )
    _REAL_ lzv (0:l_xm, 0:l_ym, 0:l_zm), ltv (1:l_xm+1,1:l_ym+1,1:l_zm+1)
    _REAL_ lxs (0:l_xm, 0:l_ym, 0:l_zm)
- 
+
    logical unconv
    integer xi,yi,zi,xp,yp,zp,i,j,k,ii
    _REAL_ netcrg
@@ -1011,9 +1021,12 @@ subroutine pb_piccg_initialize(lind,lrd,lad,lam1,lam2,lam3,lam4,lam5,lam6,&
    if ( l_pbkappa == ZERO ) then
       netcrg = -sum(lbv(1:l_xm,1:l_ym,1:l_zm))/l_xmymzm
       if ( abs(netcrg) > 1.0d-9 ) then
-         write(6,'(a)') 'PB Warning: System net charge detected and removed for bcopt=10'
-         lbv(1:l_xm,1:l_ym,1:l_zm) = lbv(1:l_xm,1:l_ym,1:l_zm) + netcrg           
-      end if 
+         write(6,'(a)') ' PB Info: System net charge detected and removed for bcopt=10'
+         lbv(1:l_xm,1:l_ym,1:l_zm) = lbv(1:l_xm,1:l_ym,1:l_zm) + netcrg
+      end if
+   else
+      allocate(pl_bv0(1:l_xm,1:l_ym,1:l_zm))
+      pl_bv0(1:l_xm,1:l_ym,1:l_zm) = lbv(1:l_xm,1:l_ym,1:l_zm)
    end if
 
    lrd(1:l_xm,1:l_ym,1:l_zm) = ONE
@@ -1027,9 +1040,9 @@ subroutine pb_piccg_initialize(lind,lrd,lad,lam1,lam2,lam3,lam4,lam5,lam6,&
 
    do ii = 1, l_xmymzm
       xi = lind(ii,1); yi = lind(ii,2); zi = lind(ii,3)
-      xp = mod(xi,l_xm)+1; yp = mod(yi,l_ym)+1; zp=mod(zi,l_zm)+1 
-      lrd(xi,yi,zi) = ONE/( lad(xi,yi,zi)-                                    &  
-                     lam1(xi-1,yi,zi)*(lam1(xi-1,yi,zi)     + l_fmiccg   *(   & 
+      xp = mod(xi,l_xm)+1; yp = mod(yi,l_ym)+1; zp=mod(zi,l_zm)+1
+      lrd(xi,yi,zi) = ONE/( lad(xi,yi,zi)-                                    &
+                     lam1(xi-1,yi,zi)*(lam1(xi-1,yi,zi)     + l_fmiccg   *(   &
                         lam2(xi-1,yi,zi)+ lam3(xi-1,yi,zi)) + l_fmiccg2  *(   &
                         lam4(xi-1,yi,zi)+ lam5(xi-1,yi,zi)  + lam6(xi-1,yi,zi)&
                         ))*lrd(xi-1,yi,zi) -                                  &
@@ -1092,7 +1105,7 @@ subroutine pb_piccg_initialize(lind,lrd,lad,lam1,lam2,lam3,lam4,lam5,lam6,&
                         +  lam3(xi,yi,zi-1)*lbv(xi,yi,zi-1) &
                         +  lam4(xp,yi,zi  )*lbv(xp,yi,zi  ) &
                         +  lam5(xi,yp,zi  )*lbv(xi,yp,zi  ) &
-                        +  lam6(xi,yi,zp  )*lbv(xi,yi,zp  ) 
+                        +  lam6(xi,yi,zp  )*lbv(xi,yi,zp  )
       inorm = inorm + ABS(lbv(xi,yi,zi))
    end do
 
@@ -1108,8 +1121,8 @@ subroutine pb_piccg_initialize(lind,lrd,lad,lam1,lam2,lam3,lam4,lam5,lam6,&
                                     + lam3(xi,yi,zi)*ltv(xi,yi,zi+1) &
                                     + lam4(xi,yi,zi)*ltv(xp,yi,zi  ) &
                                     + lam5(xi,yi,zi)*ltv(xi,yp,zi  ) &
-                                    + lam6(xi,yi,zi)*ltv(xi,yi,zp  ) 
-   end do   
+                                    + lam6(xi,yi,zi)*ltv(xi,yi,zp  )
+   end do
 
    ! WMBS - loops for applying the L and D matrices
    ! L*p explicit conditioning
@@ -1123,7 +1136,7 @@ subroutine pb_piccg_initialize(lind,lrd,lad,lam1,lam2,lam3,lam4,lam5,lam6,&
                                     + lam3(xi,yi,zi-1)*lzv(xi,yi,zi-1)  &
                                     + lam4(xp,yi,zi  )*lzv(xp,yi,zi  )  &
                                     + lam5(xi,yp,zi  )*lzv(xi,yp,zi  )  &
-                                    + lam6(xi,yi,zp  )*lzv(xi,yi,zp  )      
+                                    + lam6(xi,yi,zp  )*lzv(xi,yi,zp  )
    end do
 
    ! WMBS - need to add periodicity for l_tv. This could be a bit
@@ -1154,7 +1167,7 @@ subroutine pb_piccg_initialize(lind,lrd,lad,lam1,lam2,lam3,lam4,lam5,lam6,&
                                     + lam4(xi,yi,zi)*ltv(xp,yi,zi  ) &
                                     + lam5(xi,yi,zi)*ltv(xi,yp,zi  ) &
                                     + lam6(xi,yi,zi)*ltv(xi,yi,zp  )
-                      
+
    end do
    l_itn = 0
    unconv = .true.
@@ -1168,7 +1181,7 @@ end subroutine pb_piccg
 !
 ! pb_sor
 !
-! SOR core routine for linearized FDPB equation, non-periodic version.  
+! SOR core routine for linearized FDPB equation, non-periodic version.
 !
 ! Authors:
 ! Jun Wang
@@ -1224,7 +1237,7 @@ subroutine pb_sor(phi,xs)
       if ( l_itn >= l_maxitn .or. l_norm <= l_accept*l_inorm ) then
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6,'(a)') 'PBMD WARNING: SOR maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: SOR maxitn exceeded!'
          end if
       end if
 
@@ -1238,7 +1251,7 @@ end subroutine pb_sor
 !
 ! pb_psor
 !
-! SOR core routine for linearized FDPB equation, periodic version.  
+! SOR core routine for linearized FDPB equation, periodic version.
 !
 ! Authors:
 ! Wesley Smith
@@ -1265,7 +1278,7 @@ subroutine pb_psor(phi,xs)
    if ( l_pbkappa == ZERO ) then
       netcrg = -sum(l_bv(1:l_xmymzm))/l_xmymzm
       if ( abs(netcrg) > 1.0d-9 ) then
-         write(6,'(a)') 'PB Warning: System net charge detected and removed for bcopt=10'
+         write(6,'(a)') ' PB Info: System net charge detected and removed for bcopt=10'
          l_bv(1:l_xmymzm) = l_bv(1:l_xmymzm) + netcrg
       end if
    end if
@@ -1298,7 +1311,7 @@ subroutine pb_psor(phi,xs)
       l_itn = l_itn + 1
 
       forall ( xi = 1:l_xm, yi = 1:l_ym, zi = 1:l_zm )
-         phi(pl_ind3d(xi,yi,zi)) =  l_am1(pl_ind3d(xi-1,yi,zi)) * xs(pl_ind3d(xi-1,yi,zi)) + & 
+         phi(pl_ind3d(xi,yi,zi)) =  l_am1(pl_ind3d(xi-1,yi,zi)) * xs(pl_ind3d(xi-1,yi,zi)) + &
                                     l_am1(pl_ind3d(xi,yi,zi  )) * xs(pl_ind3d(xi+1,yi,zi)) + &
                                     l_am2(pl_ind3d(xi,yi-1,zi)) * xs(pl_ind3d(xi,yi-1,zi)) + &
                                     l_am2(pl_ind3d(xi,yi,zi  )) * xs(pl_ind3d(xi,yi+1,zi)) + &
@@ -1312,7 +1325,7 @@ subroutine pb_psor(phi,xs)
       if ( l_itn >= l_maxitn .or. l_norm <= l_accept*l_inorm ) then
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6,'(a)') 'PBMD WARNING: SOR maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: SOR maxitn exceeded!'
          end if
       end if
 
@@ -1323,16 +1336,93 @@ subroutine pb_psor(phi,xs)
    ! must be purged of its content by subratcting the projection of the soultion distribution
    ! onto the uniform distribution. This is particularly important for non-charge neutral
    ! systems to which a uniform neutralizing charge was added in order to solve the system.
+   ! However this is not necessary when salt presents since no uniform plasma is
+   ! used in the first place.
 
-   phi(1:l_xmymzm) = xs(1:l_xmymzm) - sum(xs(1:l_xmymzm)) / l_xmymzm
+   if ( l_pbkappa == ZERO ) phi(1:l_xmymzm) = xs(1:l_xmymzm) - sum(xs(1:l_xmymzm)) / l_xmymzm
+   if ( l_pbkappa /= ZERO ) phi(1:l_xmymzm) = xs(1:l_xmymzm)
 
 
 end subroutine pb_psor
+#ifdef CUDA
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+! CUDA PB_PCG Wrapper - Ruxi @ Oct 2016
+!
+! Algorithm: Since band2csr needs the entire matrix, matrix-free style surface-
+! points-shifting-to-x[i] cannot be used here anymore. Here we treat the 6 new
+! PBC-induced bands (surface points) as still occupying the original sites (null values)
+! on the original 7 bands, only with a different column index and value. So bandwidth is
+! always 7 for row array I[i]. We use non-order CSR row storage for each line,
+! i.e. J[i] may be larger than J[i+1], but with val[i] - J[i] correctly mapped.
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine pb_pcg(phi, xs)
+
+   implicit none
+
+   _REAL_ phi(l_xmymzm), xs(l_xmymzm)
+   ! Note bandwidth here is the effective value. Total we have 13 bands
+   integer :: bandwidth = 7
+   _REAL_ netcrg
+
+   ! For converting _REAL_ to real to match float in wrapper. In future change
+   ! _REAL to 4 bytes instead of bothering like this
+   real, dimension(l_xmymzm) :: x, b0, b1, b2, b3, b4, b5, b6, rhs
+   real :: acpt, residual
+   !integer :: t1, t2, clock_rate
+   !real :: cudaElapse
+
+   ! neutralize grid charge in periodic Poisson systems
+   ! salt would automatically do it in the periodic PB systems.
+
+   if ( l_pbkappa == ZERO ) then
+      netcrg = -sum(l_bv(1:l_xmymzm))/l_xmymzm
+      if ( ABS(netcrg) > 1.0d-9 ) then
+         write(6,'(a)') ' PB Info: System net charge detected and removed for bcopt=10'
+         l_bv(1:l_xmymzm) = l_bv(1:l_xmymzm) + netcrg
+      end if
+   end if
+
+   l_inorm = sqrt(sum(l_bv(1:l_xmymzm) * l_bv(1:l_xmymzm)))
+
+   b0(1:l_xmymzm) = l_ad(1:l_xmymzm)
+   b1(1:l_xmymzm) = l_am1(1:l_xmymzm)
+   b2(1:l_xmymzm) = l_am2(1:l_xmymzm)
+   b3(1:l_xmymzm) = l_am3(1:l_xmymzm)
+   b4(1:l_xmymzm) = l_am4(1:l_xmymzm)
+   b5(1:l_xmymzm) = l_am5(1:l_xmymzm)
+   b6(1:l_xmymzm) = l_am6(1:l_xmymzm)
+   rhs(1:l_xmymzm) = l_bv(1:l_xmymzm)
+   acpt = l_accept
+
+   ! Ruxi
+   !call system_clock(COUNT_RATE = clock_rate)
+   !call system_clock(COUNT = t1)
+   call cuda_cg_wrapper_pbc(x, b0, b1, b2, b3, b4, b5, b6, rhs, bandwidth, &
+        l_xm, l_ym, l_zm, l_maxitn, acpt, l_itn, residual)
+   !call system_clock(COUNT = t2)
+   !cudaElapse = real((t2 - t1)/clock_rate)
+   !write (777, *) 'Real time on wrapper: ', cudaElapse
+
+   ! Just for converting back :(
+   if ( l_pbkappa == ZERO ) phi(1:l_xmymzm) = x(1:l_xmymzm) - sum(x(1:l_xmymzm)) / l_xmymzm
+   if ( l_pbkappa /= ZERO ) phi(1:l_xmymzm) = x(1:l_xmymzm)
+
+   l_norm = sqrt(residual)
+
+   if ( l_itn >= l_maxitn ) then
+      write(6,'(a)') 'PBSA WARNING: CG l_maxitn exceeded!'
+   end if
+
+
+end subroutine pb_pcg
+#else
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 ! pb_pcg
 !
-! CG core routine for linearized FDPB equation, periodic version.  
+! CG core routine for linearized FDPB equation, periodic version.
 !
 ! Authors:
 ! Jun Wang
@@ -1357,7 +1447,7 @@ subroutine pb_pcg ( phi, xs )
    if ( l_pbkappa == ZERO ) then
       netcrg = -sum(l_bv(1:l_xmymzm))/l_xmymzm
       if ( ABS(netcrg) > 1.0d-9 ) then
-         write(6,'(a)') 'PB Warning: System net charge detected and removed for bcopt=10'
+         write(6,'(a)') ' PB Info: System net charge detected and removed for bcopt=10'
          l_bv(1:l_xmymzm) = l_bv(1:l_xmymzm) + netcrg
       end if
    end if
@@ -1367,7 +1457,7 @@ subroutine pb_pcg ( phi, xs )
    l_inorm = sum(ABS(l_bv(1:l_xmymzm)))
 
    !write(6,'(a,e10.3)')  'itn & norm ', 0, l_inorm
-   
+
    ! compute b - A * x(0) and save it in r(0)
    ! p(0) = r(0)
    !
@@ -1481,7 +1571,7 @@ subroutine pb_pcg ( phi, xs )
 
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6,'(a)') 'PBMD WARNING: CG maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: CG maxitn exceeded!'
          end if
 
       else
@@ -1502,16 +1592,72 @@ subroutine pb_pcg ( phi, xs )
    ! must be purged of its content by subratcting the projection of the soultion distribution
    ! onto the uniform distribution. This is particularly important for non-charge neutral
    ! systems to which a uniform neutralizing charge was added in order to solve the system.
+   ! However this is not necessary when salt presents since no uniform plasma is
+   ! used in the first place.
 
-   phi(1:l_xmymzm) = xs(1:l_xmymzm) - sum(xs(1:l_xmymzm)) / l_xmymzm
+   if ( l_pbkappa == ZERO ) phi(1:l_xmymzm) = xs(1:l_xmymzm) - sum(xs(1:l_xmymzm)) / l_xmymzm
+   if ( l_pbkappa /= ZERO ) phi(1:l_xmymzm) = xs(1:l_xmymzm)
 
 
 end subroutine pb_pcg
+#endif
+#ifdef CUDA
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 ! pb_cg
 !
-! CG core routine for linearized FDPB equation, non-periodic version.  
+! CUDA CG Wrapper
+!
+! Authors:
+! Ruxi Qi, Jun 30, 2016
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine pb_cg(phi, xs)
+
+   implicit none
+
+   _REAL_ phi(l_xmymzm), xs(l_xmymzm)
+   integer :: bandwidth = 7
+
+   ! For converting _REAL_ to real to match float in wrapper. In future change
+   ! _REAL to 4 bytes instead of bothering like this
+   real, dimension(l_xmymzm) :: x, b0, b1, b2, b3, rhs
+   real :: acpt, residual
+   !integer :: t1, t2, clock_rate
+   !real :: cudaElapse
+
+   l_inorm = sqrt(sum(l_bv(1:l_xmymzm) * l_bv(1:l_xmymzm)))
+
+   b0(1:l_xmymzm) = l_ad(1:l_xmymzm)
+   b1(1:l_xmymzm) = l_am1(1:l_xmymzm)
+   b2(1:l_xmymzm) = l_am2(1:l_xmymzm)
+   b3(1:l_xmymzm) = l_am3(1:l_xmymzm)
+   rhs(1:l_xmymzm) = l_bv(1:l_xmymzm)
+   acpt = l_accept
+
+   ! Ruxi: This is the developmental timing analysis
+   !call system_clock(COUNT_RATE = clock_rate)
+   !call system_clock(COUNT = t1)
+   call cuda_cg_wrapper(x, b0, b1, b2, b3, rhs, bandwidth, l_xm, l_ym, l_zm, l_maxitn, acpt, l_itn, residual)
+   !call system_clock(COUNT = t2)
+   !cudaElapse = real((t2 - t1)/clock_rate)
+   !write (777, *) 'Real time on wrapper: ', cudaElapse
+
+   ! Just for converting back :(
+   phi(1:l_xmymzm) = x(1:l_xmymzm)
+   l_norm = sqrt(residual)
+
+   if ( l_itn >= l_maxitn ) then
+      write(6,'(a)') 'PBSA WARNING: CG l_maxitn exceeded!'
+   end if
+
+end subroutine pb_cg
+#else
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+! pb_cg
+!
+! CG core routine for linearized FDPB equation, non-periodic version.
 !
 ! Authors:
 ! Ray Luo
@@ -1571,7 +1717,7 @@ subroutine pb_cg(phi,xs)
                    - l_am1(i       )*l_pv(i+1     ) &
                    - l_am2(i       )*l_pv(i+l_xm  ) &
                    - l_am3(i       )*l_pv(i+l_xmym) &
-                   + l_ad (i       )*l_pv(i       )  
+                   + l_ad (i       )*l_pv(i       )
          pdotz = pdotz + l_pv(i)*l_zv(i)
       end do
 
@@ -1603,7 +1749,7 @@ subroutine pb_cg(phi,xs)
 
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6,'(a)') 'PBMD WARNING: CG l_maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: CG l_maxitn exceeded!'
          end if
 
       else
@@ -1621,13 +1767,13 @@ subroutine pb_cg(phi,xs)
 
    phi(1:l_xmymzm) = xs(1:l_xmymzm)
 
-
 end subroutine pb_cg
+#endif
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 ! pb_mg
 !
-! MG core routine for linearized FDPB equation, non-periodic and periodic versions.  
+! MG core routine for linearized FDPB equation, non-periodic and periodic versions.
 !
 ! Authors:
 ! Jun Wang, Wesley Smith
@@ -1653,11 +1799,11 @@ subroutine pb_mg(phi,xs)
    if ( l_bcopt == 10 .and. l_pbkappa == ZERO ) then
       netcrg = -sum(l_bv(1:l_xmymzm))/l_xmymzm
       if ( ABS(netcrg) > 1.0d-9 ) then
-         write(6,'(a)') 'PB Warning: System net charge detected and removed for bcopt=10'
+         write(6,'(a)') ' PB Info: System net charge detected and removed for bcopt=10'
          l_bv(1:l_xmymzm) = l_bv(1:l_xmymzm) + netcrg
       end if
-   end if 
- 
+   end if
+
    l_inorm = sum(abs(l_bv(1:l_xmymzm)))
    l_itn = 0
    uconvg = .true.
@@ -1668,7 +1814,7 @@ subroutine pb_mg(phi,xs)
 
       mg_onorm = 9.9d99
 
-      ! this goes up (initially 1) 
+      ! this goes up (initially 1)
 
       do j = 1, mg_nlevel-1
          gid = j
@@ -1695,7 +1841,7 @@ subroutine pb_mg(phi,xs)
 
       ! this goes down (finally 1)
 
-      do j = mg_nlevel-1, 1, -1    
+      do j = mg_nlevel-1, 1, -1
          gid = j
          lxly = mg_size(1,j)*mg_size(2,j)
          lxlylz = lxly*mg_size(3,j)
@@ -1721,13 +1867,13 @@ subroutine pb_mg(phi,xs)
       l_itn = l_itn + 1
       l_norm = sum(abs(l_rv(1:l_xmymzm)))
       !write(6,'(a)') 'pb_mg itn & norm', litn, lnorm
-  
+
       ! check convergence
-  
+
       if ( l_itn >= l_maxitn .or. l_norm <= l_inorm*l_accept ) then
          uconvg = .false.
          if ( l_itn >= l_maxitn ) then
-            write(6,'(a)') 'PB_MG WARNING: maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: maxitn exceeded!'
          endif
       end if
 
@@ -1735,15 +1881,16 @@ subroutine pb_mg(phi,xs)
 
    xs (1:l_xmymzm) = l_xv(l_xmym+1:l_xmym+l_xmymzm)
 
-   if ( l_bcopt /= 10 ) phi(1:l_xmymzm) = xs(1:l_xmymzm)
-   if ( l_bcopt == 10 ) phi(1:l_xmymzm) = xs(1:l_xmymzm) - sum(xs(1:l_xmymzm))/l_xmymzm
-  
+   if ( l_bcopt /= 10 .or. l_pbkappa /= ZERO ) phi(1:l_xmymzm) = xs(1:l_xmymzm)
+   if ( l_bcopt == 10 .and. l_pbkappa == ZERO ) phi(1:l_xmymzm) = xs(1:l_xmymzm) - sum(xs(1:l_xmymzm))/l_xmymzm
+
+
 end subroutine pb_mg
 
 !===========================================================================
 
 subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,onorm)
- 
+
    implicit none
 
    integer nx,ny,nz,nxny,nxnynz,ncyc
@@ -1755,7 +1902,6 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
    integer ii,litn,itmax, xi,yi,zi,xsi,ysi,zsi
    integer itn_checknorm
    _REAL_ wsor, wsor1, linorm, lnorm, lxmymzm
-   !_REAL_  netcrg
 
    if ( ncyc > 0 ) then
       itn_checknorm = ncyc
@@ -1766,16 +1912,6 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
       wsor = 1.9d0
       wsor1 = ONE - wsor
    end if
-
-   ! neutralize the charge grid for periodic systems
-
-   !if ( l_bcopt == 10 ) then
-   !   netcrg = -sum(lbv(1:nxnynz))/nxnynz
-   !   if ( ABS(netcrg) > 1.0d-9 ) then
-   !      write(6,'(a)') 'PB Warning: System net charge detected and removed for bcopt=10'
-   !      lbv(1:nxnynz) = l_bv(1:nxnynz) + netcrg
-   !   end if
-   !end if   
 
    linorm = sum(abs(lbv(1:nxnynz)))
    l_zv(1:nxnynz) = ONE/lad(1:nxnynz)
@@ -1791,7 +1927,7 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
 
       ! periodic systems
 
-      if ( l_bcopt == 10 ) then 
+      if ( l_bcopt == 10 ) then
          if ( gid == 1 ) then
             xsi = 0; ysi = 0; zsi = 0
          else
@@ -1799,7 +1935,7 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
          end if
 
          do zi =1, nz; do yi = 1, ny; do xi = 1, nx ! apparently this cannot be done out of order (i.e. no forall)
-            xs(pl_ind3d(xsi+xi,ysi+yi,zsi+zi)) = wsor1 * xs(pl_ind3d(xsi+xi,ysi+yi,zsi+zi)) + wsor * (      &  
+            xs(pl_ind3d(xsi+xi,ysi+yi,zsi+zi)) = wsor1 * xs(pl_ind3d(xsi+xi,ysi+yi,zsi+zi)) + wsor * (      &
                   lam1( pl_ind3d(xsi+xi-1,ysi+yi  ,zsi+zi  ) )*xs( pl_ind3d(xsi+xi-1,ysi+yi  ,zsi+zi  ) ) + &
                   lam1( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi  ) )*xs( pl_ind3d(xsi+xi+1,ysi+yi  ,zsi+zi  ) ) + &
                   lam2( pl_ind3d(xsi+xi  ,ysi+yi-1,zsi+zi  ) )*xs( pl_ind3d(xsi+xi  ,ysi+yi-1,zsi+zi  ) ) + &
@@ -1820,25 +1956,26 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
                   lam2( pl_ind3d(xsi+xi  ,ysi+yi-1,zsi+zi  ) )*xs( pl_ind3d(xsi+xi  ,ysi+yi-1,zsi+zi  ) ) + &
                   lam2( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi  ) )*xs( pl_ind3d(xsi+xi  ,ysi+yi+1,zsi+zi  ) ) + &
                   lam3( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi-1) )*xs( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi-1) ) + &
-                  lam3( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi  ) )*xs( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi+1) )  
+                  lam3( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi  ) )*xs( pl_ind3d(xsi+xi  ,ysi+yi  ,zsi+zi+1) )
             end forall
-            
+
             lnorm = sum(abs(lrv(1:nxnynz)))
             !write(6,*)  ' relax itn & norm ', litn, lnorm, onorm
 
             ! check convergence
-  
+
             if ( litn .ge. itmax .or. ( ncyc .gt. 0 .and. (litn .ge. ncyc .and. lnorm < onorm ) ) &
                  .or. lnorm .le. accept*linorm ) then
                luconvg = .false.
                if ( ncyc .gt. 0 .and. litn .ge. ncyc .and. lnorm > onorm ) then
-                  write(6,'(a,3i6,2f12.4)') "PB_MG FAILED: ncyc, itn, gid, norm, onorm", ncyc, litn, gid, lnorm, onorm
+                  write(6,'(a,3i6,2f12.4)') "PBSA BOMB: in MG: ncyc, itn, gid, norm, onorm",&
+                     ncyc, litn, gid, lnorm, onorm
                   stop
                end if
 
-               if ( ncyc .gt. 0 ) onorm = lnorm 
+               if ( ncyc .gt. 0 ) onorm = lnorm
                if ( litn .ge. itmax ) then
-                  write(6,'(a)') 'PB_MG WARNING: SOR maxitn exceeded!'
+                  write(6,'(a)') 'PBSA WARNING: in MG: SOR maxitn exceeded!'
                end if
             end if
          end if
@@ -1846,7 +1983,7 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
       ! non-periodic systems
 
       else
- 
+
          do ii = 1, nxnynz, 1
             xs(ii) = wsor1*xs(ii) + wsor * (lam1(ii-1   ) * xs(ii-1   ) + &
                                             lam1(ii     ) * xs(ii+1   ) + &
@@ -1858,7 +1995,7 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
          end do
 
          litn = litn + 1
-         
+
          if ( mod(litn,itn_checknorm) == 0 ) then
             forall (ii = 1:nxnynz)
                lrv(ii) = lam1(ii-1) * xs(ii-1) + lam1(ii)* xs(ii+1) + &
@@ -1868,20 +2005,21 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
             end forall
 
             lnorm = sum(abs(lrv(1:nxnynz)))
-  
+
             ! check convergence
- 
+
             if ( litn .ge. itmax .or. ( ncyc .gt. 0 .and. (litn .ge. ncyc .and. lnorm < onorm ) ) &
                  .or. lnorm .le. accept*linorm ) then
                luconvg = .false.
                if ( ncyc .gt. 0 .and. litn .ge. ncyc .and. lnorm > onorm ) then
-                  write(6,'(a,3i6,2f12.4)') "PB_MG FAILED: ncyc, itn, gid, norm, onorm", ncyc, litn, gid, lnorm, onorm
+                  write(6,'(a,3i6,2f12.4)') "PBSA BOMB: in MG: ncyc, itn, gid, norm, onorm",&
+                     ncyc, litn, gid, lnorm, onorm
                   stop
                end if
 
-               if ( ncyc .gt. 0 ) onorm = lnorm 
+               if ( ncyc .gt. 0 ) onorm = lnorm
                if ( litn .ge. itmax ) then
-                  write(6,'(a)') 'PB_MG WARNING: SOR maxitn exceeded!'
+                  write(6,'(a)') 'PBSA WARNING: in MG: SOR maxitn exceeded!'
                end if
             end if
          end if
@@ -1893,7 +2031,7 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
 end subroutine relax
 
 !===========================================================================
-      
+
 subroutine set_am_ad( epsx,epsy,epsz,iv,lam1,lam2,lam3,lad,lbz, &
                       xn,yn,zn,lfactor,epsout )
 
@@ -1925,7 +2063,7 @@ subroutine set_am_ad( epsx,epsy,epsz,iv,lam1,lam2,lam3,lad,lbz, &
             lam3t = epsout
             if ( k1 /= 0 ) lam3t = lam3(i,j,k1)
             lad(i,j,k) = lam1t + lam1(i,j,k) + lam2t + lam2(i,j,k) &
-                       + lam3t + lam3(i,j,k) 
+                       + lam3t + lam3(i,j,k)
          end do
       end do
    end do
@@ -1952,7 +2090,7 @@ end subroutine set_am_ad
 subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, xnr, ynr, znr )
 
    implicit none
- 
+
    integer xn, yn, zn, xnr, ynr, znr
    _REAL_ epsx(xn,yn,zn),epsxr(xnr,ynr,znr)
    _REAL_ epsy(xn,yn,zn),epsyr(xnr,ynr,znr)
@@ -1978,7 +2116,7 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                              (hmav(epsx(i2  ,j2m ,k2m ),epsx(i2p ,j2m ,k2m )) + &
                               hmav(epsx(i2  ,j2p ,k2m ),epsx(i2p ,j2p ,k2m )) + &
                               hmav(epsx(i2  ,j2m ,k2p ),epsx(i2p ,j2m ,k2p )) + &
-                              hmav(epsx(i2  ,j2p ,k2p ),epsx(i2p ,j2p ,k2p )))/16.d0 
+                              hmav(epsx(i2  ,j2p ,k2p ),epsx(i2p ,j2p ,k2p )))/16.d0
 
                epsyr(i,j,k) = hmav(epsy(i2  ,j2  ,k2  ),epsy(i2  ,j2p ,k2  ))/4.d0 + &
                              (hmav(epsy(i2m ,j2  ,k2  ),epsy(i2m ,j2p ,k2  )) + &
@@ -1988,7 +2126,7 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                              (hmav(epsy(i2m ,j2  ,k2m ),epsy(i2m ,j2p ,k2m )) + &
                               hmav(epsy(i2p ,j2  ,k2m ),epsy(i2p ,j2p ,k2m )) + &
                               hmav(epsy(i2m ,j2  ,k2p ),epsy(i2m ,j2p ,k2p )) + &
-                              hmav(epsy(i2p ,j2  ,k2p ),epsy(i2p ,j2p ,k2p )))/16.d0 
+                              hmav(epsy(i2p ,j2  ,k2p ),epsy(i2p ,j2p ,k2p )))/16.d0
 
                epszr(i,j,k) = hmav(epsz(i2  ,j2  ,k2  ),epsz(i2  ,j2  ,k2p ))/4.d0 + &
                              (hmav(epsz(i2  ,j2m ,k2  ),epsz(i2  ,j2m ,k2p )) + &
@@ -1998,10 +2136,10 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                              (hmav(epsz(i2m ,j2m ,k2  ),epsz(i2m ,j2m ,k2p )) + &
                               hmav(epsz(i2m ,j2p ,k2  ),epsz(i2m ,j2p ,k2p )) + &
                               hmav(epsz(i2p ,j2m ,k2  ),epsz(i2p ,j2m ,k2p )) + &
-                              hmav(epsz(i2p ,j2p ,k2  ),epsz(i2p ,j2p ,k2p )))/16.d0 
+                              hmav(epsz(i2p ,j2p ,k2  ),epsz(i2p ,j2p ,k2p )))/16.d0
             end do
          end do
-      end do         
+      end do
 
    else
 
@@ -2019,17 +2157,17 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                              (hmav(epsx(i2  ,j2-1,k2-1),epsx(i2+1,j2-1,k2-1)) + &
                               hmav(epsx(i2  ,j2+1,k2-1),epsx(i2+1,j2+1,k2-1)) + &
                               hmav(epsx(i2  ,j2-1,k2+1),epsx(i2+1,j2-1,k2+1)) + &
-                              hmav(epsx(i2  ,j2+1,k2+1),epsx(i2+1,j2+1,k2+1)))/16.d0 
+                              hmav(epsx(i2  ,j2+1,k2+1),epsx(i2+1,j2+1,k2+1)))/16.d0
 
                epsyr(i,j,k) = hmav(epsy(i2  ,j2  ,k2  ),epsy(i2  ,j2+1,k2  ))/4.d0 + &
-                             (hmav(epsy(i2-1,j2  ,k2  ),epsy(i2-1,j2+1,k2  )) + & 
+                             (hmav(epsy(i2-1,j2  ,k2  ),epsy(i2-1,j2+1,k2  )) + &
                               hmav(epsy(i2+1,j2  ,k2  ),epsy(i2+1,j2+1,k2  )) + &
                               hmav(epsy(i2  ,j2  ,k2-1),epsy(i2  ,j2+1,k2-1)) + &
                               hmav(epsy(i2  ,j2  ,k2+1),epsy(i2  ,j2+1,k2+1)))/8.d0 + &
                              (hmav(epsy(i2-1,j2  ,k2-1),epsy(i2-1,j2+1,k2-1)) + &
                               hmav(epsy(i2+1,j2  ,k2-1),epsy(i2+1,j2+1,k2-1)) + &
                               hmav(epsy(i2-1,j2  ,k2+1),epsy(i2-1,j2+1,k2+1)) + &
-                              hmav(epsy(i2+1,j2  ,k2+1),epsy(i2+1,j2+1,k2+1)))/16.d0 
+                              hmav(epsy(i2+1,j2  ,k2+1),epsy(i2+1,j2+1,k2+1)))/16.d0
 
                epszr(i,j,k) = hmav(epsz(i2  ,j2  ,k2  ),epsz(i2  ,j2  ,k2+1))/4.d0 + &
                              (hmav(epsz(i2  ,j2-1,k2  ),epsz(i2  ,j2-1,k2+1)) + &
@@ -2039,13 +2177,13 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                              (hmav(epsz(i2-1,j2-1,k2  ),epsz(i2-1,j2-1,k2+1)) + &
                               hmav(epsz(i2-1,j2+1,k2  ),epsz(i2-1,j2+1,k2+1)) + &
                               hmav(epsz(i2+1,j2-1,k2  ),epsz(i2+1,j2-1,k2+1)) + &
-                              hmav(epsz(i2+1,j2+1,k2  ),epsz(i2+1,j2+1,k2+1)))/16.d0 
+                              hmav(epsz(i2+1,j2+1,k2  ),epsz(i2+1,j2+1,k2+1)))/16.d0
             end do
          end do
       end do
    end if
 
-contains 
+contains
 
 function hmav(a,b)
 
@@ -2128,8 +2266,8 @@ end subroutine restrict_iv
 !===========================================================================
 
 subroutine restrict_bv(bvf, xn, yn, zn, bvr, xnr, ynr, znr)
- 
-   implicit none 
+
+   implicit none
 
    integer xn, yn, zn, xnr, ynr, znr
    _REAL_ bvf(xn,yn,zn),bvr(xnr,ynr,znr)
@@ -2155,7 +2293,7 @@ subroutine restrict_bv(bvf, xn, yn, zn, bvr, xnr, ynr, znr)
                                   ( bvf(i2m ,j2m ,k2p ) + TWO * bvf(i2  ,j2m ,k2p ) + bvf(i2p ,j2m ,k2p ) ) +  &
                            TWO  * ( bvf(i2m ,j2  ,k2p ) + TWO * bvf(i2  ,j2  ,k2p ) + bvf(i2p ,j2  ,k2p ) ) +  &
                                   ( bvf(i2m ,j2p ,k2p ) + TWO * bvf(i2  ,j2p ,k2p ) + bvf(i2p ,j2p ,k2p ) )
-               bvr(i,j,k) = bvr(i,j,k) / 16.d0                 
+               bvr(i,j,k) = bvr(i,j,k) / 16.d0
             end do
          end do
       end do
@@ -2240,14 +2378,14 @@ subroutine pinterpolate( lxvc, xnc, ync, znc, lxvf, xnf, ynf, znf, lam1, lam2, l
             l_scratch_am2(sii) = lam2(ii)
             l_scratch_am3(sii) = lam3(ii)
             l_scratch_bz(sii)  = lbzf(ii)
-   end do; end do; end do   
+   end do; end do; end do
 
    ! Call interpolate(), feeding in scratch grids and appropriate dimensions
 
    call interpolate( l_scratch_vc(1:(xnc+1)*(ync+1)*(znc+1)), xnc+1, ync+1, znc+1,&
                      l_scratch_vf(1:(xnf+3)*(ynf+3)*(znf+3)), xnf+3, ynf+3, znf+3,&
                      l_scratch_am1(1-(xnf+3)*(ynf+3):(xnf+3)*(ynf+3)*(znf+3)),&
-                     l_scratch_am2(1-(xnf+3)*(ynf+3):(xnf+3)*(ynf+3)*(znf+3)),& 
+                     l_scratch_am2(1-(xnf+3)*(ynf+3):(xnf+3)*(ynf+3)*(znf+3)),&
                      l_scratch_am3(1-(xnf+3)*(ynf+3):(xnf+3)*(ynf+3)*(znf+3)),&
                      l_scratch_bz(1:(xnf+3)*(ynf+3)*(znf+3)), epsout )
 
@@ -2260,7 +2398,7 @@ subroutine pinterpolate( lxvc, xnc, ync, znc, lxvf, xnf, ynf, znf, lam1, lam2, l
       do sjf = 2, ynf+1
          j = sjf-1
          do sif = 2, xnf+1
-            i = sif-1 
+            i = sif-1
             ii = i+(j-1)*xnf+(k-1)*xnf*ynf
             sii = sif+(sjf-1)*(xnf+3)+(skf-1)*(xnf+3)*(ynf+3)
             lxvf(ii) = lxvf(ii)+l_scratch_vf(sii)
@@ -2342,13 +2480,13 @@ subroutine ipl_chain(vi,xnyn,xnynzn,l,v,lbz,am_1,shift_1,am_2,shift_2,am_3,shift
 
    integer l1
    _REAL_ v1
-   
+
    ! v: value of coarse grid, vi: entire fine grid array
 
    v1 = ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1) !calculates contribution to type 2 point
    l1 = l + shift_1 !location of fine grid defined by coarsegrid at l and shift_1
    vi(l1) = vi(l1) + v1 !add contribution of coarse grid at l to fine grid at l1
-      
+
    call ipl_chain2(vi,xnyn,xnynzn,l1,v1,lbz,am_1,shift_1,am_2,-shift_2,am_3,shift_3,xn,yn,zn)
    call ipl_chain2(vi,xnyn,xnynzn,l1,v1,lbz,am_1,shift_1,am_2,shift_2,am_3,shift_3,xn,yn,zn)
    call ipl_chain2(vi,xnyn,xnynzn,l1,v1,lbz,am_1,shift_1,am_3,-shift_3,am_2,shift_2,xn,yn,zn)
@@ -2370,19 +2508,19 @@ subroutine ipl_chain2(vi,xnyn,xnynzn,l1,v1,lbz,am_1,shift_1,am_2,shift_2,am_3,sh
    v2 = ipl_comp2(v1,l1,lbz,am_1,am_2,xnyn,xnynzn,shift_1,shift_2)
    l2 = l1 + shift_2
    vi(l2) = vi(l2) + v2
-   vi(l2-shift_3)= vi(l2-shift_3) + ipl_comp3(v2,l2,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,-shift_3) 
-   vi(l2+shift_3)= vi(l2+shift_3) + ipl_comp3(v2,l2,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,+shift_3) 
+   vi(l2-shift_3)= vi(l2-shift_3) + ipl_comp3(v2,l2,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,-shift_3)
+   vi(l2+shift_3)= vi(l2+shift_3) + ipl_comp3(v2,l2,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,+shift_3)
 
 end subroutine ipl_chain2
 
 !compute contribution of coarse grid at l to a type 2 fine grid at l+shift_1
-function ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1) 
+function ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1)
 
    implicit none
 
    integer l,xnyn,xnynzn,shift_1
    _REAL_ ipl_comp1,v,am_1(1-xnyn:xnynzn),lbz(1:xnynzn)
-   if ( shift_1 < 0 ) then 
+   if ( shift_1 < 0 ) then
       ipl_comp1 = v * am_1(l+shift_1) / ( lbz(l+shift_1) + am_1(l+2*shift_1) + am_1(l+shift_1) )
    else
       ipl_comp1 = v * am_1(l) / ( lbz(l+shift_1) + am_1(l) + am_1(l+shift_1) )
@@ -2391,7 +2529,7 @@ function ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1)
 
 end function ipl_comp1
 
-function ipl_comp2(v,l,lbz,am_1,am_2,xnyn,xnynzn,shift_1,shift_2) 
+function ipl_comp2(v,l,lbz,am_1,am_2,xnyn,xnynzn,shift_1,shift_2)
 
    implicit none
 
@@ -2410,8 +2548,8 @@ function ipl_comp2(v,l,lbz,am_1,am_2,xnyn,xnynzn,shift_1,shift_2)
    return
 
 end function ipl_comp2
-            
-function ipl_comp3(v,l,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,shift_3) 
+
+function ipl_comp3(v,l,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,shift_3)
 
    implicit none
 

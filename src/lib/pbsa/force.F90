@@ -3,7 +3,7 @@
 #include "../include/dprec.fh"
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Amber force field force driver/interface routine 
+!+ Amber force field force driver/interface routine
 subroutine force(xx,ix,ih,ipairs,x,f,ener,vir,r_stack,i_stack, &
       fs, rborn, reff ,do_list_update )
 
@@ -157,17 +157,15 @@ subroutine force(xx,ix,ih,ipairs,x,f,ener,vir,r_stack,i_stack, &
       ene(23) = esurf
 
    end if  ! ( ipb >= 1 )
-   
+
    ! pb options
    ! all nonpolar interactions are done in np_force:
 
-   if( ipb >= 1 ) then
+   if ( ipb >= 1 ) then
 
       call pbtimer_start(PBTIME_PBFORCE)
       call pb_force(natom,nres,ntypes,npdec,ix(i02),ix(i04),ix(i06),ix(i10), &
                     cn1,cn2,xx(l15),x,f,evdw,eelt,epol)
-      if ( pbgrid ) pbgrid = .false.
-      if ( pbinit ) pbinit = .false.
       ene(2) = evdw
       ene(3) = eelt
       ene(4) = epol
@@ -179,10 +177,15 @@ subroutine force(xx,ix,ih,ipairs,x,f,ener,vir,r_stack,i_stack, &
       esurf = 0.0d0; edisp = 0.0d0
       call np_force(natom,nres,ntypes,ix(i02),ix(i04),ix(i06),&
                     cn1,cn2,x,f,esurf,edisp)
-      if ( pbprint ) pbprint = .false.
       ene(23) = esurf
       ene(24) = edisp
       call pbtimer_stop(PBTIME_NPFORCE)
+   end if
+
+   if ( ipb >= 1 .or. inp /= 0 ) then
+      if ( pbgrid ) pbgrid = .false.
+      if ( pbinit ) pbinit = .false.
+      if ( pbprint ) pbprint = .false.
    end if
 
    call pbtimer_stop(PBTIME_NONBON)

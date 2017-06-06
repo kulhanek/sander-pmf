@@ -576,7 +576,7 @@ end subroutine commass
 !+ [Enter a one-line description of subroutine disnrg here]
 subroutine disnrg(x,f,dfr,rij,i1,i2,e,r1,r2,r3,r4,k2,k3, &
       bave,bave0,ipower,tauave,ravein, &
-      dt,navint,iave,incflg,iravin,iflag,ialtd)
+      dt,navint,iave,incflg,iravin,iflag,ialtd,ifxyz,idxyz)
    
    
    ! Subroutine DIStance eNeRGy
@@ -678,13 +678,13 @@ subroutine disnrg(x,f,dfr,rij,i1,i2,e,r1,r2,r3,r4,k2,k3, &
 #endif
    implicit none
    integer:: i1, i2, ialtd, iave, iflag, iflg, incflg, ipower, irav, &
-        iravin, m, navint
+        iravin, m, navint,ifxyz
    _REAL_ :: a, b, bave, bave0, denom, df, dfr, dif, dif1, dravdr, &
         dt, e, f, r1, r2, r3, r4, ravein, rij, rij2, rinc, rnow, small, &
-        tauave, x, xij
+        tauave, x, xij,idxyz
    _REAL_ k2,k3
    parameter (small = 1.0d-5)
-   dimension x(*),f(*),dfr(*),bave(2),bave0(2)
+   dimension x(*),f(*),dfr(*),bave(2),bave0(2),ifxyz(5),idxyz(3)
    dimension xij(3)
    rinc = 1000.0d0
    
@@ -694,14 +694,30 @@ subroutine disnrg(x,f,dfr,rij,i1,i2,e,r1,r2,r3,r4,k2,k3, &
    ! Calculate distance:
    
    if (iflag /= 3) then
-      rij2 = 0.0d0
-      do m=1,3
-         xij(m) = x(i1+m) - x(i2+m)
-         rij2 = rij2 + xij(m)**2
-      end do
-      rij = sqrt(rij2)
+      if(ifxyz(4) .eq. 0) then
+        rij2 = 0.0d0
+        do m=1,3
+           xij(m) = x(i1+m) - x(i2+m)
+           idxyz(m) = xij(m)
+           rij2 = rij2 + (ifxyz(m)*xij(m))**2
+        end do
+        rij = sqrt(rij2)
+      else
+        do m=1,3
+          xij(m) = x(i1+m) - x(i2+m)
+          idxyz(m) = xij(m)
+        end do
+        if(ifxyz(5) .eq. 0) then
+          if(xij(ifxyz(4)) .ge. 0) then
+            ifxyz(5) = 1
+          else
+            ifxyz(5) = -1
+          end if
+        end if
+        rij = xij(ifxyz(4))*ifxyz(5)
+     end if
    end if
-   
+    
    ! Get averaged value, if requested
    
    dravdr = 1.0d0
@@ -816,8 +832,8 @@ subroutine disnrg(x,f,dfr,rij,i1,i2,e,r1,r2,r3,r4,k2,k3, &
 #endif
    
    do m=1,3
-      dfr(m) = xij(m)*df
-      dfr(m+3) = -xij(m)*df
+      dfr(m) = xij(m)*df*ifxyz(m)**2
+      dfr(m+3) = -xij(m)*df*ifxyz(m)**2
    end do
    
    if (iflag == 2) return
@@ -2322,7 +2338,7 @@ subroutine ndvprt(x,f,name,irsnam,ipres,nres,iscrth,natom,rimass, &
       ialtdis,bave, &
       bave0,aave,aave0,tave1,tave01,tave2,tave02,ptave,ptave0, &
       plave,plave0,gdave,gdave0,ajcoef,nave,ipower,tauave,ravein, &
-      navint,dt,iscopn,iout)
+      navint,dt,iscopn,iout,ifxyz,idxyz)
    
    
    ! Subroutine Nmr DeViations PRinT.
@@ -2409,12 +2425,12 @@ subroutine ndvprt(x,f,name,irsnam,ipres,nres,iscrth,natom,rimass, &
    integer:: i, ialtdis, iat1, iat2, iat3, iat4, iat5, iat6, iat7, &
         iat8, iave, igravt, iout, ipower, ipres, iscopn, iscrth, itimes, &
         j, kxpk, natom, nave, navint, nmrat, nmrcom, nmrfty, &
-        nmrnum, nmrst, nres, nstep, nstepu
+        nmrnum, nmrst, nres, nstep, nstepu, ifxyz
    _REAL_ :: aave, aave0, ajcoef, bave, bave0, bound, convrt, dev, &
         dev2, dfr, dt, e, f, gdave, gdave0, plave, plave0, ptave, ptave0, &
         r1, r1nmr, r2, r2nmr, r3, r3nmr, r4, r4nmr, ravein, rimass, rint, &
         rk2, rk2nmr, rk3, rk3nmr, rmstot, rstwtarr, small, step, target, &
-        tauave, tave01, tave02, tave1, tave2, x, xcom
+        tauave, tave01, tave02, tave1, tave2, x, xcom,idxyz
    character(len=80) line
    logical jcoupl,usecom
    dimension x(*),f(*),rimass(*),nmrat(16,*),rstwtarr(4,*),nmrst(3,*),r1nmr(2,*)
@@ -2431,7 +2447,7 @@ subroutine ndvprt(x,f,name,irsnam,ipres,nres,iscrth,natom,rimass, &
    dimension xcom(24),dfr(24)
    dimension bave(*),bave0(*),aave(*),aave0(*),tave1(*)
    dimension tave01(*),tave2(*),tave02(*),ptave(*),ptave0(*),plave(*),plave0(2),gdave(*),gdave0(*),&
-             nave(6),rmstot(8)
+             nave(6),rmstot(8), ifxyz(*), idxyz(*)
    dimension ipower(6),tauave(6),ravein(6),navint(6)
    dimension ajcoef(3,*)
    
@@ -2556,18 +2572,19 @@ subroutine ndvprt(x,f,name,irsnam,ipres,nres,iscrth,natom,rimass, &
             call disnrg(x,f,dfr,rint,nmrat(1,i),nmrat(2,i),e,r1, &
                         r2,r3,r4,rk2,rk3,bave(2*i-1),bave0(i),ipower(1), &
                         tauave(1),ravein(1),dt,navint(1),iave,0, &
-                        0,2,ialtdis(i))
+                        0,2,ialtdis(i),ifxyz(5*(i-1)+1),idxyz(3*(i-1)+1))
          else if (igravt(i) == 1) then
             call r6ave(x,nmrat,nmrcom,rint,i)
             call disnrg(x,f,dfr,rint,nmrat(1,i),nmrat(2,i),e,r1, &
                         r2,r3,r4,rk2,rk3,bave(2*i-1),bave0(i),ipower(1), &
                         tauave(1),ravein(1),dt,navint(1),iave,0, &
-                        0,3,ialtdis(i))
+                        0,3,ialtdis(i),ifxyz(5*(i-1)+1),idxyz(3*(i-1)+1))
          else
             call nmrcms(x,xcom,nmrat,nmrcom,rmstot,rimass,ricmmass,i)
             call disnrg(xcom,f,dfr,rint,0,3,e,r1,r2,r3, &
                         r4,rk2,rk3,bave(2*i-1),bave0(i),ipower(1),tauave(1), &
-                        ravein(1),dt,navint(1),iave,0,0,2,ialtdis(i))
+                        ravein(1),dt,navint(1),iave,0,0,2,ialtdis(i),ifxyz(5*(i-1)+1), &
+                        idxyz(3*(i-1)+1))
          end if
          edis = edis + e
        case (2)
@@ -3274,7 +3291,7 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
       tave1,tave01,tave2,ptave,ptave0,plave,plave0,gdave,gdave0, &
       tave02,ajcoef,nave,ipower,tauave,ravein, &
       dt,navint,iavtyp,idmpav,idumpu,enmr, &
-      devdis,devang,devtor,devplpt,devpln,devgendis,iout)
+      devdis,devang,devtor,devplpt,devpln,devgendis,iout,ifxyz,ioutxyz,idxyz)
    
    ! Subroutine NMR eNeRGy.
    
@@ -3392,14 +3409,14 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
    integer:: i, ialtdis, iave, iavtyp, idmpav, idumpu, ifirst, &
         igravt, incflg, inum, ionce, iout, ipower, itimes, natom, &
         nave, navint, nmrat, nmrcom, nmrfty, nmrnum, nmrst, &
-        nstep, nstepu
+        nstep, nstepu, ifxyz,ioutxyz
    _REAL_ :: aave, aave0, ajcoef, bave, bave0, convrt, dev, dev2, &
         devang, devdis, devgendis, deviat, devpln, devplpt, devtor, dfr, &
         dt, e, enmr, f, fcurr, fold, gdave, gdave0, plave, plave0, ptave, &
         ptave0, r1, r1nmr, r2, r2nmr, r3, r3nmr, r4, r4nmr, ravein, &
         rimass, rint, rk2, rk2nmr, rk3, rk3nmr, rmstot, rnum, rstwtarr, &
         small, step, target, tauave, tave01, tave02, tave1, tave2, work, &
-        x, xcom
+        x, xcom, idxyz
    logical jcoupl, usecom
 #  include "nmr.h"
 #  include "extra.h"
@@ -3409,7 +3426,8 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
    dimension ialtdis(*)
    dimension devdis(4),devang(4),devtor(4),devplpt(4),devpln(4),devgendis(4),deviat(6,4),inum(6)
    dimension enmr(6),xcom(24),dfr(24),rmstot(8),incflg(6)
-   dimension bave(*),bave0(*),aave(*),aave0(*),tave1(*)
+   dimension bave(*),bave0(*),aave(*),aave0(*),tave1(*), ifxyz(*), idxyz(*)
+   dimension ioutxyz(1)
    dimension tave01(*),tave2(*),tave02(*),ptave(*),ptave0(*),plave(*),plave0(*),gdave(*),gdave0(*),&
              ajcoef(3,*),nave(6)
    dimension ipower(6),tauave(6),ravein(6)
@@ -3539,7 +3557,8 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
                         r2,r3,r4,rk2,rk3,bave(2*i-1), &
                         bave0(i),ipower(1), &
                         tauave(1),ravein(1),dt,navint(1),iave, &
-                        incflg(1),ifirst,0,ialtdis(i))
+                        incflg(1),ifirst,0,ialtdis(i),ifxyz(5*(i-1)+1), &
+                        idxyz(3*(i-1)+1))
             if(ifconstr(i) > 0) call vec_constr(x,f,dfr,rimass,dt,rint, &
                    nmrat(1,i),nmrat(2,i),tgtvec(3*(i-1)+1),0)
          else if (igravt(i) == 1) then
@@ -3548,7 +3567,8 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
                         r2,r3,r4,rk2,rk3,bave(2*i-1), &
                         bave0(i),ipower(1), &
                         tauave(1),ravein(1),dt,navint(1),iave, &
-                        incflg(1),ifirst,3,ialtdis(i))
+                        incflg(1),ifirst,3,ialtdis(i),ifxyz(5*(i-1)+1), &
+                        idxyz(3*(i-1)+1))
             call r6drv(f,dfr(1))
          else
             call nmrcms(x,xcom,nmrat,nmrcom,rmstot,rimass,ricmmass,i)
@@ -3556,7 +3576,8 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
                         r4,rk2,rk3,bave(2*i-1),bave0(i), &
                         ipower(1),tauave(1), &
                         ravein(1),dt,navint(1),iave,incflg(1), &
-                        ifirst,2,ialtdis(i))
+                        ifirst,2,ialtdis(i),ifxyz(5*(i-1)+1), &
+                        idxyz(3*(i-1)+1))
             if(ifconstr(i) > 0) call vec_constr(xcom,f,dfr,ricmmass,dt,rint, &
                   0,3,tgtvec(3*(i-1)+1),1)
             call nmrcmf(f,dfr,nmrat,nmrcom,rmstot,rimass,i)
@@ -3580,13 +3601,14 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
          end if
       case (3) ! Torsion or J-coupling
          if (nave(3) > 0 .and. nmrfty(i) == 0) iave = iavtyp(3)
-         
+
          ! If J coefficients are 0 for this torsion, it is a normal torsional
-         ! restraint. If they are .NE.0, then it is a J-coupling factor restraint.
-         
+         ! restraint. If they are .NE.0, then it is a J-coupling factor
+         ! restraint.
+
          jcoupl = abs(ajcoef(1,i)) > small .or. &
                abs(ajcoef(2,i)) > small
-         
+
          if (.not.jcoupl) then
            if (usecom) then
              call nmrcms(x,xcom,nmrat,nmrcom,rmstot,rimass,ricmmass,i)
@@ -3612,7 +3634,7 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
              ! specifies atom groups AND j-coupling
              ! This exit condition shouldn't be used, since it should have been 
              ! checked in nmrred.  However, I have it here just for safety.
-             
+
              write(iout,9074)
              call mexit(iout, 1)
            else
@@ -3654,7 +3676,7 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
           call nmrcmf(f,dfr,nmrat,nmrcom,rmstot,rimass,i)
         else
           call plnnrg(x,f,dfr,rint,nmrat(1,i),nmrat(2,i), &
-               nmrat(3,i),nmrat(4,i),nmrat(5,i),nmrat(6,i),nmrat(7,i),nmrat(8,i), &
+               nmrat(3,i),nmrat(4,i),nmrat(5,i),nmrat(6,i),nmrat(7,i),nmrat(8,i),&
                e,r1,r2,r3,r4,rk2,rk3,plave(2*i-1), &
                plave0(i),ipower(5), &
                tauave(5),ravein(5),dt,navint(5),iave, &
@@ -3745,10 +3767,20 @@ subroutine nmrnrg(x,f,rimass,nmrnum,nstep,nmrat,resttype,rstwtarr,&
         if (master .and. idmpav > 0) then
          if (mod(nstep,idmpav) == 0) then
             if (i == 1) write(idumpu,'(i8,1x)',advance='no') nstep
-
             convrt = 1.0d0
+            if (ioutxyz(i) .eq. 1) then
+                write(idumpu, '(4x,A,f9.3,4x)', advance='no')'x:',idxyz(3*(i-1)+1) * convrt
+                write(idumpu, '(A,1x,f9.3,4x)', advance='no')'y:',idxyz(3*(i-1)+2) * convrt
+                write(idumpu, '(A,1x,f9.3,4x)', advance='no')'z:',idxyz(3*(i-1)+3) * convrt
+            end if
             if (resttype(i) /= 1 .and. resttype(i) /= 6 .and. .not.jcoupl) convrt = RAD_TO_DEG
-            write(idumpu,'(f9.3,1x)',advance='no') rint*convrt
+            if(ifxyz(5*(i-1)+1) .ne. 1 .or. ifxyz(5*(i-1)+2) .ne. 1 .or. &
+               ifxyz(5*(i-1)+3) .ne. 1) then
+              write(idumpu, '(f9.3,1x)', advance='no')sqrt(idxyz(3*(i-1)+1)**2 &
+                + idxyz(3*(i-1)+2)**2 + idxyz(3*(i-1)+3)**2)
+            else
+              write(idumpu, '(f9.3,1x)', advance='no') rint * convrt
+            end if
          end if
         end if
 
@@ -3995,7 +4027,7 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
       iscrth,ichgwt,ishrtb,natom,nres,nstep0,stpmlt, &
       in,iout,iscop1,iscop2,maxrst,maxwt,maxgrp, &
       nave,nexact,navint,ipower,ravein,taufin, &
-      iavtyp,idmpav,itimav)
+      iavtyp,idmpav,itimav,ifxyz,ioutxyz,idxyz)
    
    
    ! Subroutine NMR REaD.
@@ -4189,6 +4221,8 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
    integer nres
    integer nstep0
    integer ifconstr(1)       ! cuigl
+   integer ifxyz(*)
+   integer ioutxyz(1)
    _REAL_  r1nmr
    _REAL_  r2nmr
    _REAL_  r3nmr
@@ -4205,6 +4239,7 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
    _REAL_  rstwt, rstwtpass
    _REAL_  rstwtarr
    _REAL_  rstwttol
+   _REAL_  idxyz(*)
    parameter (rstwttol = 1.0d-7)
 
    character(len=80) aline
@@ -4323,6 +4358,8 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
    integer nstep1
    integer nstep2
    integer ntu
+   integer fxyz(5)
+   integer outxyz
    _REAL_  r1
    _REAL_  r1a
    _REAL_  r2
@@ -4384,7 +4421,7 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
          iresid,imult,atnam,igr1,igr2,igr3,igr4,igr5,igr6,igr7,igr8, &
          grnam1,grnam2,grnam3,grnam4,grnam5,grnam6,grnam7,grnam8,&
          r0,r1,r2,r3,r4,k0,rk2,rk3,r0a,r1a,r2a,r3a,r4a,k0a,rk2a,rk3a,ir6,ifntyp, &
-         ifvari,rjcoef,ixpk,nxpk,ialtd,iconstr
+         ifvari,rjcoef,ixpk,nxpk,ialtd,iconstr,fxyz,outxyz
    ! ----------------------------------------------------------------------------
    
    data flag/'BOND    ' , 'ANGLE   ' , 'TORSION ' , 'VDW     ', &
@@ -4417,6 +4454,8 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
    ravein(:) = ZERO
    ihits = 0
    istrt = 0
+   fxyz (1:5) = 1
+   outxyz = 0
 
    iredir(:) = 0
    nave(:) = 0
@@ -4792,8 +4831,8 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
    r4a = ZERO
    rk2a = ZERO
    rk3a = ZERO
- 
-
+   fxyz(:) = 1 
+   outxyz = 0
 ! comienzo del loop lectura de los restraints indice i
 
    do i=1,999999
@@ -4897,6 +4936,38 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
       ! Figure out the type of this restraint
       
       resttype(i) = 0
+   
+
+     if (fxyz(1) .ne. 1 .or. fxyz(2) .ne. 1 .or. fxyz(3) .ne. 1) then
+       if (iat(3) .ne. 0) then
+            write(iout, '(a)') "Restricting restraints in the x-, y-, and/or&
+            & z-direction(s) using fxyz is only allowed for distance and COM distance&
+            & restraints"
+            call mexit(iout,1)
+       end if
+       if (fxyz(1) .ne. 1 .and. fxyz(1) .ne. 0) then
+            write(iout, '(a)') "Distance Restraint Error: fxyz x-dimension&
+            & must be 0 or 1"
+            call mexit(iout,1)
+       end if
+       if (fxyz(2) .ne. 1 .and. fxyz(2) .ne. 0) then
+            write(iout, '(a)') "Distance Restraint Error: fxyz y-dimension&
+            & must be 0 or 1"
+            call mexit(iout,1)
+       end if
+       if (fxyz(3) .ne. 1 .and. fxyz(3) .ne. 0) then
+            write(iout, '(a)') "Distance Restraint Error: fxyz z-dimension&
+            & must be 0 or 1"
+            call mexit(iout,1)
+       end if
+     end if
+
+     if (outxyz .ne. 0 .and. iat(3) .ne. 0) then
+         write(iout, '(a)') "XYZ Component Output: outxyz only available&
+          & for distance and COM distance restraints"
+         call mexit(iout,1)
+     end if
+
       
       if (iat3 == 0) then        ! Distance restraint
         resttype(i) = 1  
@@ -5287,7 +5358,27 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
       
       do jjj=1,8
         nmrat(jjj,i) = 3*(iat(jjj)-1)
+        ifxyz(5*(i-1)+1) = fxyz(1)
+        ifxyz(5*(i-1)+2) = fxyz(2)
+        ifxyz(5*(i-1)+3) = fxyz(3)
+
+        if(fxyz(1)+fxyz(2)+fxyz(3) .eq. 1) then
+            if(fxyz(1) .eq. 1) then
+              ifxyz(5*(i-1)+4)=1
+            end if
+            if(fxyz(2) .eq. 1) then
+              ifxyz(5*(i-1)+4)=2
+            end if
+            if(fxyz(3) .eq. 1) then
+              ifxyz(5*(i-1)+4)=3
+            end if
+        else
+            ifxyz(5*(i-1)+4)=0
+        end if
+        ifxyz(5*(i-1)+5) = 0
       end do
+      
+        ioutxyz(i) = outxyz
       
       ! Initialize nmrat(9,I) - nmrat(16,i) to 0
       ! These will later be set to a negative number if a group is defined.
@@ -5354,7 +5445,7 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
             call disnrg(x,f,dfr,rcurr,nmrat(1,i),nmrat(2,i),e, &
                         r1,r2,r3,r4,rk2,rk3,dumma,dumma, &
                         ipower(1),dumm,ravein(1),dumm, &
-                        0,0,0,0,1,ialtdis(i))
+                        0,0,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),idxyz(3*(i-1)+1))
             ! calculate and normalize constraining vectors
             if(iconstr>0) then
                tgtvec(3*(i-1)+1) = x(nmrat(2,i)+1)-x(nmrat(1,i)+1)
@@ -5370,12 +5461,12 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
             call disnrg(x,f,dfr,rcurr,nmrat(1,i),nmrat(2,i),e, &
                         r1,r2,r3,r4,rk2,rk3,dumma,dumma, &
                         ipower(1),dumm,ravein(1),dumm, &
-                        0,0,0,0,3,ialtdis(i))
+                        0,0,0,0,3,ialtdis(i),ifxyz(5*(i-1)+1),idxyz(3*(i-1)+1))
           else
             call nmrcms(x,xcom,nmrat,nmrcom,rmstot,rimass,ricmmass,i)
             call disnrg(xcom,f,dfr,rcurr,0,3,e,r1,r2,r3,r4,rk2, &
                         rk3,dumma,dumma,ipower(1),dumm,ravein(1),dumm, &
-                        0,0,0,0,1,ialtdis(i))
+                        0,0,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),idxyz(3*(i-1)+1))
             ! calculate and normalize constraining vectors
             if(iconstr>0) then
                tgtvec(3*(i-1)+1) = xcom(4) - xcom(1)
@@ -5697,7 +5788,7 @@ subroutine nmrred(x,name,ipres,rimass,r1nmr,r2nmr,r3nmr,r4nmr, &
    100 call nmrsht(x,nmrnum,rimass,0,nmrat,resttype,nmrcom,nres,ipres,ishrtb, &
          iwtstp,wtnrg,rk2nmr,rk3nmr,nmrst,nmrshb,wtls,nmrfty, &
          igravt,idumm,dumma,dumma,idumm,idumm,dumma,idumm, &
-         dumma,dumm,iout,0)
+         dumma,dumm,iout,0, ifxyz,idxyz)
    
    if (iredir(3) /= 0) close(iin)
    if (iuse /= 0 .and. iuse /= iout) &
@@ -5869,7 +5960,7 @@ subroutine nmrsht(x,nmrnum,rimass,nstep,nmrat,resttype,nmrcom,nres, &
       nmrshb,wtls,nmrfty,igravt,ialtdis, &
       bave,bave0,nave, &
       ipower,tauave,navint,ravein,dt,iout, &
-      iflag)
+      iflag,ifxyz,idxyz)
    
    
    ! Subroutine NMR SHorT range interactions identification.
@@ -5984,10 +6075,10 @@ subroutine nmrsht(x,nmrnum,rimass,nstep,nmrat,resttype,nmrcom,nres, &
    integer:: i, ialtdis, iave, iflag, igravt, iout, ipower, &
         ipres, ires1, ires2, irs1, irs2, irs3, irs4, irsdif, ishort, &
         ishrtb, iwtstp, j, nave, navint, nmrat, nmrcom, nmrfty, &
-        nmrnum, nmrshb, nmrst, nres, nstep
+        nmrnum, nmrshb, nmrst, nres, nstep,ifxyz
    _REAL_ :: bave, bave0, dt, dum, duma, ravein, rimass, rk2nmr, &
         rk3nmr, rlow, rmstot, rmult1, rmult2, rr, rr1, rr2, rr3, rup, &
-        small, tauave, wtls, wtnrg, x, xcom
+        small, tauave, wtls, wtnrg, x, xcom,idxyz
    parameter (small = 1.0d-12)
 #  include "nmr.h"
    dimension x(*),nmrat(16,*),rimass(*),nmrcom(2,*),ipres(*),wtls(2)
@@ -5995,7 +6086,7 @@ subroutine nmrsht(x,nmrnum,rimass,nstep,nmrat,resttype,nmrcom,nres, &
    dimension nmrst(3,*),nmrfty(*),igravt(*),ialtdis(*)
    dimension bave(*),bave0(*),nave(6),duma(2)
    dimension ipower(6),tauave(6),navint(6),ravein(6)
-   dimension xcom(24),rmstot(8)
+   dimension xcom(24),rmstot(8),ifxyz(*),idxyz(*)
    integer resttype(*)
    logical usecom
    integer atmarr
@@ -6164,7 +6255,8 @@ subroutine nmrsht(x,nmrnum,rimass,nstep,nmrat,resttype,nmrcom,nres, &
             call disnrg(xcom,duma,duma,rr,0,3,dum,dum,dum,dum, &
                         dum,dum,dum,bave(2*i-1),bave0(i), &
                         ipower(1),tauave(1), &
-                        ravein(1),dt,navint(1),iave,0,0,1,ialtdis(i))
+                        ravein(1),dt,navint(1),iave,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),&
+                        idxyz(3*(i-1)+1))
             if (rlow <= rr.and.rr <= rup) ishort = 1
             
             ! r**-6 averaged distance interaction restraints:
@@ -6181,7 +6273,7 @@ subroutine nmrsht(x,nmrnum,rimass,nstep,nmrat,resttype,nmrcom,nres, &
                         dum,dum,dum,dum,dum,dum,bave(2*i-1), &
                         bave0(i),ipower(1), &
                         tauave(1),ravein(1),dt,navint(1),iave, &
-                        0,0,1,ialtdis(i))
+                        0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),idxyz(3*(i-1)+1))
             if (rlow <= rr.and.rr <= rup) ishort = 1
          end if
          
@@ -6194,20 +6286,24 @@ subroutine nmrsht(x,nmrnum,rimass,nstep,nmrat,resttype,nmrcom,nres, &
            call disnrg(xcom,duma,duma,rr1,0,3,dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(2),tauave(2), &
-                       ravein(2),dt,0,0,0,0,1,ialtdis(i))
+                       ravein(2),dt,0,0,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1), &
+                       idxyz(3*(i-1)+1))
            call disnrg(xcom,duma,duma,rr2,3,6,dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(2),tauave(2), &
-                       ravein(2),dt,0,0,0,0,1,ialtdis(i))
+                       ravein(2),dt,0,0,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1), &
+                       idxyz(3*(i-1)+1))
          else
            call disnrg(x,duma,duma,rr1,nmrat(1,i),nmrat(2,i),dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(2),tauave(2), &
-                       ravein(2),dt,0,0,0,0,1,ialtdis(i))
+                       ravein(2),dt,0,0,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1), &
+                       idxyz(3*(i-1)+1))
            call disnrg(x,duma,duma,rr2,nmrat(2,i),nmrat(3,i),dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(2),tauave(2), &
-                       ravein(2),dt,0,0,0,0,1,ialtdis(i))
+                       ravein(2),dt,0,0,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1), &
+                       idxyz(3*(i-1)+1))
          end if
          if ((rlow <= rr1.and.rr1 <= rup) .and. &
                (rlow <= rr2.and.rr2 <= rup)) ishort = 1
@@ -6221,28 +6317,34 @@ subroutine nmrsht(x,nmrnum,rimass,nstep,nmrat,resttype,nmrcom,nres, &
            call disnrg(x,duma,duma,rr1,0,3,dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(3),tauave(3), &
-                       ravein(3),dt,0,iave,0,0,1,ialtdis(i))
+                       ravein(3),dt,0,iave,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),&
+                       idxyz(3*(i-1)+1))
            call disnrg(x,duma,duma,rr2,3,6,dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(3),tauave(3), &
-                       ravein(3),dt,0,iave,0,0,1,ialtdis(i))
+                       ravein(3),dt,0,iave,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),&
+                       idxyz(3*(i-1)+1))
            call disnrg(x,duma,duma,rr3,6,9,dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
-                       ipower(3),tauave(3), &
-                       ravein(3),dt,0,iave,0,0,1,ialtdis(i))
+                       ipower(3),tauave(3), & 
+                       ravein(3),dt,0,iave,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),&
+                       idxyz(3*(i-1)+1))
          else
            call disnrg(x,duma,duma,rr1,nmrat(1,i),nmrat(2,i),dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(3),tauave(3), &
-                       ravein(3),dt,0,iave,0,0,1,ialtdis(i))
+                       ravein(3),dt,0,iave,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),&
+                       idxyz(3*(i-1)+1))
            call disnrg(x,duma,duma,rr2,nmrat(2,i),nmrat(3,i),dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(3),tauave(3), &
-                       ravein(3),dt,0,iave,0,0,1,ialtdis(i))
+                       ravein(3),dt,0,iave,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),&
+                       idxyz(3*(i-1)+1))
            call disnrg(x,duma,duma,rr3,nmrat(3,i),nmrat(4,i),dum, &
                        dum,dum,dum,dum,dum,dum,duma,duma, &
                        ipower(3),tauave(3), &
-                       ravein(3),dt,0,iave,0,0,1,ialtdis(i))
+                       ravein(3),dt,0,iave,0,0,1,ialtdis(i),ifxyz(5*(i-1)+1),&
+                       idxyz(3*(i-1)+1))
          end if
          if ((rlow <= rr1.and.rr1 <= rup) .and. &
                (rlow <= rr2.and.rr2 <= rup) .and. &

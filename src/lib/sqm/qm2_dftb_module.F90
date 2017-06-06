@@ -14,6 +14,9 @@ use qmmm_module, only: qmmm_struct
 !! converted into structures. Also, all arrays from DFTB 
 !! are now defined here to ba allocated dinamically.
 !!
+!
+! DFTB3 additions by Andreas W Goetz (SDSC), 2016
+!
 
 
 !! Static paramters
@@ -21,7 +24,7 @@ use qmmm_module, only: qmmm_struct
    ! These parameters define the format of the integral table files, and
    ! should not change.
    integer, parameter :: MAXINT = 250       ! Maximum number of intervals in spline files
-   integer, parameter :: MAXTAB = 700       ! Maximum number of integrals in SK files
+   integer, parameter :: MAXTAB = 1500      ! Maximum number of integrals in SK files
    integer, parameter :: LDIM   = 9         ! Maximum number of orbitals per atom (1s + 3p + 5d)
 
    ! Parameters needed by the Broyden mixing, to be set in qm2_dftb_load_params. 
@@ -39,6 +42,9 @@ use qmmm_module, only: qmmm_struct
 !! Arrays
    _REAL_ , dimension(:,:), pointer :: dummy     ! Used as scratch space in slkode <qm2_dftb_slkide.f.
    _REAL_ , dimension(:),   pointer :: scr_space ! (3*MDIM), used in ewevge
+
+   _REAL_, dimension(:), pointer :: uhder !AWG DFTB3 Hubbard derivatives
+   _REAL_ :: zeta
 
 !!-------------------------------------------------------
 !! Old common blocks from DFTB, converted into structures
@@ -149,6 +155,7 @@ use qmmm_module, only: qmmm_struct
       !_REAL_ :: qmat(nndim)
       _REAL_, dimension(:), pointer :: qmat
       character(len=2), dimension(:), pointer :: atyp ! (MAXTYP)
+      logical, dimension(:), pointer :: ishydrogen
    end type mol_structure
    type (mol_structure) mol
 
@@ -282,9 +289,7 @@ use qmmm_module, only: qmmm_struct
 !!      _REAL_ :: a(MDIM,MDIM)             ! Upper triangle of H (for eigenvector solver)
 !!      _REAL_ :: b(MDIM,MDIM)             ! Upper triangle of S (for eigenvector solver)
 !!      _REAL_ :: gammamat(NNDIM,NNDIM)    ! Scratch space (?) for gammamatrix (in hamilshift)
-!!      _REAL_ :: derivx(NNDIM,NNDIM)      ! SCRATCH SPACE Used only in gammagrad call
-!!      _REAL_ :: derivy(NNDIM,NNDIM)      ! SCRATCH SPACE Used only in gammagrad call
-!!      _REAL_ :: derivz(NNDIM,NNDIM)      ! SCRATCH SPACE Used only in gammagrad call
+!!      _REAL_ :: dgdr(3,NNDIM,NNDIM)      ! SCRATCH SPACE Used only in gammagrad call
 !!      _REAL_ :: h(34*MDIM)               ! Scratch space for the eigenvalue solver
 !!      _REAL_ :: ev(MDIM)                 ! Orbital energies (eigenvalues)
 !!      _REAL_ :: occ(MDIM)                ! Occupation numbers
@@ -305,9 +310,9 @@ use qmmm_module, only: qmmm_struct
       _REAL_ , dimension(:,:), pointer :: a        ! (MDIM,MDIM)   => Upper triangle of H (for eigenvector solver)
       _REAL_ , dimension(:,:), pointer :: b        ! (MDIM,MDIM)   => Upper triangle of S (for eigenvector solver)
       _REAL_ , dimension(:,:), pointer :: gammamat ! (NNDIM,NNDIM) => Scratch space (?) for gammamatrix (in hamilshift)
-      _REAL_ , dimension(:,:), pointer :: derivx   ! (NNDIM,NNDIM) => SCRATCH SPACE Used only in gammagrad call
-      _REAL_ , dimension(:,:), pointer :: derivy   ! (NNDIM,NNDIM) => SCRATCH SPACE Used only in gammagrad call
-      _REAL_ , dimension(:,:), pointer :: derivz   ! (NNDIM,NNDIM) => SCRATCH SPACE Used only in gammagrad call
+      _REAL_ , dimension(:,:), pointer :: gamma_der => null() ! (NNDIM,NNDIM) => Gamma-function (derivative of gamma, for DFTB3)
+      _REAL_ , dimension(:,:,:), pointer :: dgdr   ! (3,NNDIM,NNDIM) => SCRATCH SPACE Used only in gammagrad call
+      _REAL_ , dimension(:,:,:), pointer :: dg3dr  ! (3,NNDIM,NNDIM) => SCRATCH SPACE Used only in gammagrad call (DFTB3, grad of gamma derivative)
       _REAL_ , dimension(:)  , pointer :: ev       ! (MDIM)        => Orbital energies (eigenvalues)
       _REAL_ , dimension(:)  , pointer :: occ      ! (MDIM)        => Occupation numbers
       _REAL_ , dimension(:)  , pointer :: qmulli   ! (MDIM)        => Electron population per atomic orbital
@@ -317,7 +322,8 @@ use qmmm_module, only: qmmm_struct
       _REAL_ , dimension(:,:), pointer :: density  ! (NDIM,NDIM)   => Density matrix
       _REAL_ , dimension(:)  , pointer :: shift    ! (NNDIM)       => Energy shift due to SCC (gamma)
       _REAL_ , dimension(:)  , pointer :: shiftE   ! (NNDIM)       => Energy shift due to external charges
-
+      _REAL_ , dimension(:)  , pointer :: shift3 => null()   ! (NNDIM)       => DFTB3
+      _REAL_ , dimension(:)  , pointer :: shift3A => null()  ! (NNDIM)       => DFTB3
 
       _REAL_ , dimension(:,:), pointer :: scr1     ! (MDIM,MDIM)   => Overlap matrix
       _REAL_ , dimension(:,:), pointer :: scr2     ! (MDIM,MDIM)   => Overlap matrix
@@ -327,7 +333,7 @@ use qmmm_module, only: qmmm_struct
       _REAL_ :: dipol(3)                               ! Dipole vector
 
    end type ks_dftb_structure
-   type (ks_dftb_structure), target :: ks_struct
+   type (ks_dftb_structure), target, save :: ks_struct
 
    type broyden_strucure
       _REAL_, dimension(:)    , pointer :: f       ! (maxsiz)

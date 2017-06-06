@@ -68,23 +68,26 @@
 
     interface rism_report_message
        module procedure message, message_i, message_is, message_isi,&
+            message_isis,&
             message_isisi, message_isisisi, message_isrsi, &
-            message_rs, message_rsr, message_rsrsr, message_ra
+            message_r, message_rs, message_rsr, message_rsrsr, &
+            message_rsrsrsr, message_ra
     end interface rism_report_message
 
     interface rism_report_warn
-       module procedure warn, warn_r
+       module procedure warn, warn_r, warn_rsr
     end interface rism_report_warn
 
     interface rism_report_error
        module procedure error, error_i, error_ia, error_is, error_isi, error_isisisi,&
-            error_rsr, error_ra
+            error_rs, error_rsr, error_rsrsr, error_rsrsrsr, error_ra
     end interface rism_report_error
 
     interface mwrite
-       module procedure mwrite_, mwrite_i, mwrite_ia, mwrite_is, mwrite_isi, mwrite_isisi,&
-            mwrite_isisisi,&
-            mwrite_isrsi, mwrite_r, mwrite_rs, mwrite_rsr, mwrite_rsrsr, mwrite_ra
+       module procedure mwrite_, mwrite_i, mwrite_ia, mwrite_is, mwrite_isi, mwrite_isis,&
+            mwrite_isisi, mwrite_isisisi,&
+            mwrite_isrsi, mwrite_r, mwrite_rs, mwrite_rsr, mwrite_rsrsr, mwrite_rsrsrsr,&
+            mwrite_ra
     end interface mwrite
   contains
 
@@ -266,6 +269,23 @@
 !!!   s2     : string
 !!!   i2     : integer
 !!!   s3     : string
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine message_isis(form,string,i1,s2,i2,s3)
+      implicit none
+      character(len=*), intent(in) :: form, string, s2,s3
+      integer, intent(in) :: i1,i2
+      call mwrite(munit,form, string,i1,s2,i2,s3)
+    end subroutine message_isis
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out a message to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   i1     : integer
+!!!   s2     : string
+!!!   i2     : integer
+!!!   s3     : string
 !!!   i3     : integer
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine message_isisi(form,string,i1,s2,i2,s3,i3)
@@ -320,6 +340,20 @@
 !!!   form : print format
 !!!   string : error
 !!!   r1     : real
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine message_r(form,string,r1)
+      implicit none
+      character(len=*), intent(in) :: form, string
+      _REAL_, intent(in) :: r1
+      call mwrite(munit, form, string, r1)
+    end subroutine message_r
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out a message to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   r1     : real
 !!!   s2     : string
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine message_rs(form,string,r1,s2)
@@ -362,6 +396,26 @@
       _REAL_, intent(in) :: r1, r2,r3
       call mwrite(munit,form, string,r1,s2,r2,s3,r3)
     end subroutine message_rsrsr
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out a message to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   r1     : real
+!!!   s2     : string
+!!!   r2     : real
+!!!   s3     : string
+!!!   r3     : real
+!!!   s4     : string
+!!!   r4     : real
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine message_rsrsrsr(form,string,r1,s2,r2,s3,r3,s4,r4)
+      implicit none
+      character(len=*), intent(in) :: form, string, s2,s3,s4
+      _REAL_, intent(in) :: r1, r2,r3,r4
+      call mwrite(munit,form, string,r1,s2,r2,s3,r3,s4,r4)
+    end subroutine message_rsrsrsr
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Write out a message to the user
@@ -476,6 +530,27 @@
 !!!   s2     : string
 !!!   i2     : integer
 !!!   s3     : string
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine mwrite_isis(unit,form,string,i1,s2,i2,s3)
+      implicit none
+      character(len=*), intent(in) :: form, string, s2,s3
+      integer, intent(in) :: i1,i2
+      integer, intent(in) :: unit
+#ifdef MPI
+      if(mpirank == 0)&
+#endif /*MPI*/
+           write(unit,form) string,i1,s2,i2,s3
+    end subroutine mwrite_isis
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out a message to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   i1     : integer
+!!!   s2     : string
+!!!   i2     : integer
+!!!   s3     : string
 !!!   i3     : integer
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine mwrite_isisi(unit,form,string,i1,s2,i2,s3,i3)
@@ -488,7 +563,7 @@
 #endif /*MPI*/
            write(unit,form) string,i1,s2,i2,s3,i3
     end subroutine mwrite_isisi
-
+    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Write out a message to the user
 !!!IN:
@@ -557,6 +632,30 @@
 #endif /*MPI*/
            write(unit,form) string,r1,s2,r2,s3,r3
     end subroutine mwrite_rsrsr
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out a message to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   r1     : real
+!!!   s2     : string
+!!!   r2     : real
+!!!   s3     : string
+!!!   r3     : real
+!!!   s4     : string
+!!!   r4     : real
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine mwrite_rsrsrsr(unit,form,string,r1,s2,r2,s3,r3,s4,r4)
+      implicit none
+      character(len=*), intent(in) :: form, string, s2,s3,s4
+      _REAL_, intent(in) :: r1, r2,r3,r4
+      integer, intent(in) :: unit
+#ifdef MPI
+      if(mpirank == 0)&
+#endif /*MPI*/
+           write(unit,form) string,r1,s2,r2,s3,r3,s4,r4
+    end subroutine mwrite_rsrsrsr
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Write out a message to the user
@@ -651,6 +750,23 @@
 !!!   form : print format
 !!!   string : warning
 !!!   r1     : real
+!!!   s2     : warning
+!!!   r2     : real
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine warn_rsr(form,string,r1,s2,r2)
+      implicit none
+      character(len=*), intent(in) :: form,string, s2
+      _REAL_, intent(in) :: r1, r2
+      call mwrite(wunit,form,"WARNING> "//string,r1,s2,r2)
+      if(stopOnWarn) call halt()
+    end subroutine warn_rsr
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out a warning to the user
+!!!IN:
+!!!   form : print format
+!!!   string : warning
+!!!   r1     : real
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine warn_r(form,string,r1)
       implicit none
@@ -659,7 +775,7 @@
       call mwrite(wunit,form,"WARNING> "//string,r1)
       if(stopOnWarn) call halt()
     end subroutine warn_r
-
+    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Write out an error to the user
 !!!IN:
@@ -764,6 +880,22 @@
 !!!   string : error
 !!!   r1     : real
 !!!   s2     : string
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine error_rs(form,string,r1,s2)
+      implicit none
+      character(len=*), intent(in) :: form, string, s2
+      _REAL_, intent(in) :: r1
+      call mwrite_rs(eunit,form,"ERROR> "//string,r1,s2)
+      call halt()
+    end subroutine error_rs
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out an error to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   r1     : real
+!!!   s2     : string
 !!!   r2     : real
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine error_rsr(form,string,r1,s2,r2)
@@ -773,6 +905,46 @@
       call mwrite_rsr(eunit,form,"ERROR> "//string,r1,s2,r2)
       call halt()
     end subroutine error_rsr
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out an error to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   r1     : real
+!!!   s2     : string
+!!!   r2     : real
+!!!   s3     : string
+!!!   r3     : real
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine error_rsrsr(form,string,r1,s2,r2,s3,r3)
+      implicit none
+      character(len=*), intent(in) :: form, string, s2, s3
+      _REAL_, intent(in) :: r1, r2, r3
+      call mwrite_rsrsr(eunit,form,"ERROR> "//string,r1,s2,r2,s3,r3)
+      stop 1
+    end subroutine error_rsrsr
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!Write out an error to the user
+!!!IN:
+!!!   form : print format
+!!!   string : error
+!!!   r1     : real
+!!!   s2     : string
+!!!   r2     : real
+!!!   s3     : string
+!!!   r3     : real
+!!!   s4     : string
+!!!   r4     : real
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine error_rsrsrsr(form,string,r1,s2,r2,s3,r3,s4,r4)
+      implicit none
+      character(len=*), intent(in) :: form, string, s2, s3,s4
+      _REAL_, intent(in) :: r1, r2, r3,r4
+      call mwrite_rsrsrsr(eunit,form,"ERROR> "//string,r1,s2,r2,s3,r3,s4,r4)
+      stop 1
+    end subroutine error_rsrsrsr
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Write out an error to the user

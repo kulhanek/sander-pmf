@@ -13,9 +13,9 @@ subroutine regula(l,m,n,hx,hy,hz,b_in,b_out,i0,j0,k0,info,x,y,z, coe1,rhs)
    _REAL_    hx,hy,hz,b_in,b_out,rhs
    _REAL_    x(0:l+1), y(0:m+1), z(0:n+1)
    _REAL_    coe1(7)
-  
+
   !Local variables
-   
+
    _REAL_    bx1,bx2,by1,by2,bz1,bz2,fkk
    _REAL_    fb_in,fb_out,ff_in,ff_out,fk_in,fk_out
 
@@ -49,7 +49,7 @@ subroutine regula(l,m,n,hx,hy,hz,b_in,b_out,i0,j0,k0,info,x,y,z, coe1,rhs)
          +coe1(7))+fkk
 
    return
-end subroutine regula 
+end subroutine regula
 
 
 

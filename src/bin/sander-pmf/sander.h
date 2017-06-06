@@ -22,6 +22,7 @@
 #define set_positions ext_set_positions_
 #define sander_cleanup ext_sander_cleanup_
 #define get_positions ext_get_positions_
+#define get_box ext_get_box_
 
 // These are the functions whose C-interface we want to change slightly from the
 // F90 interface, so we name-mangle to keep them internal. These are _NOT_ part
@@ -44,15 +45,6 @@
 #   include <string.h>
 #endif
 
-// Workaround for strange behavior of clang compiler -- clang C doesn't seem to
-// like the inline specifier on any of these functions, but clang++ handles it
-// just fine.
-#if defined(__cplusplus) || !defined(__clang__)
-#   define INLINE inline
-#else
-#   define INLINE
-#endif
-
 // Data types
 typedef struct {
     // Floating point input parameters
@@ -63,6 +55,8 @@ typedef struct {
     double cut;
     double dielc;
     double rdt;
+    double fswitch;
+    double restraint_wt;
 
     // Integer choice flags
     int igb;
@@ -78,6 +72,13 @@ typedef struct {
     int jfastw;
     int ntf;
     int ntc;
+    int ntr;
+    int ibelly;
+
+    // Strings
+    char restraintmask[256];
+    char bellymask[256];
+    char refc[256];
 } sander_input;
 
  /* Make sure this is the same as the number defined in lib/constants.F90!!! */
@@ -151,6 +152,7 @@ typedef struct {
     char buffermask[8192];
     char centermask[8192];
     char dftb_3rd_order[256];
+    char dftb_slko_path[256];
     char qm_theory[12];
 } qmmm_input_options;
 
@@ -184,7 +186,7 @@ typedef struct {
 } pot_ene;
 
 typedef struct {
-    
+
     // Integer pointers
 
     int natom, ntypes, nbonh,  mbona, ntheth, mtheta, nphih,
@@ -243,7 +245,7 @@ typedef struct {
     int *charmm_cmap_index;
     int *charmm_impropers;
     int *charmm_urey_bradley;
-      
+
     double *charge;
     double *mass;
     double *bond_force_constant;
@@ -314,7 +316,7 @@ void __internal_sander_setup2(prmtop_struct*, double*, double*, sander_input*,
 void __internal_is_setup(int*);
 void __internal_gas_sander_input(sander_input*, int*);
 
-INLINE void gas_sander_input(sander_input *inp, const int gb) {
+static inline void gas_sander_input(sander_input *inp, const int gb) {
     int dum = gb;
     __internal_gas_sander_input(inp, &dum);
 }
@@ -327,7 +329,7 @@ INLINE void gas_sander_input(sander_input *inp, const int gb) {
  * \param qmmm_options struct of input options for QM part
  * \returns 0 for success, 1 for failure
  */
-INLINE int sander_setup(const char *prmname, double *coords, double *box,
+static inline int sander_setup(const char *prmname, double *coords, double *box,
                         sander_input *input_options, qmmm_input_options *qmmm_options) {
     int ierr;
     char *prmtop;
@@ -337,7 +339,7 @@ INLINE int sander_setup(const char *prmname, double *coords, double *box,
     free(prmtop);
     return ierr;
 }
-INLINE int sander_setup_mm(const char *prmname, double *coords, double *box,
+static inline int sander_setup_mm(const char *prmname, double *coords, double *box,
                            sander_input *input_options) {
     int ierr;
     char *prmtop;
@@ -349,14 +351,14 @@ INLINE int sander_setup_mm(const char *prmname, double *coords, double *box,
     return ierr;
 }
 
-INLINE int sander_setup2(prmtop_struct *parm, double *coords, double *box,
+static inline int sander_setup2(prmtop_struct *parm, double *coords, double *box,
                          sander_input *inp, qmmm_input_options *qm_inp) {
    int ierr;
    __internal_sander_setup2(parm, coords, box, inp, qm_inp, &ierr);
    return ierr;
 }
 
-INLINE int sander_setup2_mm(prmtop_struct *parm, double *coords, double *box,
+static inline int sander_setup2_mm(prmtop_struct *parm, double *coords, double *box,
                             sander_input *input_options) {
     qmmm_input_options dummy;
     return sander_setup2(parm, coords, box, input_options, &dummy);
@@ -376,14 +378,26 @@ void set_positions(double *positions);
  * \param beta Angle between the first and third vectors
  * \param gamma Angle between the first and second vectors
  */
-INLINE void
+static inline void
 set_box(double a, double b, double c, double alpha, double beta, double gamma) {
    __internal_set_box(&a, &b, &c, &alpha, &beta, &gamma);
 }
 
+/** Gets the periodic box vectors
+ * \param a Length of the first unit cell vector
+ * \param b Length of the second unit cell vector
+ * \param c Length of the third unit cell vector
+ * \param alpha Angle between the second and third vectors
+ * \param beta Angle between the first and third vectors
+ * \param gamma Angle between the first and second vectors
+ */
+void
+get_box(double *a, double *b, double *c,
+        double *alpha, double *beta, double *gamma);
+
 /** Returns 1 if sander has been set up and 0 otherwise
  */
-INLINE int is_setup() {
+static inline int is_setup() {
    int i;
    __internal_is_setup(&i);
    return i;
@@ -402,14 +416,14 @@ void energy_forces(pot_ene *energy, double *forces);
 void sander_cleanup(void);
 
 /// Returns the number of atoms defined in the system
-INLINE int sander_natom(void) {
+static inline int sander_natom(void) {
     int natom;
     __internal_sander_natom(&natom);
     return natom;
 }
 
 /// Fills the coordinates and box. Returns 0 for success, 1 for error
-INLINE int
+static inline int
 read_inpcrd_file(const char *filename, double *coordinates, double *box) {
     int inerr;
     char *fname;
@@ -421,7 +435,7 @@ read_inpcrd_file(const char *filename, double *coordinates, double *box) {
     return inerr;
 }
 
-INLINE int get_inpcrd_natom(const char *filename) {
+static inline int get_inpcrd_natom(const char *filename) {
     int natom;
     char *fname;
 
@@ -433,7 +447,7 @@ INLINE int get_inpcrd_natom(const char *filename) {
 }
 
 #define SAFE_FREE(var) if (parm->var) free(parm->var)
-INLINE void destroy_prmtop_struct(prmtop_struct *parm) {
+static inline void destroy_prmtop_struct(prmtop_struct *parm) {
     SAFE_FREE(atom_name);
     SAFE_FREE(residue_label);
     SAFE_FREE(amber_atom_type);
@@ -462,7 +476,7 @@ INLINE void destroy_prmtop_struct(prmtop_struct *parm) {
     SAFE_FREE(charmm_cmap_index);
     SAFE_FREE(charmm_impropers);
     SAFE_FREE(charmm_urey_bradley);
-      
+
     SAFE_FREE(charge);
     SAFE_FREE(mass);
     SAFE_FREE(bond_force_constant);
@@ -503,17 +517,15 @@ INLINE void destroy_prmtop_struct(prmtop_struct *parm) {
 } /* extern "C" */
 
 // Some C++-overloaded functions to accept strings in addition to char*
-INLINE int get_incprd_natom(const std::string& filename) {
+static inline int get_incprd_natom(const std::string& filename) {
    return get_inpcrd_natom(filename.c_str());
 }
 
-INLINE int
+static inline int
 read_inpcrd_file(const std::string& filename, double *coordinates, double *box)
 {
    return read_inpcrd_file(filename.c_str(), coordinates, box);
 }
 #endif
-
-#undef INLINE
 
 #endif /* SANDER_H */

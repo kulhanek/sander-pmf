@@ -21,23 +21,27 @@ SET(SANDER_SRC
         ../../lib/sebomd/se_energy.F
         ../../lib/sebomd/se_doscf.F
         ../../lib/sebomd/se_edriver.F
-        ../../lib/sebomd/se_pme_setup.F        
-        
+        ../../lib/sebomd/se_pme_setup.F
+        ../../lib/sebomd/se_bond_order_wrapper.F
+        ../../lib/sebomd/se_bond_order_write.F90
+
         ../../lib/sqm/qm2_dftb_scf.F90
         ../../lib/sqm/qm2_dftb_energy.F90 
         ../../lib/sqm/qm2_dftb_ewald.F90 
-        ../../lib/sqm/qm2_diagonalizer_module.F90                                 
+        ../../lib/sqm/qm2_diagonalizer_module.F90
         ../../lib/sqm/qm2_energy.F90
         ../../lib/sqm/qm2_get_qm_forces.F90 
         ../../lib/sqm/qm2_get_qmmm_forces.F90 
         ../../lib/sqm/qm2_load_params_and_allocate.F90 
         ../../lib/sqm/qm2_read_nm_and_alloc.F90
-		../../lib/sqm/qm2_scf.F90
-                        
+        ../../lib/sqm/qm2_scf.F90
+
 # -----------------------------------
         abfqmmm_module.F90
         align.F90
 #        ambmask.F90
+        quench.F90
+        relaxmd.F90
         amd.F90
         amoeba_adjust.F90
         amoeba_direct.F90
@@ -163,40 +167,42 @@ SET(SANDER_SRC
         mtmdcall.F90
         multisander.F90
         multitmd.F90
-        ncsu-abmd-hooks.F90
-        ncsu-bbmd-ctxt.F90
-        ncsu-bbmd-hooks.F90
-        ncsu-cftree.F90
-        ncsu-colvar.F90
-        ncsu-colvar-math.F90
-        ncsu-colvar-type.F90
-        ncsu-colvar-utils.F90
-        ncsu-constants.F90
-        ncsu-cv-ANGLE.F90
-        ncsu-cv-COM_ANGLE.F90
-        ncsu-cv-COM_DISTANCE.F90
-        ncsu-cv-COM_TORSION.F90
-        ncsu-cv-COS_OF_DIHEDRAL.F90
-        ncsu-cv-DISTANCE.F90
-        ncsu-cv-HANDEDNESS.F90
-        ncsu-cv-LCOD.F90
-        ncsu-cv-MULTI_RMSD.F90
-        ncsu-cv-N_OF_BONDS.F90
-        ncsu-cv-N_OF_STRUCTURES.F90
-        ncsu-cv-PCA.F90
-        ncsu-cv-R_OF_GYRATION.F90
-        ncsu-cv-TORSION.F90
-        ncsu-lexer.F90
-        ncsu-parser.F90
-        ncsu-pmd-hooks.F90
-        ncsu-read-pca.F90
-        ncsu-rmsd.F90
-        ncsu-sander-hooks.F90
-        ncsu-sander-proxy.F90
-        ncsu-smd-hooks.F90
-        ncsu-umbrella.F90
-        ncsu-utils.F90
-        ncsu-value.F90
+nfe-abmd-hooks.F90
+nfe-bbmd-ctxt.F90
+nfe-bbmd-hooks.F90
+nfe-colvar.F90
+nfe-colvar-math.F90
+nfe-colvar-type.F90
+nfe-colvar-utils.F90
+nfe-constants.F90
+nfe-cv-ANGLE.F90
+nfe-cv-COM_ANGLE.F90
+nfe-cv-COM_DISTANCE.F90
+nfe-cv-COM_TORSION.F90
+nfe-cv-COS_OF_DIHEDRAL.F90
+nfe-cv-DF_COM_DISTANCE.F90
+nfe-cv-DISTANCE.F90
+nfe-cv-HANDEDNESS.F90
+nfe-cv-LCOD.F90
+nfe-cv-MULTI_RMSD.F90
+nfe-cv-N_OF_BONDS.F90
+nfe-cv-N_OF_STRUCTURES.F90
+nfe-cv-PAIR_DIHEDRAL.F90
+nfe-cv-PATTERN_DIHEDRAL.F90
+nfe-cv-PCA.F90
+nfe-cv-R_OF_GYRATION.F90
+nfe-cv-SIN_OF_DIHEDRAL.F90
+nfe-cv-TORSION.F90
+nfe-pmd-hooks.F90
+nfe-read-pca.F90
+nfe-rmsd.F90
+nfe-sander-hooks.F90
+nfe-sander-proxy.F90
+nfe-smd-hooks.F90
+nfe-stsm-hooks.F90
+nfe-umbrella.F90
+nfe-utils.F90
+nfe-value.F90
         new_time.F90
         nmlsrc.F90
         nmrcal.F90
@@ -233,6 +239,7 @@ SET(SANDER_SRC
         qm2_extern_tc_module.F90
         qm2_extern_util_module.F90
         qm2_extern_qc_module.F90
+        qm2_extern_mrcc_module.F90
 #        qm_div.F90
         qm_ewald.F90
         qmmm_adaptive_module.F90
@@ -251,7 +258,7 @@ SET(SANDER_SRC
         rmsgrd.F90
         runmd.F90
         runmin.F90
-        runext.F90
+#        runext.F90
         sander.F90
         sander_lib.F90
         scaledMD.F90
@@ -300,6 +307,9 @@ SET(SANDER_SRC
 #        xwarshel_anal2num.F90
 #        yammpnb.F90
         Plumed.c
+        pol_gauss.F90
+        ew_bndpol.F90
+        sinr_t.F90
         )
 
 

@@ -36,12 +36,12 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   module rism3d_debug_c
     use rism3d_grid_c
-    use rism3d_solv_c
+    use rism3d_solvent_c
     implicit none
     private
     
     type(rism3d_grid),pointer :: grid=>NULL()
-    type(rism3d_solv), pointer :: solv=>NULL()
+    type(rism3d_solvent), pointer :: solv=>NULL()
     integer :: mpirank, mpisize,mpicomm
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -68,7 +68,7 @@
     subroutine rism3d_debug_new(grid3d,solvent,rank, size, comm)
       implicit none
       type(rism3d_grid),target :: grid3d
-      type(rism3d_solv),target :: solvent
+      type(rism3d_solvent),target :: solvent
       integer, intent(in) :: rank, size, comm
       grid => grid3d
       solv => solvent
@@ -99,7 +99,7 @@
       integer :: ierr
       character(len=40) :: fmt
       fmt = '(a,i3,i3,i5,i4,i4,i4,1p,e24.16)'
-      dim = grid%ngr
+      dim = grid%globalDimsR
       padding = .false.
 
       if(.not.nrformat)&
@@ -107,7 +107,7 @@
 
       if(rspace)then
          dim(3) = dim(3)/mpisize
-         offset = grid%nroff
+         offset = grid%localDimsRoff
       else
          dim(2) = dim(2)/mpisize
          offset = grid%nkoff
@@ -203,7 +203,7 @@
       character(len=40) :: fmt
       _REAL_,pointer :: temp(:,:,:)=> NULL()
       fmt = '(a,i3,i3,i4,i4,i4,1p,e24.16)'
-      dim = grid%ngr
+      dim = grid%globalDimsR
       dim(3) = dim(3)/mpisize
       offset = (/0,0,dim(3)/)
       temp => safemem_realloc(temp,dim(1),dim(2),dim(3),.false.)
@@ -260,7 +260,7 @@
       character(len=*), intent(in) :: label
       _REAL_, pointer :: temp(:,:,:,:) => NULL()
 
-      temp(1:grid%nr(1),1:grid%nr(2),1:grid%nr(3),1:solv%natom) => data
+      temp(1:grid%localDimsR(1),1:grid%localDimsR(2),1:grid%localDimsR(3),1:solv%natom) => data
       call rism3d_debug_print(temp,label)
     end subroutine rism3d_debug_print_r1
 
@@ -281,7 +281,7 @@
       character(len=*), intent(in) :: label
       _REAL_, pointer :: temp(:,:,:,:) => NULL()
 
-      temp(1:grid%nr(1),1:grid%nr(2),1:grid%nr(3),1:solv%natom) => data(:,:)
+      temp(1:grid%localDimsR(1),1:grid%localDimsR(2),1:grid%localDimsR(3),1:solv%natom) => data(:,:)
       call rism3d_debug_print(temp,label)
     end subroutine rism3d_debug_print_r2
   end module rism3d_debug_c

@@ -11,7 +11,7 @@ subroutine recip_reg(numatoms,charge,eer,vir, &
       mlimit,volume,recip,force, &
       ewaldcof,maxexp,iproc,nproc)
 
-   use nblist, only: fraction
+   use nblist, only: fraccrd
    use stack
    implicit none
    character(kind=1,len=9) :: routine="recip_reg"
@@ -46,7 +46,7 @@ subroutine recip_reg(numatoms,charge,eer,vir, &
    endif
    REQUIRE(rstack_ok)
    call do_recip_reg(numatoms,charge,eer,vir, &
-         mlimit,volume,recip,force,fraction,ewaldcof,maxexp, &
+         mlimit,volume,recip,force,fraccrd,ewaldcof,maxexp, &
          r_stack(lcosf1),r_stack(lcosf2),r_stack(lcosf3), &
          r_stack(lsinf1),r_stack(lsinf2),r_stack(lsinf3), &
          r_stack(lc12),r_stack(ls12),r_stack(lc),r_stack(ls), &
@@ -69,7 +69,7 @@ end subroutine recip_reg
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine do_recip_reg here]
 subroutine do_recip_reg(numatoms,charge,eer,vir, &
-      mlimit,volume,recip,force,fraction,ewaldcof,maxexp, &
+      mlimit,volume,recip,force,fraccrd,ewaldcof,maxexp, &
       cosf1,cosf2,cosf3,sinf1,sinf2,sinf3,c12,s12,c,s, &
       mmax,nproc,iproc)
    use constants, only : PI2, TWOPI, pi
@@ -79,7 +79,7 @@ subroutine do_recip_reg(numatoms,charge,eer,vir, &
    integer  numatoms,mlimit(3),mmax,iproc,nproc
    _REAL_   charge(*),eer,vir(3,3), &
          volume,recip(3,3)
-   _REAL_   force(3,*),fraction(3,*),ewaldcof, maxexp
+   _REAL_   force(3,*),fraccrd(3,*),ewaldcof, maxexp
    _REAL_ cosf1(numatoms,mmax),cosf2(numatoms,mmax), &
          cosf3(numatoms,mmax),sinf1(numatoms,mmax), &
          sinf2(numatoms,mmax),sinf3(numatoms,mmax)
@@ -109,12 +109,12 @@ subroutine do_recip_reg(numatoms,charge,eer,vir, &
       sinf1(n,1) = 0.d0
       sinf2(n,1) = 0.d0
       sinf3(n,1) = 0.d0
-      cosf1(n,2) = cos(twopi*fraction(1,n))
-      cosf2(n,2) = cos(twopi*fraction(2,n))
-      cosf3(n,2) = cos(twopi*fraction(3,n))
-      sinf1(n,2) = sin(twopi*fraction(1,n))
-      sinf2(n,2) = sin(twopi*fraction(2,n))
-      sinf3(n,2) = sin(twopi*fraction(3,n))
+      cosf1(n,2) = cos(twopi*fraccrd(1,n))
+      cosf2(n,2) = cos(twopi*fraccrd(2,n))
+      cosf3(n,2) = cos(twopi*fraccrd(3,n))
+      sinf1(n,2) = sin(twopi*fraccrd(1,n))
+      sinf2(n,2) = sin(twopi*fraccrd(2,n))
+      sinf3(n,2) = sin(twopi*fraccrd(3,n))
    end do
    ! get the higher factors by recursion, using trig addition rules
    ! negative values of m by complex conjugation, or even cosf, odd sinf
@@ -228,7 +228,7 @@ end subroutine do_recip_reg
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine recip_reg_dipole here]
 subroutine recip_reg_dipole(numatoms,charge,eer,vir, &
-      mlimit,volume,recip,force,fraction,ewaldcof,maxexp, &
+      mlimit,volume,recip,force,fraccrd,ewaldcof,maxexp, &
       dipole,efield, iproc,nproc)
    use stack
    implicit none
@@ -238,7 +238,7 @@ subroutine recip_reg_dipole(numatoms,charge,eer,vir, &
    integer  numatoms,mlimit(3),iproc,nproc
    _REAL_   charge(*),eer,vir(3,3), &
          volume,recip(3,3)
-   _REAL_   force(3,*),fraction(3,*), ewaldcof, maxexp, efield(3,*),dipole(3,*)
+   _REAL_   force(3,*),fraccrd(3,*), ewaldcof, maxexp, efield(3,*),dipole(3,*)
 
    integer mmax,lcosf1,lcosf2,lcosf3,lsinf1,lsinf2,lsinf3, &
          lc,ls,lc12,ls12
@@ -263,7 +263,7 @@ subroutine recip_reg_dipole(numatoms,charge,eer,vir, &
    endif
    REQUIRE(rstack_ok)
    call do_recip_reg_dipole(numatoms,charge,eer,vir, &
-         mlimit,volume,recip,force,fraction,ewaldcof,maxexp, &
+         mlimit,volume,recip,force,fraccrd,ewaldcof,maxexp, &
          r_stack(lcosf1),r_stack(lcosf2),r_stack(lcosf3), &
          r_stack(lsinf1),r_stack(lsinf2), &
          r_stack(lsinf3),r_stack(lc12),r_stack(ls12),r_stack(lc), &
@@ -286,7 +286,7 @@ end subroutine recip_reg_dipole
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine do_recip_reg_dipole here]
 subroutine do_recip_reg_dipole(numatoms,charge,eer,vir, &
-      mlimit,volume,recip,force,fraction,ewaldcof,maxexp, &
+      mlimit,volume,recip,force,fraccrd,ewaldcof,maxexp, &
       cosf1,cosf2,cosf3,sinf1,sinf2,sinf3,c12,s12,c,s,mmax, &
       iproc,nproc,dipole,efield)
    use constants, only : twopi, pi2, pi
@@ -296,7 +296,7 @@ subroutine do_recip_reg_dipole(numatoms,charge,eer,vir, &
    integer  numatoms,mlimit(3),mmax,iproc,nproc
    _REAL_   charge(*),eer,vir(3,3), &
          volume,recip(3,3)
-   _REAL_   force(3,*),fraction(3,*),ewaldcof, maxexp
+   _REAL_   force(3,*),fraccrd(3,*),ewaldcof, maxexp
    _REAL_   efield(3,*),dipole(3,*)
    _REAL_ cosf1(numatoms,mmax),cosf2(numatoms,mmax), &
          cosf3(numatoms,mmax),sinf1(numatoms,mmax), &
@@ -328,12 +328,12 @@ subroutine do_recip_reg_dipole(numatoms,charge,eer,vir, &
       sinf1(n,1) = 0.d0
       sinf2(n,1) = 0.d0
       sinf3(n,1) = 0.d0
-      cosf1(n,2) = cos(twopi*fraction(1,n))
-      cosf2(n,2) = cos(twopi*fraction(2,n))
-      cosf3(n,2) = cos(twopi*fraction(3,n))
-      sinf1(n,2) = sin(twopi*fraction(1,n))
-      sinf2(n,2) = sin(twopi*fraction(2,n))
-      sinf3(n,2) = sin(twopi*fraction(3,n))
+      cosf1(n,2) = cos(twopi*fraccrd(1,n))
+      cosf2(n,2) = cos(twopi*fraccrd(2,n))
+      cosf3(n,2) = cos(twopi*fraccrd(3,n))
+      sinf1(n,2) = sin(twopi*fraccrd(1,n))
+      sinf2(n,2) = sin(twopi*fraccrd(2,n))
+      sinf3(n,2) = sin(twopi*fraccrd(3,n))
    end do
    ! get the higher factors by recursion, using trig addition rules
    ! negative values of m by complex conjugation, or even cosf, odd sinf

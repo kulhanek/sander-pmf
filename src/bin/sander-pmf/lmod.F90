@@ -113,6 +113,10 @@ module lmod_driver
    ! Renaming of Kolossvary's nconf.
    namelist /lmod/ conflib_size
 
+   _REAL_                  :: conf_separation_rms = 2.0
+   ! The minimum pairwise all-atom RMSD separation for stored structures.
+   namelist /lmod/ conf_separation_rms
+
    _REAL_                  :: energy_window = 0
    ! The energy window for conformation storage; the energy of a stored
    ! structure will be in the interval [global_min, global_min + energy_window].
@@ -665,17 +669,6 @@ _REAL_ , dimension(:), allocatable :: rot_min
 _REAL_ , dimension(:), allocatable :: tr_max
 _REAL_ , dimension(:), allocatable :: tr_min
 
-   ! As of 3/1/14, the lmod capability in sander is still broken:
-   ! At least let users know of the sad news:
-
-   write(0,*) 'The lmod capability in sander is broken!'
-   write(0,*) '(You might be able to use the NAB interface)'
-   write(0,*) 'Exiting....'
-   write(6,*) 'The lmod capability in sander is broken!'
-   write(6,*) '(You might be able to use the NAB interface)'
-   write(6,*) 'Exiting....'
-   call mexit(6,1)
-
    ! Zero the state type as done in runmd()
    energies = null_state_rec
 
@@ -779,10 +772,10 @@ _REAL_ , dimension(:), allocatable :: tr_min
 
 !      minimum_energy = lmodC( number_lmod_iterations, total_low_modes, &
 !            explored_low_modes, number_free_rotrans_modes, natm, &
-!            coordinates, energies%tot, forces, conflib_size, energy_window, &
-!            conflib, lmod_trajectory, frequency_eigenvector_recalc, &
-!            arnoldi_dimension, lmod_restart_frequency, restart_pool_size, &
-!            Monte_Carlo_method_code, rtemperature, &
+!            coordinates, energies%pot%tot, forces, conflib_size, energy_window, &
+!            conf_separation_rms, conflib, lmod_trajectory, &
+!            frequency_eigenvector_recalc, arnoldi_dimension, lmod_restart_frequency, &
+!            restart_pool_size, Monte_Carlo_method_code, rtemperature, &
 !            lmod_step_size_min, lmod_step_size_max, number_lmod_moves, &
 !            number_ligands, lig_start, lig_end, frequency_ligand_rotrans, &
 !            number_ligand_rotrans, tr_min, tr_max, lig_cent, &
@@ -1196,7 +1189,7 @@ subroutine run_xmin( xx, ix, ih, ipairs, &
       if( .not. is_error .and. (xmin_iter/=iter+1)) then
          iter = iter + 1
          if ( mod(iter,ntpr2) == 0 ) iprint = .true.
-         if ( (ntwr /= 0) .and. (mod(iter,ntwr) == 0) ) ixdump = .true.
+         if ( mod(iter,ntwr) == 0 ) ixdump = .true.
          if ( (ntwx /= 0) .and. (mod(iter,ntwx) == 0) .and. (imin /= 5) ) itdump = .true.
       end if
       if( .not. is_error .and. (return_flag==DONE)) then 

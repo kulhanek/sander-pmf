@@ -20,8 +20,9 @@
    use parms, only: req
    use nbips, only: ips
    use amd_mod, only: iamd,EthreshD,alphaD,EthreshP,alphaP, &
-        w_amd,EthreshD_w,alphaD_w,EthreshP_w,alphaP_w
+        w_amd,EthreshD_w,alphaD_w,EthreshP_w,alphaP_w,igamd
    use nblist, only: a,b,c,alpha,beta,gamma,nbflag,skinnb,sphere,nbtell,cutoffnb
+   use bndpol, only: ew_bndpol
    use amoeba_mdin, only : iamoeba,beeman_integrator
    use amoeba_runmd, only : AM_RUNMD_get_coords
    use nose_hoover_module, only: nchain  ! APJ
@@ -70,6 +71,7 @@
    use sgld, only : isgld ! for RXSGLD
 #endif /* MPI */
    use linear_response, only: ilrt, lrtmask
+   use nfe_sander_proxy, only: infe
 
    implicit none
    _REAL_ x(*)
@@ -92,7 +94,7 @@
 #ifndef API
    integer ntmp
 #endif /* API */
-   
+
 #ifdef MPI
    !     =========================== AMBER/MPI ===========================
 #  ifdef MPI_DOUBLE_PRECISION
@@ -120,7 +122,7 @@
 #  include "def_time.h"
 #  include "tgtmd.h"
 #  include "multitmd.h"
-   
+
    ! -------------------------------------------------------------------
    !      --- set up resat array, containing string identifying
    !          residue for each atom
@@ -136,19 +138,19 @@
       resat(i)(14:14) = char(0)
    end do
    close(unit=8)
-   
+
    ! -------------------------------------------------------------------
    !     ----- SET THE DEFAULT VALUES FOR SOME VARIABLES -----
    ! -------------------------------------------------------------------
-   
+
    nrp = natom
-   
+
 #ifndef API
    if (ifbox == 1) write(6, '(/5x,''BOX TYPE: RECTILINEAR'')')
    if (ifbox == 2) write(6, '(/5x,''BOX TYPE: TRUNCATED OCTAHEDRON'')')
    if (ifbox == 3) write(6, '(/5x,''BOX TYPE: GENERAL'')')
 #endif
-   
+
    ! For 0< ipimd <= 3, no removal of COM motion
    if (ipimd>0.and.ipimd<=3) then
       nscm = 0
@@ -187,9 +189,9 @@
    if (dielc <= ZERO ) dielc = ONE
    if (tautp <= ZERO ) tautp = 0.2d0
    if (taup <= ZERO ) taup = 0.2d0
-   
+
    !     ----- RESET THE CAP IF NEEDED -----
-   
+
    ! ivcap == 0: Cap will be in effect if it is in the prmtop file (ifcap = 1)
 
    if(ivcap == 1) then
@@ -223,7 +225,7 @@
      write (6, '(a)') "      and disabling the synchronization of random &
                                &numbers between tasks"
      write (6, '(a)') "      to improve performance."
-#else 
+#else
 #  ifndef API
      write (6, '(a,i8,a)') "Note: ig = -1. Setting random seed to ", ig ," based on wallclock &
                                 &time in microseconds."
@@ -238,18 +240,18 @@
    !they all call mdread2.
    !Also needs to be synchronized for adaptive QM/MM (qmmm_nml%vsolv > 1)
    if ( (icfe > 0) .or. (qmmm_nml%vsolv > 1) ) then
-      ! no_ntt3_sync currently does not work with softcore TI simulations 
+      ! no_ntt3_sync currently does not work with softcore TI simulations
       ! see sc_lngdyn in softcore.F90
       ! AWG: I think I also need to set no_ntt3_sync=0 ???
-      if ( (ifsc > 0) .or. (qmmm_nml%vsolv > 1) ) no_ntt3_sync = 0 
+      if ( (ifsc > 0) .or. (qmmm_nml%vsolv > 1) ) no_ntt3_sync = 0
       call mpi_bcast(ig, 1, MPI_INTEGER, 0, commmaster, ierr)
    end if
 #endif
- 
+
    ! -------------------------------------------------------------------
    !     ----- PRINT DATA CHARACTERIZING THE RUN -----
    ! -------------------------------------------------------------------
-   
+
    nr = nrp
 #ifndef API
    write(6,9328)
@@ -312,7 +314,7 @@
          write(6,'(5x,4(a,i8))') "rremd=",rremd
       endif
 
-      ! ntp > 0 not allowed for remd 
+      ! ntp > 0 not allowed for remd
       if (ntp > 0) then
          write(6,'(a,i1)') "ERROR: ntp > 0 not allowed for rem > 0, ntp=", ntp
          FATAL_ERROR
@@ -386,6 +388,8 @@
          ', iesp    =',iesp
    write(6,'(5x,3(a,f10.5))') 'dielc   =',dielc, &
          ', cut     =',cut,', intdiel =',intdiel
+   if (lj1264 /= 0) &
+      write(6, '(5x,a,i8)') 'lj1264  =',lj1264
 
    ! charge relocation
    if ( ifcr /= 0 ) then
@@ -395,7 +399,7 @@
       write(6,'(5x,2(a,f10.5))') 'crcut   =', crcut, ', crskin  =', crskin
    end if
 
-   if (( igb /= 0 .and. igb /= 10 .and. ipb == 0 .and. igb /= 8) &
+   if (( igb /= 0 .and. igb /= 6 .and. igb /= 10 .and. ipb == 0 .and. igb /= 8) &
                                   .or.hybridgb>0.or.icnstph>1) then
       write(6,'(5x,3(a,f10.5))') 'saltcon =',saltcon, &
             ', offset  =',offset,', gbalpha= ',gbalpha
@@ -405,7 +409,7 @@
             '  extdiel =',extdiel
       write(6,'(5x,3(a,i8))') 'alpb  = ',alpb
    end if
-   
+
    ! print output for igb=8
    if ( igb == 8 ) then
       write(6,'(5x,3(a,f10.5))') 'saltcon =',saltcon, &
@@ -439,7 +443,7 @@
 
    if( alpb /= 0 ) then
       write(6,'(5x,3(a,f10.5))') 'Arad =', Arad
-   end if    
+   end if
 
    write(6,'(/a)') 'Frozen or restrained atoms:'
    write(6,'(5x,4(a,i8))') 'ibelly  =',ibelly,', ntr     =',ntr
@@ -474,7 +478,7 @@
             ', nrespa  =',nrespa
       write(6,'(5x,3(a,f10.5))') 't       =',t, &
             ', dt      =',dt,', vlimit  =',vlimit
-      
+
       if ( ntt == 0 .and. tempi > 0.0d0 .and. irest == 0 ) then
          write(6,'(/a)') 'Initial temperature generation:'
          write(6,'(5x,a,i8)') 'ig      =',ig
@@ -523,6 +527,11 @@
          write(6,'(5x,3(a,f10.5))') 'temp0   =',temp0, &
                ', tempi   =',tempi,', gamma_ln=', gamma_ln
          write(6,'(5x,2(a,i10),/)') 'nkija   =',nkija,', idistr  =',idistr
+      else if( ntt == 10) then
+         write(6,'(/a)') 'Stochastic Isokinetic Nose-Hoover RESPA (SINR) integration:'
+         write(6,'(5x,3(a,f10.5))') 'temp0   =',temp0, &
+               ', tempi   =',tempi,', gamma_ln=', gamma_ln
+         write(6,'(5x,a,i10,a,f12.5,/)') 'nkija   =',nkija,', sinrtau  =',sinrtau
       end if
 
       if( ntp /= 0 ) then
@@ -623,16 +632,16 @@
    case (0)     ! Default: no TI wrt. mass.
    case (1,2)   ! 1 = use virial est., 2 = use thermodynamic est.
       write(6,'(/a)') 'Isotope effects (thermodynamic integration w.r.t. mass):'
-      write(6,'(5x,4(a,i8))') 'itimass =',itimass      
+      write(6,'(5x,4(a,i8))') 'itimass =',itimass
       write(6,'(5x,3(a,f10.5))') 'clambda =',clambda
-      if (icfe /= 0) then 
+      if (icfe /= 0) then
          write(6,'(/2x,a,i2,a,i2,a)') 'Error: Cannot do TI w.r.t. both potential (icfe =', &
             icfe, ') and mass (itimass =', itimass, ').'
          stop
       endif
-      if (ipimd == 0) then 
+      if (ipimd == 0) then
          write(6,'(/2x,a)') 'Error (IPIMD=0): TI w.r.t. mass requires a PIMD run.'
-         stop       
+         stop
       endif
    case default ! Invalid itimass
       write(6,'(/2x,a,i2,a)') 'Error: Invalid ITIMASS (', itimass, ' ).'
@@ -644,7 +653,7 @@
       write(6,'(5x,3(a,f10.5))') 'tgtrmsd =',tgtrmsd, &
             ', tgtmdfrc=',tgtmdfrc
    end if
- 
+
    if( icnstph /= 0) then
       write(6, '(/a)') 'Constant pH options:'
       if ( icnstph .ne. 1 ) &
@@ -692,38 +701,38 @@
       write(6, '(5x,"     qmmm_int = ",i8)') qmmm_nml%qmmm_int
       write(6, '(5x,"lnk_atomic_no = ",i8,"   lnk_dis = ",f8.4," lnk_method = ",i8)') &
                  qmmm_nml%lnk_atomic_no,qmmm_nml%lnk_dis, qmmm_nml%lnk_method
-      if ( qmmm_nml%qmtheory%PM3 ) then 
-         write(6, '(5x,"     qm_theory =     PM3")',ADVANCE='NO') 
+      if ( qmmm_nml%qmtheory%PM3 ) then
+         write(6, '(5x,"     qm_theory =     PM3")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%AM1 ) then
-         write(6, '(5x,"     qm_theory =     AM1")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =     AM1")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%AM1D ) then
-         write(6, '(5x,"     qm_theory =   AM1/d")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =   AM1/d")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%MNDO ) then
-         write(6, '(5x,"     qm_theory =    MNDO")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =    MNDO")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%MNDOD ) then
-         write(6, '(5x,"     qm_theory =  MNDO/d")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =  MNDO/d")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%PDDGPM3 ) then
-         write(6, '(5x,"     qm_theory = PDDGPM3")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory = PDDGPM3")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%PDDGMNDO ) then
-         write(6, '(5x,"     qm_theory =PDDGMNDO")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =PDDGMNDO")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%PM3CARB1 ) then
-         write(6, '(5x,"     qm_theory =PM3CARB1")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =PM3CARB1")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%DFTB ) then
-         write(6, '(5x,"     qm_theory =    DFTB")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =    DFTB")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%RM1 ) then
-         write(6, '(5x,"     qm_theory =     RM1")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =     RM1")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%PDDGPM3_08 ) then
-         write(6, '(5x,"     qm_theory = PDDGPM3_08")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory = PDDGPM3_08")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%PM6 ) then
-         write(6, '(5x,"     qm_theory =     PM6")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =     PM6")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%PM3ZNB ) then
-         write(6, '(5x,"     qm_theory = PM3/ZnB")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory = PM3/ZnB")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%PM3MAIS ) then
-         write(6, '(5x,"     qm_theory = PM3-MAIS")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory = PM3-MAIS")',ADVANCE='NO')
       else if ( qmmm_nml%qmtheory%EXTERN ) then
-         write(6, '(5x,"     qm_theory =     EXTERN")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory =     EXTERN")',ADVANCE='NO')
       else
-         write(6, '(5x,"     qm_theory = UNKNOWN!")',ADVANCE='NO') 
+         write(6, '(5x,"     qm_theory = UNKNOWN!")',ADVANCE='NO')
       end if
       write (6, '(" verbosity = ",i8)') qmmm_nml%verbosity
       if (qmmm_nml%qmqm_analyt) then
@@ -751,7 +760,7 @@
                write(6, '(5x," printdipole = QM+MM")',ADVANCE='NO')
             case default
                write(6, '(5x," printdipole = False")',ADVANCE='NO')
-         end select 
+         end select
          if (qmmm_nml%peptide_corr) then
             write(6, '(5x," peptide_corr = True")')
          else
@@ -799,12 +808,12 @@
          write(6, '(7x,"qmmm_switch = True",3x,"r_switch_lo =",f8.4,3x,"r_switch_hi =",f8.4)') &
                & qmmm_nml%r_switch_lo, qmmm_nml%r_switch_hi
       !else
-      !   write(6, '(7x,"qmmm_switch = False")') 
+      !   write(6, '(7x,"qmmm_switch = False")')
       end if
 
       if (qmmm_nml%printdipole==2) then
-         write(6, '("|",2x,"INFO: To compute MM dipole WAT residues will be stripped")') 
-      end if 
+         write(6, '("|",2x,"INFO: To compute MM dipole WAT residues will be stripped")')
+      end if
    end if
 
    if (qmmm_nml%vsolv > 0) then
@@ -841,14 +850,22 @@
 ! --------------------------
 #  endif /* MPI */
 #endif /* API */
- 
+
    cut = cut*cut
    cut_inner = cut_inner*cut_inner
-   
+
+   !------------------------------------------------------------------------
+   ! If user has requested polarizable ff, set up variables
+   !------------------------------------------------------------------------
+
+   if ( ipol == 5 ) then
+      call ew_bndpol(natom,nbonh,nbona,ix(iibh),ix(ijbh),ix(iiba),ix(ijba),ih(m04),ih(m06))
+   end if
+
    !------------------------------------------------------------------------
    ! If user has requested generalized born electrostatics, set up variables
    !------------------------------------------------------------------------
-   
+
    if( igb == 0 .and. gbsa > 0 ) then
       write(0,*) 'GB/SA calculation is performed only when igb>0'
       FATAL_ERROR
@@ -887,7 +904,7 @@
 
             if (atomicnumber .eq. 6) then
                x(l96+i-1) = 4.84353823306d-1
-            else if (atomicnumber .eq. 1) then 
+            else if (atomicnumber .eq. 1) then
                x(l96+i-1) = 1.09085413633d0
             else if (atomicnumber .eq. 7) then
                x(l96+i-1) = 7.00147318409d-1
@@ -902,10 +919,10 @@
             end if
          end do
       end if
-      
-      ! Hai Nguyen: changing S_x screening params for igb = 8
+
+      ! changing S_x screening params for igb = 8
       ! overwrite the tinker values read from the prmtop
-      
+
       if (igb == 8) then
          do i=1,natom
             if (ix(i100) .eq. 1) then
@@ -922,20 +939,20 @@
 #endif
             end if
 
-            call isnucat(nucat,i,nres,37,ix(i02:i02+nres-1),ih(m02:m02+nres-1)) 
-            !Hai Nguyen: check if atom belong to nucleic or protein residue 
-            !37 = the total number of different nucleic acid residue type in AMBER 
-            !Need to update this number if adding new residue type 
-            !update isnucat function in gb_ene.F90 too 
-            if (nucat == 1) then 
-                ! If atom belongs to nuc, use gbneck2nu pars 
-                if (atomicnumber .eq. 6) then 
-                  x(l96+i-1) = screen_cnu 
-                else if (atomicnumber .eq. 1) then 
-                  x(l96+i-1) = screen_hnu 
-                else if (atomicnumber .eq. 7) then 
-                  x(l96+i-1) = screen_nnu 
-                else if (atomicnumber .eq. 8) then 
+            call isnucat(nucat,i,nres,60,ix(i02:i02+nres-1),ih(m02:m02+nres-1))
+            ! check if atom belong to nucleic or protein residue
+            !60 = the total number of different nucleic acid residue type in AMBER
+            !Need to update this number if adding new residue type
+            !update isnucat function in gb_ene.F90 too
+            if (nucat == 1) then
+                ! If atom belongs to nuc, use gbneck2nu pars
+                if (atomicnumber .eq. 6) then
+                  x(l96+i-1) = screen_cnu
+                else if (atomicnumber .eq. 1) then
+                  x(l96+i-1) = screen_hnu
+                else if (atomicnumber .eq. 7) then
+                  x(l96+i-1) = screen_nnu
+                else if (atomicnumber .eq. 8) then
                   x(l96+i-1) = screen_onu
                 else if (atomicnumber .eq. 15) then
                   x(l96+i-1) = screen_pnu
@@ -953,21 +970,21 @@
                else if (atomicnumber .eq. 8) then
                   x(l96+i-1) = So
                else if (atomicnumber .eq. 16) then
-                  x(l96+i-1) = Ss 
+                  x(l96+i-1) = Ss
                else if (atomicnumber .eq. 15) then
                   x(l96+i-1) = Sp ! We still don't have an optimized Sp parameter
-                                  ! if nuc, use gbneck2nu pars 
+                                  ! if nuc, use gbneck2nu pars
                else
                   !for atom type Cl,Br,...
                   !These parameters are also not optimized.
                   x(l96+i-1) = 5d-1
-               end if 
+               end if
             end if !check isnucat
          end do !loop i=1, natom
       end if ! igb = 8
 
       ! Set up for igb == 2, 5, 7, 8
-      ! Put gb parameters in arrays 
+      ! Put gb parameters in arrays
       if ( igb == 2 .or. igb == 5 .or. igb == 7 .or. &
            hybridgb == 2 .or. hybridgb == 5) then
         do i=1,natom
@@ -976,7 +993,7 @@
             x(l2404+i-1) = gbgamma
         end do
       end if
-      
+
       ! IGB = 8, update gb_alpha, gb_beta, gb_gamma
        if ( igb == 8 ) then
            do i=1,natom
@@ -995,7 +1012,7 @@
               end if
 
           ! check if atom belongs to protein or nucleic acid
-          call isnucat(nucat,i,nres,37,ix(i02:i02+nres-1),ih(m02:m02+nres-1))
+          call isnucat(nucat,i,nres,60,ix(i02:i02+nres-1),ih(m02:m02+nres-1))
           if (nucat == 1) then
              !if atom belong to nucleic part, use nuc pars
              if (atomicnumber .eq. 1) then
@@ -1030,7 +1047,7 @@
              end if ! assign nucleic acid pars
 
           else
-             !not nucleic part, use protein pars 
+             !not nucleic part, use protein pars
              if (atomicnumber .eq. 1) then
                      x(l2402+i-1) = gbalphaH
                      x(l2403+i-1) = gbbetaH
@@ -1064,7 +1081,7 @@
           end if !check nucat
         end do !loop i=1,natom
        end if ! end IGB = 8 section
-        
+
      !       put fs(i)*(rborn(i) - offset) into the "fs" array
       fsmax = 0.d0
       do i=1,natom
@@ -1077,32 +1094,32 @@
             x(l189-1+i) = 0.d0
          end if
       end do
-      
+
       !     ---------------------------------------------------------------------
       !       ---get Debye-Huckel kappa (A**-1) from salt concentration (M), assuming:
       !         T = 298.15, epsext=78.5,
-      
+
       kappa = sqrt( 0.10806d0 * saltcon )
-      
+
       !       ---scale kappa by 0.73 to account(?) for lack of ion exclusions:
-      
+
       kappa = 0.73d0* kappa
 
       !Set kappa for qmmm if needed
       qm_gb%kappa = kappa
       !     ---------------------------------------------------------------------
-      
+
       if ( gbsa == 1 ) then
-         
+
          !     --- assign parameters for calculating SASA according to the
          !         LCPO method ---
-         
+
          do i=1,natom
             ix(i80+i-1)=0
          end do
-         
+
          !         --- get the number of bonded neighbors for each atom:
-         
+
          do i=1,nbona
             atom1=ix(iiba+i-1)/3+1
             atom2=ix(ijba+i-1)/3+1
@@ -1121,10 +1138,10 @@
             ix(i80-atom2)=ix(i80-atom2)+1
          end do
 
-         
+
          !         --- construct parameters for SA calculation; note that the
          !             radii stored in L165 are augmented by 1.4 Ang.
-         
+
          do i=1,natom
             write(atype,'(a2)') ih(m06+i-1)
             call upper(atype)
@@ -1348,8 +1365,8 @@
                !  Mg radius = 1.18A: ref. 30 in J. Chem. Phys. 1997, 107, 5422
                !  Mg radius = 1.45A: Aqvist 1992
                x(l165-1+i) = 1.18d0 + 1.4d0
-               !  The following values were taken from O.sp3 with two bonded 
-               !  neighbors -> O has the smallest van der Waals radius 
+               !  The following values were taken from O.sp3 with two bonded
+               !  neighbors -> O has the smallest van der Waals radius
                ! compared to all other elements which had been parametrized
                x(l170-1+i) = 0.49392d0
                x(l175-1+i) = -0.16038d0
@@ -1360,7 +1377,7 @@
                x(l170-1+i) = 0.68563d0
                x(l175-1+i) = -0.1868d0
                x(l180-1+i) = -0.00135573d0
-               x(l185-1+i) = 0.00023743d0 
+               x(l185-1+i) = 0.00023743d0
             else
                ! write( 0,* ) 'bad atom type: ',atype
                ! call mexit( 6,1 )
@@ -1369,7 +1386,7 @@
                x(l175-1+i) = -0.15966;
                x(l180-1+i) = -0.00019781;
                x(l185-1+i) = 0.00016392;
-               write(6,'(a,a)') 'Using carbon SA parms for atom type', atype 
+               write(6,'(a,a)') 'Using carbon SA parms for atom type', atype
             end if
          end do  !  i=1,natom
          !
@@ -1446,12 +1463,12 @@
          end do  !  i=1,natom
 
       end if ! ( gbsa == 1 )
-      
+
    end if  ! ( igb /= 0 .and. igb /= 10 .and. ipb == 0 )
 
    !-----------------------------------
-   ! If a LRT calculation is requested, 
-   ! setup the icosa-SASA parameters 
+   ! If a LRT calculation is requested,
+   ! setup the icosa-SASA parameters
    ! this code is copied from above
    !-----------------------------------
 
@@ -1502,17 +1519,17 @@
          x(L185-1+i) = 0.0d0
          !write(6,*) i,' ',atype,x(L165-1+i)
       end do  !  i=1,natom
-      
+
    end if ! ( ilrt /= 0 )
-   
+
    !------------------------------------------------------------------------
    ! If user has requested Poisson-Boltzmann electrostatics, set up variables
    !------------------------------------------------------------------------
-  
+
    if ( igb == 10 .or. ipb /= 0 ) then
       call pb_init(ifcap,natom,nres,ntypes,nbonh,nbona,ix(i02),ix(i04),ix(i06),ix(i08),ix(i10),&
                    ix(iibh),ix(ijbh),ix(iiba),ix(ijba),ix(ibellygp),ih(m02),ih(m04),ih(m06),x(l15),x(l97))
-   end if  ! ( igb == 10 .or. ipb /= 0 ) 
+   end if  ! ( igb == 10 .or. ipb /= 0 )
 
    if (icnstph /= 0) then
       !  Initialize all constant pH data to 0 and read it in
@@ -1552,7 +1569,7 @@
    endif
 
    if( iyammp /= 0 ) write( 6, '(a)' ) '  Using yammp non-bonded potential'
-   
+
    ! -------------------------------------------------------------------
    !
    ! -- add check to see if the space in nmr.h is likely to be
@@ -1563,19 +1580,19 @@
    !      command: if too many intensities are input, the read
    !      statment may cause a coredump before returning control
    !      to the main program.  Be careful.  sigh....]
-   
+
    if (natom > matom .and. nmropt > 1) then
       write(6,*) 'WARNING: MATOM in nmr.h is smaller than the ', &
             natom,' atoms in this molecule.'
       write(6,*) 'Printout of NMR violations may be compromised.'
    end if
-   
+
    ! -------------------------------------------------------------------
    !     --- checks on bogus data ---
    ! -------------------------------------------------------------------
-   
+
    inerr = 0
-      
+
    if( icfe < 0 .or. icfe > 1 ) then
       write(6,*) 'icfe must be 0 or 1 (icfe=2 is no longer supported)'
       DELAYED_ERROR
@@ -1627,6 +1644,12 @@
       inerr=1
    end if
 
+!GAMD not supported
+   if (igamd .gt. 0) then
+      write(6,*)'GaMD is not supported in Sander for now. Please use PMEMD instead.'
+      inerr=1
+   end if
+
    if (ips < 0 .or. ips > 6) then
       write(6,'(/2x,a,i3,a)') 'IPS (',ips,') must be between 0 and 6'
       DELAYED_ERROR
@@ -1635,7 +1658,7 @@
       write(6,'(/2x,a)') 'IPS and IPOL are inconsistent options'
       DELAYED_ERROR
    endif
-   if (ips /= 0 .and. lj1264 /= 0) then
+   if (ips /= 0 .and. lj1264 > 0) then
       write(6, '(/2x,a)') 'IPS and the LJ 12-6-4 potential are incompatible'
       DELAYED_ERROR
    endif
@@ -1703,6 +1726,25 @@
       write(6,'(/2x,a,i3,a)') 'IMIN (',imin,') must be >= 0.'
       DELAYED_ERROR
    end if
+   if( imin>0 .and. ntmin>2 .and. iscale>0 ) then
+      write(5, '(/,a)') 'cannot have iscale>0 when ntmin>2'
+      DELAYED_ERROR
+   end if
+   if (ntxo .eq. 0) then
+      write(6, '(/2x,a,a)') 'Old style binary restart files (ntxo=0) are no longer supported.'
+      DELAYED_ERROR
+   end if
+   if (ntxo /= 1 .and. ntxo /= 2) then
+      write(6, '(/2x,a,i3,a)') 'NTXO (',ntxo,') must be 1 or 2.'
+      DELAYED_ERROR
+   end if
+#ifndef BINTRAJ
+   if (ntxo == 2) then
+      write(6, '(/2x,a)') 'ntxo cannot be 2 without NetCDF support'
+      DELAYED_ERROR
+   end if
+#endif
+
    if (imin == 5) then
       if (ifbox /= 0 .and. ntb == 2) then
          write(6,'(/2x,a)') 'WARNING: IMIN=5 with changing periodic boundaries (NTB=2) can result in'
@@ -1717,6 +1759,21 @@
    end if
 
 
+   if (fswitch > 0) then
+      if (fswitch >= cut) then
+         write(6, '(/2x,a)') 'fswitch must be less than the cutoff'
+         DELAYED_ERROR
+      end if
+      if (igb /= 0 .or. ntb == 0) then
+         write(6, '(/2x,a)') 'fswitch is only compatible with periodic simulations'
+         DELAYED_ERROR
+      end if
+      if (lj1264 > 0) then
+         write(6, '(/2x,a)') 'fswitch is incompatible with the 12-6-4 L-J model'
+         DELAYED_ERROR
+      end if
+   end if
+
    if (iscale > mxvar) then
       write(6,9501) iscale,mxvar
       9501 format('ERROR: ISCALE (',i5,') exceeds MXVAR (',i5, &
@@ -1727,7 +1784,7 @@
       write(6,'(/2x,a,i3,a)') 'NTX (',ntx,') must be in 1..7'
       DELAYED_ERROR
    end if
-   
+
    if (ntb /= 0 .and. ntb /= 1 .and. ntb /= 2) then
       write(6,'(/2x,a,i3,a)') 'NTB (',ntb,') must be 0, 1 or 2.'
       DELAYED_ERROR
@@ -1736,20 +1793,24 @@
       write(6,'(/2x,a)') 'Error: IWRAP > 0 cannot be used without a periodic box.'
       DELAYED_ERROR
    end if
-   
-   if (ntt < 0 .or. ntt > 9) then                                      ! APJ
-      write(6,'(/2x,a,i3,a)') 'NTT (',ntt,') must be between 0 and 9.' ! APJ
+
+   if (ntt < 0 .or. ntt > 10) then                                      ! APJ
+      write(6,'(/2x,a,i3,a)') 'NTT (',ntt,') must be between 0 and 10.' ! APJ
       DELAYED_ERROR
    end if
    if (ntt == 1 .and. tautp < dt) then
       write(6, '(/2x,a,f6.2,a)') 'TAUTP (',tautp,') < DT (step size)'
       DELAYED_ERROR
    end if
-   if( ntt < 3 .or. ntt > 9 ) then  ! APJ
+   if( ntt < 3 .or. ntt > 10) then  ! APJ
       if( gamma_ln > 0.d0 ) then
-         write(6,'(a)') 'ntt must be 3 to 9 if gamma_ln > 0' ! APJ
+         write(6,'(a)') 'ntt must be 3 to 10 if gamma_ln > 0' ! APJ
          DELAYED_ERROR
       end if
+   end if
+   if (infe /= 0 .and. infe /= 1) then
+      write(6,'(/2x,a,i3,a)') 'IFE (',infe,') must be 0 or 1.'
+      DELAYED_ERROR
    end if
 
    if ( ntt==3 .or. ntt==6 ) nchain = 0 !APJ: Langevin, Adaptive-Langevin must have chain set to zero. ! APJ
@@ -1790,6 +1851,30 @@
       end if
    end if
 
+   if (ntt == 10) then
+      write(6,*) ""
+      if(gamma_ln <= 0.d0) then
+         write(6,'(a)') 'gamma_ln must be > 0 when ntt = 10'
+         DELAYED_ERROR
+      end if
+      if(nkija < 1) then
+         write(6,'(a)') 'nkija must be >= 1 when ntt = 10'
+         DELAYED_ERROR
+      end if
+      if(ntc /= 1 .or. ntf /= 1) then
+         write(6,'(a)') 'ntc and ntf must be = 1 when ntt = 10'
+         DELAYED_ERROR
+      end if
+      if(tempi > temp0) then
+         write(6,'(a)') 'tempi must be <= temp0 when ntt = 10'
+         DELAYED_ERROR
+      end if
+      if(sinrtau < 0.5) then
+         write(6,'(a)') 'sinrtau must be >= 0.5 when ntt = 10'
+         DELAYED_ERROR
+      end if
+  end if
+
    if (ntp /= 0 .and. ntp /= 1 .and. ntp /= 2 .and. ntp /= 3) then
       write(6,'(/2x,a,i3,a)') 'NTP (',ntp,') must be 0, 1, 2, or 3.'
       DELAYED_ERROR
@@ -1822,7 +1907,7 @@
          end if
       end if
    end if
-   
+
    if (ntc < 1 .or. ntc > 4) then
       write(6,'(/2x,a,i3,a)') 'NTC (',ntc,') must be 1,2,3 or 4.'
       DELAYED_ERROR
@@ -1831,17 +1916,17 @@
       write(6,'(/2x,a,i3,a)') 'JFASTW (',jfastw,') must be 0->4.'
       DELAYED_ERROR
    end if
-   
+
    if (ntf < 1 .or. ntf > 8) then
       write(6,'(/2x,a,i3,a)') 'NTF (',ntf,') must be in 1..8.'
       DELAYED_ERROR
    end if
-   
+
    if (ioutfm /= 0 .and. ioutfm /= 1) then
       write(6,'(/2x,a,i3,a)') 'IOUTFM (',ioutfm,') must be 0 or 1.'
       DELAYED_ERROR
    end if
-   
+
    if (ntpr < 0) then
       write(6,'(/2x,a,i3,a)') 'NTPR (',ntpr,') must be >= 0.'
       DELAYED_ERROR
@@ -1890,12 +1975,12 @@
       write(6,'(/2x,a,i3,a)') 'NMROPT (',nmropt,') must be in 0..2.'
       DELAYED_ERROR
    end if
-   
+
    if (idecomp < 0 .or. idecomp > 4) then
       write(6,'(/2x,a)') 'IDECOMP must be 0..4'
       DELAYED_ERROR
    end if
-      
+
    ! check settings related to ivcap
 
    if(ivcap == 3 .or. ivcap == 4) then
@@ -1983,9 +2068,9 @@
    !      DELAYED_ERROR
    !   end if
    !end if
-   
+
    !     -- consistency checking
-   
+
    if (imin > 0.and.nrespa > 1)  then
       write(6,'(/2x,a)') 'For minimization, set nrespa,nrespai=1'
       DELAYED_ERROR
@@ -2031,9 +2116,10 @@
    end if
 #ifdef APBS
    if ( ntb == 0 .and. sqrt(cut) < 8.05 .and. igb /= 10 .and. ipb == 0 .and. &
-      .not. mdin_apbs) then
+        igb /= 6 .and. .not. mdin_apbs ) then
 #else
-   if ( ntb == 0 .and. sqrt(cut) < 8.05 .and. igb /= 10 .and. ipb == 0 ) then
+   if ( ntb == 0 .and. sqrt(cut) < 8.05 .and. igb /= 10 .and. ipb == 0 .and. &
+        igb /= 6 ) then
 #endif /* APBS */
       write(6,'(/,a,f8.2)') ' unreasonably small cut for non-periodic run: ', &
          sqrt(cut)
@@ -2065,7 +2151,7 @@
      write(6,'(/,a)') ' klambda must be between 1 and 6'
      DELAYED_ERROR
    end if
-   ! End of modification done by Ilyas Yildirim                                       
+   ! End of modification done by Ilyas Yildirim
 
    if (clambda < 0.d0 .or. clambda > 1.d0 ) then
       write(6,'(/,a)') ' clambda must be between 0 and 1'
@@ -2080,7 +2166,7 @@
       write(6,'(/,a)') ' IPOL is incompatible with IDECOMP and ICFE'
       DELAYED_ERROR
    end if
- 
+
 #ifdef MPI /* SOFT CORE */
    if (ifsc /= 0) then
       if (ifsc == 2) then
@@ -2143,7 +2229,7 @@
       write (6,'(a)') 'Linear Response Theory activated, but lrtmask is not set'
       DELAYED_ERROR
    end if
-  
+
    if (idecomp > 0 .and. (ntr > 0 .or. ibelly > 0)) then
       write(6,'(/,a)') 'IDECOMP is not compatible with NTR or IBELLY'
       DELAYED_ERROR
@@ -2188,18 +2274,18 @@
       DELAYED_ERROR
    end if
 #endif
-   
+
    !-----------------------------------------------------
    !     ----sanity checks for Ewald
    !-----------------------------------------------------
-   
+
    if( igb == 0 .and. ipb == 0 ) then
       call float_legal_range('skinnb: (nonbond list skin) ', &
             skinnb,skinlo,skinhi)
-      
+
       !  --- Will check on sanity of settings after coords are read in
       !      and the extent of the system is determined.
-      
+
       if(periodic == 1)then
          call float_legal_range('skinnb+cutoffnb: (nonbond list cut) ', &
                skinnb+cutoffnb,zero,sphere)
@@ -2322,23 +2408,25 @@
    end if
 
    ! ---WARNINGS:
-   
+
    if ( ibelly == 1 .and. igb == 0 .and. ipb == 0 .and. ntb /= 0 ) then
+#ifndef API
       write(6,'(/,a,/,a,/,a)') &
             'Warning: Although EWALD will work with belly', &
             '(for equilibration), it is not strictly correct!'
+#endif
    end if
-   
+
    if (inerr == 1) then
       write(6, '(/,a)') ' *** input error(s)'
       FATAL_ERROR
    end if
-   
+
    ! Load the restrained atoms (ntr=1) or the belly atoms (ibelly=1)
    ! or atoms for targeted md (itgtmd=1). Selections are read from
    ! &cntrl variables or, if these are not defined, it falls back to
    ! the old group input format.
-   
+
    if(mtmd /= 'mtmd') then
      itgtmd = 2
      ntr = 0
@@ -2354,16 +2442,17 @@
    nattgtrms = 0  ! number of atoms for tgtmd rmsd calculation
    nrc = 0
    if(konst.or.dotgtmd) then
-      
+
       ! inserted here to fix the bug that coords are not available
       ! yet when distance based selection (<,>) is requested
 #ifdef LES
 #  ifdef MPI
       call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,temp0les,.FALSE.,solvph)
 #  else
-      call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,t,.FALSE.)
+      call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,.FALSE.)
 #  endif
 #else
+#  ifndef API
       call AMOEBA_check_newstyle_inpcrd(inpcrd,newstyle)
       if ( newstyle )then
          call AM_RUNMD_get_coords(natom,t,irest,ntb,x(lcrd),x(lvel))
@@ -2375,14 +2464,15 @@
 #  ifdef MPI
          call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,temp0,.FALSE.,solvph)
 #  else
-         call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,t,.FALSE.)
+         call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,.FALSE.)
 #  endif
       endif
+#  endif /* API */
 #endif /* LES */
-      
+
       if(itgtmd == 2) then
         call mtmdcall(emtmd,x(lmtmd01),ix(imtmd02),x(lcrd),x(lforce),ih(m04),ih(m02),ix(i02),&
-                    ih(m06),x(lmass),natom,nres,'READ')  
+                    ih(m06),x(lmass),natom,nres,'READ')
       else
 #ifndef API
         if (konst) write(6,9408)
@@ -2400,13 +2490,13 @@
           else
               call atommask( natom, nres, 0, ih(m04), ih(m06), &
                 ix(i02), ih(m02), x(lcrd), restraintmask, ix(icnstrgp) )
-  
+
               ! for now, emulate the "GATHER ALL THE CONSTRAINED ATOMS TOGETHER"
               ! section of rgroup(); later, the various masks should be done
               ! differently, i.e. without the "gather", as in the following:
               !     x(l60:l60+natom-1) = restraint_wt
               !     natc = sum(ix(icnstrgp:icnstrgp+natom-1))
-  
+
               natc = 0
               do i=1,natom
                 if( ix(icnstrgp-1+i) <= 0 ) cycle
@@ -2414,12 +2504,14 @@
                 ix(icnstrgp-1+natc) = i
                 x(l60-1+natc) = restraint_wt
               end do
+#ifndef API
               write(6,'(a,a,a,i5,a)') '     Mask ', &
               restraintmask(1:len_trim(restraintmask)), ' matches ',natc,' atoms'
+#endif
           end if
         end if
         nrc = natc
-        
+
         if (itgtmd == 1) then
           if (len_trim(tgtfitmask) <= 0 .and. len_trim(tgtrmsmask) <= 0) then
               ! the following if-endif can be deleted when we stop
@@ -2441,7 +2533,7 @@
                 end do
               end if
           else
-              if (ntr == 0) then  ! read tgtfitmask only if ntr=1 
+              if (ntr == 0) then  ! read tgtfitmask only if ntr=1
                 ! read in atom group for tgtmd fitting (=overlap region)
                 call atommask( natom, nres, 0, ih(m04), ih(m06), &
                     ix(i02), ih(m02), x(lcrd), tgtfitmask, ix(itgtfitgp) )
@@ -2470,7 +2562,7 @@
               '" matches ',nattgtrms,' atoms'
           end if
         end if
-      
+
       end if ! (itgtmd == 2)
 
    end if  ! (konst.or.dotgtmd)
@@ -2526,10 +2618,10 @@
         call mexit(6,1)
       endif
    endif
-   
+
    ! dotgtmd may be false here even if doing tgtmd
    ! this is so belly info is read properly? following existing KONST code
-   
+
    dotgtmd=.false.
    konst = .false.
    belly = ibelly > 0
@@ -2541,13 +2633,15 @@
 #  ifdef MPI
       call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,temp0les,.FALSE.,solvph)
 #  else
-      call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,t,.FALSE.)
+      call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,.FALSE.)
 #  endif
 #else
 #  ifdef MPI
       call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,temp0,.FALSE.,solvph)
 #  else
-      call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,t,.FALSE.)
+#    ifndef API
+      call getcor(nr,x(lcrd),x(lvel),x(lforce),ntx,box,irest,t,.FALSE.)
+#    endif
 #  endif
 #endif /* LES */
 #ifndef API
@@ -2561,8 +2655,10 @@
          call atommask( natom, nres, 0, ih(m04), ih(m06), &
             ix(i02), ih(m02), x(lcrd), bellymask, ix(ibellygp) )
          natbel = sum(ix(ibellygp:ibellygp+natom-1))
+#ifndef API
          write(6,'(a,a,a,i5,a)') '     Mask ', &
             bellymask(1:len_trim(bellymask)), ' matches ',natbel,' atoms'
+#endif
       end if
    end if
    call setvar(ix,belly)
@@ -2582,7 +2678,7 @@
          ntf = 1
       end if
    end if
-   
+
    ! GMS ------------------------------------
    !  Check for 'iwrap_mask', and process it.
    ! ----------------------------------------
@@ -2609,7 +2705,7 @@
           iwrap_mask_atoms(j) = i
         end if
       end do
-      
+
       write(6,'(10i5)') (iwrap_mask_atoms(i),i=1,n_iwrap_mask_atoms)
    end if
 
@@ -2633,13 +2729,13 @@
                   x(l60),konst,dotgtmd,belly,idecomp,5,.true.)
    end if
 #endif
-   
+
    if( ibelly > 0 .and. (igb > 0 .or. ipb /= 0) ) then
-      
+
       !          ---here, the only allowable belly has just the first
       !             NATBEL atoms in the moving part.  Check to see that this
       !             requirement is satisfied:
-      
+
       do i=natbel+1,natom
          if( ix(ibellygp+i-1) /= 0 ) then
             write(6,*) 'When igb>0, the moving part must be at the'
@@ -2651,16 +2747,16 @@
          end if
       end do
    end if
-   
+
 
    !     ----- CALCULATE THE SQUARE OF THE BOND PARAMETERS FOR SHAKE
    !           THE PARAMETERS ARE PUT SEQUENTIALLY IN THE ARRAY CONP -----
-   
+
    do i=1,nbonh + nbona + nbper
       j = ix(iicbh+i-1)
       x(l50+i-1) = req(j)**2
    end do
-   
+
 #ifdef MPI
       if( icfe /= 0 ) then
 
@@ -2671,7 +2767,7 @@
       ! if ifsc is set to one, the masses from both prmtop files are used
          if (ifsc == 0) then
             call mpi_bcast(x(lmass),natom,MPI_DOUBLE_PRECISION,0,commmaster,ierr)
-            call mpi_bcast(x(lwinv),natom,MPI_DOUBLE_PRECISION,0,commmaster,ierr)            
+            call mpi_bcast(x(lwinv),natom,MPI_DOUBLE_PRECISION,0,commmaster,ierr)
             call mpi_bcast(x(l75),natom,MPI_DOUBLE_PRECISION,0,commmaster,ierr)
          end if
          tmass = sum(x(lmass:lmass+natom-1))
@@ -2730,7 +2826,7 @@
          ih(m06),ix,x,ix(i08),ix(i10), &
          nspm,ix(i70),x(l75),tmass,tmassinv,x(lmass),x(lwinv),req)
    endif
-  
+
    !  DEBUG input; force checking
 #ifdef API
    call load_debug
@@ -2741,7 +2837,7 @@
    return
    ! -------------------------------------------------------------------------
    ! Standard format statements:
-   
+
 #ifndef API
    9328 format(/80('-')/,'   2.  CONTROL  DATA  FOR  THE  RUN',/80('-')/)
    9408 format(/4x,'LOADING THE CONSTRAINED ATOMS AS GROUPS',/)

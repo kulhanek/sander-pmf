@@ -121,6 +121,7 @@ subroutine AM_ADJUST_permfield(crd,x,direct_gradphi,polar_gradphi)
    use amoeba_multipoles, only : global_multipole
    use amoeba_induced, only : sq_polinv,is_polarizable
    use amoeba_mdin, only : thole_expon_coeff
+   use nbips, only : do_ele_ips
 
    _REAL_,intent(in) :: crd(3,*),x(*)
    _REAL_,intent(inout) :: direct_gradphi(3,*),polar_gradphi(3,*)
@@ -130,13 +131,23 @@ subroutine AM_ADJUST_permfield(crd,x,direct_gradphi,polar_gradphi)
 #  include "ew_pme_recip.h"
 
    call timer_start(TIME_ADJ)
-   call AM_ADJUST_calc_permfield(crd,num_adjust_list,adjust_list, &
+   if(do_ele_ips==1)then
+     call AM_ADJUST_ips_permfield(crd,num_adjust_list,adjust_list, &
                                  ew_coeff,eedtbdns,x(leed_cub),x(leed_lin), &
                                  ee_type,eedmeth,dxdr,thole_expon_coeff, &
                                  sq_polinv,is_polarizable,global_multipole, &
                                  direct_weight,polar_weight,mutual_weight, &
                                  direct_gradphi,polar_gradphi, &
                                  dipole_dipole_tensor)
+   else
+     call AM_ADJUST_calc_permfield(crd,num_adjust_list,adjust_list, &
+                                 ew_coeff,eedtbdns,x(leed_cub),x(leed_lin), &
+                                 ee_type,eedmeth,dxdr,thole_expon_coeff, &
+                                 sq_polinv,is_polarizable,global_multipole, &
+                                 direct_weight,polar_weight,mutual_weight, &
+                                 direct_gradphi,polar_gradphi, &
+                                 dipole_dipole_tensor)
+   endif                              
    call timer_stop(TIME_ADJ)
 end subroutine AM_ADJUST_permfield
 !-------------------------------------------------------
@@ -509,6 +520,298 @@ subroutine AM_ADJUST_calc_permfield(crd,num_adjust_list,adjust_list, &
    enddo
 end subroutine AM_ADJUST_calc_permfield
 !-------------------------------------------------------
+subroutine AM_ADJUST_ips_permfield(crd,num_adjust_list,adjust_list, &
+                                   ewaldcof,eedtbdns,eed_cub,eed_lin, &
+                                   ee_type,eedmeth,dxdr,thole_expon_coeff, &
+                                   sq_polinv,is_polarizable,global_multipole, &
+                                   direct_weight,polar_weight,mutual_weight, &
+                                   direct_gradphi,polar_gradphi, &
+                                   dipole_dipole_tensor)
+   use constants, only : zero,third,half,one,two,three,five
+   use nbips,   only: fipsmdq
+   _REAL_,intent(in) :: crd(3,*)
+   integer,intent(in) :: num_adjust_list,adjust_list(3,*)
+   _REAL_,intent(in) :: ewaldcof,eedtbdns,eed_cub(4,*),eed_lin(2,*)
+   integer,intent(in) :: ee_type,eedmeth
+  _REAL_,intent(in) :: dxdr,thole_expon_coeff,sq_polinv(*)
+   logical,intent(in) :: is_polarizable(*)
+   _REAL_,intent(in) :: global_multipole(10,*)
+   _REAL_,intent(in) :: direct_weight(*),polar_weight(*),mutual_weight(*)
+   _REAL_,intent(inout) :: direct_gradphi(3,*),polar_gradphi(3,*)
+   _REAL_,intent(out) :: dipole_dipole_tensor(6,*)
+
+   _REAL_ :: delx,dely,delz,delr2,delr,delr2inv,x,dx,switch,d_switch_dx,xx
+   _REAL_ :: D(3),A(0:3),B(0:3),BD(3),fac,fact,del,gphi_i(3),gphi_j(3)
+   _REAL_  :: expon,expo,clam3,clam5,clam7,delr3inv,delr5inv,delr7inv
+   _REAL_  :: Rn(1),Rn_1(4),Rn_2(10),Rn_3(20)
+   _REAL_  :: delx2,dely2,delz2
+   _REAL_  :: fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5
+   _REAL_  :: dumpr0,dumpr1,dumpr2,dumpr3,dumpr4
+   _REAL_  :: wtdump,wtips
+
+   integer :: i,j,k,n,n_adj,ind
+#  include "do_flag.h"
+
+   if ( iand(do_flag,PROCEED_INDUCE) /= PROCEED_INDUCE )return
+
+   fac = two*ewaldcof*ewaldcof
+   del = one / eedtbdns
+   do n_adj = 1,num_adjust_list
+     i = adjust_list(1,n_adj)
+     j = adjust_list(2,n_adj)
+     if ( is_polarizable(i) .or. is_polarizable(j) )then
+        k = adjust_list(3,n_adj)
+        delx = crd(1,j) - crd(1,i)
+        dely = crd(2,j) - crd(2,i)
+        delz = crd(3,j) - crd(3,i)
+        delx2=delx*delx
+        dely2=dely*dely
+        delz2=delz*delz
+        delr2 = delx2 + dely2 + delz2
+        delr = sqrt(delr2)
+        delr2inv = one / delr2
+        x = dxdr*delr
+        ! damping factors
+        delr3inv = delr2inv / delr
+        delr5inv = delr3inv*delr2inv
+        delr7inv = delr5inv*delr2inv
+        expon = thole_expon_coeff*delr2*delr*sq_polinv(i)*sq_polinv(j)
+        expo = exp(-expon)
+        ! clam3 = 1.d0-lam3, clam5 = 1.d0-lam5 etc. where 
+        ! lam is from ponder's paper
+        clam3 = expo
+        clam5 = (1.d0 + expon)*expo
+        clam7 = (1.d0 + expon + 0.6d0*expon**2)*expo
+        ! Negative for substraction
+        dumpr1=clam3*delr3inv
+        dumpr2=-3.0d0*clam5*delr5inv
+        dumpr3=15.0d0*clam7*delr7inv
+         ! IPS for point multipoles
+         wtdump=mutual_weight(k)
+         call Fipsmdq(delr,wtdump,fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5)
+         fipsr1=fipsr1+wtdump*dumpr1
+         fipsr2=fipsr2+wtdump*dumpr2
+         fipsr3=fipsr3+wtdump*dumpr3
+         !Rn_3(Ind_000) = fipsr0 
+         Rn_2(Ind_200) = fipsr1 + delx2*fipsr2
+         Rn_2(Ind_020) = fipsr1 + dely2*fipsr2
+         Rn_2(Ind_002) = fipsr1 + delz2*fipsr2
+         Rn_2(Ind_110) = delx*dely*fipsr2
+         Rn_2(Ind_101) = delx*delz*fipsr2
+         Rn_2(Ind_011) = dely*delz*fipsr2
+        ! store dipole_dipole tensor 
+        dipole_dipole_tensor(1,n_adj) = Rn_2(Ind_200)
+        dipole_dipole_tensor(2,n_adj) = Rn_2(Ind_110)
+        dipole_dipole_tensor(3,n_adj) = Rn_2(Ind_101)
+        dipole_dipole_tensor(4,n_adj) = Rn_2(Ind_020)
+        dipole_dipole_tensor(5,n_adj) = Rn_2(Ind_011)
+        dipole_dipole_tensor(6,n_adj) = Rn_2(Ind_002)
+        ! next do the direct field 
+         wtdump=direct_weight(k)
+         call Fipsmdq(delr,wtdump,fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5)
+         fipsr1=fipsr1+wtdump*dumpr1
+         fipsr2=fipsr2+wtdump*dumpr2
+         fipsr3=fipsr3+wtdump*dumpr3
+         Rn_3(Ind_100) = delx*fipsr1
+         Rn_3(Ind_010) = dely*fipsr1
+         Rn_3(Ind_001) = delz*fipsr1
+         Rn_3(Ind_200) = fipsr1 + delx2*fipsr2
+         Rn_3(Ind_020) = fipsr1 + dely2*fipsr2
+         Rn_3(Ind_002) = fipsr1 + delz2*fipsr2
+         Rn_3(Ind_110) = delx*dely*fipsr2
+         Rn_3(Ind_101) = delx*delz*fipsr2
+         Rn_3(Ind_011) = dely*delz*fipsr2
+         Rn_3(Ind_300) = delx*(3.d0*fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_030) = dely*(3.d0*fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_003) = delz*(3.d0*fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_210) = dely*(fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_201) = delz*(fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_120) = delx*(fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_021) = delz*(fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_102) = delx*(fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_012) = dely*(fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_111) = delx*dely*delz*fipsr3
+        ! finally get field components
+        if ( is_polarizable(i) )then
+           gphi_i(1) = Rn_3(Ind_100)*global_multipole(Ind_000,j) + &
+                       Rn_3(Ind_200)*global_multipole(Ind_100,j) + &
+                       Rn_3(Ind_110)*global_multipole(Ind_010,j) + &
+                       Rn_3(Ind_101)*global_multipole(Ind_001,j) + &
+                       Rn_3(Ind_300)*global_multipole(Ind_200,j) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_020,j) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_002,j) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_110,j) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_101,j) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_011,j)
+           gphi_i(2) = Rn_3(Ind_010)*global_multipole(Ind_000,j) + &
+                       Rn_3(Ind_110)*global_multipole(Ind_100,j) + &
+                       Rn_3(Ind_020)*global_multipole(Ind_010,j) + &
+                       Rn_3(Ind_011)*global_multipole(Ind_001,j) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_200,j) + &
+                       Rn_3(Ind_030)*global_multipole(Ind_020,j) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_002,j) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_110,j) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_101,j) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_011,j)
+           gphi_i(3) = Rn_3(Ind_001)*global_multipole(Ind_000,j) + &
+                       Rn_3(Ind_101)*global_multipole(Ind_100,j) + &
+                       Rn_3(Ind_011)*global_multipole(Ind_010,j) + &
+                       Rn_3(Ind_002)*global_multipole(Ind_001,j) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_200,j) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_020,j) + &
+                       Rn_3(Ind_003)*global_multipole(Ind_002,j) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_110,j) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_101,j) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_011,j)
+           !negative for i since d/dx_i = -d/delx
+           direct_gradphi(1,i) = direct_gradphi(1,i) - gphi_i(1)
+           direct_gradphi(2,i) = direct_gradphi(2,i) - gphi_i(2)
+           direct_gradphi(3,i) = direct_gradphi(3,i) - gphi_i(3)
+        endif ! is_polarizable(i)
+        if ( is_polarizable(j) )then
+           ! note negative contribs for dipoles of i since d/dx_i = -d/delx)
+           ! (look at contributions to electrostatic potential at j -these will
+           !  contain negative contributions due to dipolar contribs at i--the
+           !  extra deriv in tensor due to grad at j has no negative signs)
+           gphi_j(1) = Rn_3(Ind_100)*global_multipole(Ind_000,i) - &
+                       Rn_3(Ind_200)*global_multipole(Ind_100,i) - &
+                       Rn_3(Ind_110)*global_multipole(Ind_010,i) - &
+                       Rn_3(Ind_101)*global_multipole(Ind_001,i) + &
+                       Rn_3(Ind_300)*global_multipole(Ind_200,i) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_020,i) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_002,i) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_110,i) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_101,i) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_011,i)
+           gphi_j(2) = Rn_3(Ind_010)*global_multipole(Ind_000,i) - &
+                       Rn_3(Ind_110)*global_multipole(Ind_100,i) - &
+                       Rn_3(Ind_020)*global_multipole(Ind_010,i) - &
+                       Rn_3(Ind_011)*global_multipole(Ind_001,i) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_200,i) + &
+                       Rn_3(Ind_030)*global_multipole(Ind_020,i) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_002,i) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_110,i) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_101,i) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_011,i)
+           gphi_j(3) = Rn_3(Ind_001)*global_multipole(Ind_000,i) - &
+                       Rn_3(Ind_101)*global_multipole(Ind_100,i) - &
+                       Rn_3(Ind_011)*global_multipole(Ind_010,i) - &
+                       Rn_3(Ind_002)*global_multipole(Ind_001,i) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_200,i) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_020,i) + &
+                       Rn_3(Ind_003)*global_multipole(Ind_002,i) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_110,i) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_101,i) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_011,i)
+           direct_gradphi(1,j) = direct_gradphi(1,j) + gphi_j(1)
+           direct_gradphi(2,j) = direct_gradphi(2,j) + gphi_j(2)
+           direct_gradphi(3,j) = direct_gradphi(3,j) + gphi_j(3)
+        endif !( is_polarizable(j) )then
+        ! next do the polar field --negate the odd order terms
+         wtdump=polar_weight(k)
+         call Fipsmdq(delr,wtdump,fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5)
+         fipsr1=fipsr1+wtdump*dumpr1
+         fipsr2=fipsr2+wtdump*dumpr2
+         fipsr3=fipsr3+wtdump*dumpr3
+         Rn_3(Ind_100) = delx*fipsr1
+         Rn_3(Ind_010) = dely*fipsr1
+         Rn_3(Ind_001) = delz*fipsr1
+         Rn_3(Ind_200) = fipsr1 + delx2*fipsr2
+         Rn_3(Ind_020) = fipsr1 + dely2*fipsr2
+         Rn_3(Ind_002) = fipsr1 + delz2*fipsr2
+         Rn_3(Ind_110) = delx*dely*fipsr2
+         Rn_3(Ind_101) = delx*delz*fipsr2
+         Rn_3(Ind_011) = dely*delz*fipsr2
+         Rn_3(Ind_300) = delx*(3.d0*fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_030) = dely*(3.d0*fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_003) = delz*(3.d0*fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_210) = dely*(fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_201) = delz*(fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_120) = delx*(fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_021) = delz*(fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_102) = delx*(fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_012) = dely*(fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_111) = delx*dely*delz*fipsr3
+        ! finally get field components 
+        if ( is_polarizable(i) )then
+           gphi_i(1) = Rn_3(Ind_100)*global_multipole(Ind_000,j) + &
+                       Rn_3(Ind_200)*global_multipole(Ind_100,j) + &
+                       Rn_3(Ind_110)*global_multipole(Ind_010,j) + &
+                       Rn_3(Ind_101)*global_multipole(Ind_001,j) + &
+                       Rn_3(Ind_300)*global_multipole(Ind_200,j) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_020,j) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_002,j) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_110,j) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_101,j) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_011,j)
+           gphi_i(2) = Rn_3(Ind_010)*global_multipole(Ind_000,j) + &
+                       Rn_3(Ind_110)*global_multipole(Ind_100,j) + &
+                       Rn_3(Ind_020)*global_multipole(Ind_010,j) + &
+                       Rn_3(Ind_011)*global_multipole(Ind_001,j) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_200,j) + &
+                       Rn_3(Ind_030)*global_multipole(Ind_020,j) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_002,j) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_110,j) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_101,j) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_011,j)
+           gphi_i(3) = Rn_3(Ind_001)*global_multipole(Ind_000,j) + &
+                       Rn_3(Ind_101)*global_multipole(Ind_100,j) + &
+                       Rn_3(Ind_011)*global_multipole(Ind_010,j) + &
+                       Rn_3(Ind_002)*global_multipole(Ind_001,j) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_200,j) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_020,j) + &
+                       Rn_3(Ind_003)*global_multipole(Ind_002,j) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_110,j) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_101,j) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_011,j)
+           !negative for i since d/dx_i = -d/delx
+           polar_gradphi(1,i) = polar_gradphi(1,i) - gphi_i(1)
+           polar_gradphi(2,i) = polar_gradphi(2,i) - gphi_i(2)
+           polar_gradphi(3,i) = polar_gradphi(3,i) - gphi_i(3)
+        endif ! is_polarizable(i)
+        if ( is_polarizable(j) )then
+           ! note negative contribs for dipoles of i since d/dx_i = -d/delx)
+           ! (look at contributions to electrostatic potential at j -these will
+           !  contain negative contributions due to dipolar contribs at i--the
+           !  extra deriv in tensor due to grad at j has no negative signs)
+           gphi_j(1) = Rn_3(Ind_100)*global_multipole(Ind_000,i) - &
+                       Rn_3(Ind_200)*global_multipole(Ind_100,i) - &
+                       Rn_3(Ind_110)*global_multipole(Ind_010,i) - &
+                       Rn_3(Ind_101)*global_multipole(Ind_001,i) + &
+                       Rn_3(Ind_300)*global_multipole(Ind_200,i) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_020,i) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_002,i) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_110,i) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_101,i) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_011,i)
+           gphi_j(2) = Rn_3(Ind_010)*global_multipole(Ind_000,i) - &
+                       Rn_3(Ind_110)*global_multipole(Ind_100,i) - &
+                       Rn_3(Ind_020)*global_multipole(Ind_010,i) - &
+                       Rn_3(Ind_011)*global_multipole(Ind_001,i) + &
+                       Rn_3(Ind_210)*global_multipole(Ind_200,i) + &
+                       Rn_3(Ind_030)*global_multipole(Ind_020,i) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_002,i) + &
+                       Rn_3(Ind_120)*global_multipole(Ind_110,i) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_101,i) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_011,i)
+           gphi_j(3) = Rn_3(Ind_001)*global_multipole(Ind_000,i) - &
+                       Rn_3(Ind_101)*global_multipole(Ind_100,i) - &
+                       Rn_3(Ind_011)*global_multipole(Ind_010,i) - &
+                       Rn_3(Ind_002)*global_multipole(Ind_001,i) + &
+                       Rn_3(Ind_201)*global_multipole(Ind_200,i) + &
+                       Rn_3(Ind_021)*global_multipole(Ind_020,i) + &
+                       Rn_3(Ind_003)*global_multipole(Ind_002,i) + &
+                       Rn_3(Ind_111)*global_multipole(Ind_110,i) + &
+                       Rn_3(Ind_102)*global_multipole(Ind_101,i) + &
+                       Rn_3(Ind_012)*global_multipole(Ind_011,i)
+           polar_gradphi(1,j) = polar_gradphi(1,j) + gphi_j(1)
+           polar_gradphi(2,j) = polar_gradphi(2,j) + gphi_j(2)
+           polar_gradphi(3,j) = polar_gradphi(3,j) + gphi_j(3)
+        endif !( is_polarizable(j) )then
+     endif ! (is_polarizable(i) .or. is_polarizable(j) )then
+   enddo
+end subroutine AM_ADJUST_ips_permfield
+!-------------------------------------------------------
 subroutine AM_ADJUST_dip_dip_fields(  &
                     ind_dip_d,ind_dip_p,dip_field_d,dip_field_p)
    _REAL_,intent(in) :: ind_dip_d(3,*),ind_dip_p(3,*)
@@ -600,6 +903,7 @@ subroutine AM_ADJUST_ene_frc(crd,x,ind_dip_d,ind_dip_p, &
    use amoeba_mdin, only : thole_expon_coeff
    use amoeba_vdw, only : AM_VDW_ADJUST_ene_frc
    use constants, only : zero
+   use nbips, only : do_ele_ips
 
    _REAL_,intent(in) :: crd(3,*),x(*),ind_dip_d(3,*),ind_dip_p(3,*)
    _REAL_,intent(inout) :: ene_perm,ene_ind,ene_vdw,frc(3,*),virial(3,3)
@@ -615,7 +919,8 @@ subroutine AM_ADJUST_ene_frc(crd,x,ind_dip_d,ind_dip_p, &
    call AM_VDW_ADJUST_ene_frc(crd,num_adjust_list,adjust_list,vdw_weight, &
                                   ene_vdw,frc,virial)
    call timer_stop_start(TIME_VDW,TIME_ADJ)
-   call AM_ADJUST_calc_ene_frc(crd,num_adjust_list,adjust_list, &
+   if(do_ele_ips==0)then
+     call AM_ADJUST_calc_ene_frc(crd,num_adjust_list,adjust_list, &
                                   ew_coeff,eedtbdns,x(leed_cub),x(leed_lin), &
                                   ee_type,eedmeth,dxdr,thole_expon_coeff, &
                                   sq_polinv,is_polarizable,global_multipole, &
@@ -623,6 +928,16 @@ subroutine AM_ADJUST_ene_frc(crd,x,ind_dip_d,ind_dip_p, &
                                   mpole_weight,polar_weight, &
                                   direct_weight,mutual_weight, &
                                   ene_perm,ene_ind,frc,virial)
+   else
+     call AM_ADJUST_ips_ene_frc(crd,num_adjust_list,adjust_list, &
+                                  ew_coeff,eedtbdns,x(leed_cub),x(leed_lin), &
+                                  ee_type,eedmeth,dxdr,thole_expon_coeff, &
+                                  sq_polinv,is_polarizable,global_multipole, &
+                                  ind_dip_d,ind_dip_p, &
+                                  mpole_weight,polar_weight, &
+                                  direct_weight,mutual_weight, &
+                                  ene_perm,ene_ind,frc,virial)
+   endif
    call timer_stop(TIME_ADJ)
 end subroutine AM_ADJUST_ene_frc
 !-------------------------------------------------------
@@ -1728,5 +2043,896 @@ subroutine AM_ADJUST_calc_ene_frc(crd,num_adjust_list,adjust_list, &
    virial(3,2) = virial(3,2) + half*(vyz + vzy)
    virial(3,3) = virial(3,3) + vzz
 end subroutine AM_ADJUST_calc_ene_frc
+!-------------------------------------------------------
+subroutine AM_ADJUST_ips_ene_frc(crd,num_adjust_list,adjust_list, &
+                                  ewaldcof,eedtbdns,eed_cub,eed_lin, &
+                                  ee_type,eedmeth,dxdr,thole_expon_coeff, &
+                                  sq_polinv,is_polarizable,global_multipole, &
+                                  ind_dip_d,ind_dip_p, &
+                                  mpole_weight,polar_weight, &
+                                  direct_weight,mutual_weight, &
+                                  ene_perm,ene_ind,frc,virial)
+   use amoeba_multipoles, only : coulomb_const_kcal_per_mole,torque_field
+   use constants, only : zero,third,half,one,two,three,five,seven,nine
+   use nbips, only: fipsmdq
+   _REAL_,intent(in) :: crd(3,*)
+   integer,intent(in) :: num_adjust_list,adjust_list(3,*)
+   _REAL_,intent(in) :: ewaldcof,eedtbdns,eed_cub(4,*),eed_lin(2,*)
+   integer,intent(in) :: ee_type,eedmeth
+  _REAL_,intent(in) :: dxdr,thole_expon_coeff,sq_polinv(*)
+   logical,intent(in) :: is_polarizable(*)
+   _REAL_,intent(in) :: global_multipole(10,*),ind_dip_d(3,*),ind_dip_p(3,*)
+   _REAL_,intent(in) :: mpole_weight(*),polar_weight(*)
+   _REAL_,intent(in) :: direct_weight(*),mutual_weight(*)
+   _REAL_,intent(inout) :: ene_perm,ene_ind,frc(3,*),virial(3,3)
+
+   _REAL_ :: delx,dely,delz,delr2,delr,delr2inv,x,dx,switch,d_switch_dx,xx
+   _REAL_ :: vxx,vxy,vxz,vyx,vyy,vyz,vzx,vzy,vzz
+   _REAL_ :: A(0:5),B(0:5),C(0:5),BD(4),fac,fact,del
+   _REAL_ :: expon,expo,clam3,clam5,clam7,clam9, &
+             delr3inv,delr5inv,delr7inv,delr9inv
+   _REAL_ :: Rn(1),Rn_1(4),Rn_2(10),Rn_3(20),Rn_4(35),Rn_5(56)
+   _REAL_ :: gmi(10),gmj(10),phi(20),e_pp,g_pp(3),e_ind,g_ind(3), &
+             i_di(3),i_dj(3),i_pi(3),i_pj(3)
+   _REAL_,parameter :: const1 = 0.6d0,const2 = 18.d0/35.d0,const3 = 9.d0/35.d0
+   _REAL_  :: delx2,dely2,delz2
+   _REAL_  :: fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5
+   _REAL_  :: dumpr0,dumpr1,dumpr2,dumpr3,dumpr4
+   _REAL_  :: wtdump,wtips
+          
+
+   integer :: i,j,k,n,n_adj,ind,jj
+#  include "do_flag.h"
+
+   if ( iand(do_flag,PROCEED_POSTINDUCE) /= PROCEED_POSTINDUCE )return
+
+   fac = two*ewaldcof*ewaldcof
+   del = one / eedtbdns
+   vxx = zero
+   vxy = zero
+   vxz = zero
+   vyx = zero
+   vyy = zero
+   vyz = zero
+   vzx = zero
+   vzy = zero
+   vzz = zero
+   do n_adj = 1,num_adjust_list
+     i = adjust_list(1,n_adj)
+     j = adjust_list(2,n_adj)
+     k = adjust_list(3,n_adj)
+     delx = crd(1,j) - crd(1,i)
+     dely = crd(2,j) - crd(2,i)
+     delz = crd(3,j) - crd(3,i)
+     delx2=delx*delx
+     dely2=dely*dely
+     delz2=delz*delz
+     delr2 = delx2 + dely2 + delz2
+     delr = sqrt(delr2)
+     delr2inv = one / delr2
+     x = dxdr*delr
+     ! damped part for permanent-induced or induced-induced interactions
+     delr3inv = delr2inv / delr
+     delr5inv = delr3inv * delr2inv
+     delr7inv = delr5inv * delr2inv
+     delr9inv = delr7inv * delr2inv
+     expon = thole_expon_coeff*delr2*delr*sq_polinv(i)*sq_polinv(j)
+     expo = exp(-expon)
+     ! clam3 = 1.d0-lam3, clam5 = 1.d0-lam5 etc. where 
+     ! lam is from ponder's paper
+     clam3 = expo
+     clam5 = (one + expon)*expo
+     clam7 = (one + expon + const1*expon**2)*expo
+     clam9 = (one + expon + const2*expon**2 + const3*expon**3)*expo
+     dumpr1=clam3*delr3inv
+     dumpr2=-3.0d0*clam5*delr5inv
+     dumpr3=15.0d0*clam7*delr7inv
+     dumpr4=-105.0d0*clam9*delr9inv
+     ! get the interaction tensor 
+         ! IPS for point multipoles
+         wtips=mpole_weight(k)
+         call Fipsmdq(delr,wtips,fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5)
+         Rn_5(Ind_000) = fipsr0 
+         Rn_5(Ind_100) = delx*fipsr1
+         Rn_5(Ind_010) = dely*fipsr1
+         Rn_5(Ind_001) = delz*fipsr1
+         Rn_5(Ind_200) = fipsr1 + delx2*fipsr2
+         Rn_5(Ind_020) = fipsr1 + dely2*fipsr2
+         Rn_5(Ind_002) = fipsr1 + delz2*fipsr2
+         Rn_5(Ind_110) = delx*dely*fipsr2
+         Rn_5(Ind_101) = delx*delz*fipsr2
+         Rn_5(Ind_011) = dely*delz*fipsr2
+         Rn_5(Ind_300) = delx*(3.d0*fipsr2 + delx2*fipsr3)
+         Rn_5(Ind_030) = dely*(3.d0*fipsr2 + dely2*fipsr3)
+         Rn_5(Ind_003) = delz*(3.d0*fipsr2 + delz2*fipsr3)
+         Rn_5(Ind_210) = dely*(fipsr2 + delx2*fipsr3)
+         Rn_5(Ind_201) = delz*(fipsr2 + delx2*fipsr3)
+         Rn_5(Ind_120) = delx*(fipsr2 + dely2*fipsr3)
+         Rn_5(Ind_021) = delz*(fipsr2 + dely2*fipsr3)
+         Rn_5(Ind_102) = delx*(fipsr2 + delz2*fipsr3)
+         Rn_5(Ind_012) = dely*(fipsr2 + delz2*fipsr3)
+         Rn_5(Ind_111) = delx*dely*delz*fipsr3
+         Rn_5(Ind_400) = 3.0d0*fipsr2 + delx2*(6.0d0*fipsr3+delx2*fipsr4)
+         Rn_5(Ind_040) = 3.0d0*fipsr2 + dely2*(6.0d0*fipsr3+dely2*fipsr4)
+         Rn_5(Ind_004) = 3.0d0*fipsr2 + delz2*(6.0d0*fipsr3+delz2*fipsr4)
+         Rn_5(Ind_310) = delx*dely*(3.0d0*fipsr3+delx2*fipsr4)
+         Rn_5(Ind_301) = delx*delz*(3.0d0*fipsr3+delx2*fipsr4)
+         Rn_5(Ind_130) = delx*dely*(3.0d0*fipsr3+dely2*fipsr4)
+         Rn_5(Ind_031) = dely*delz*(3.0d0*fipsr3+dely2*fipsr4)
+         Rn_5(Ind_103) = delx*delz*(3.0d0*fipsr3+delz2*fipsr4)
+         Rn_5(Ind_013) = dely*delz*(3.0d0*fipsr3+delz2*fipsr4)
+         Rn_5(Ind_220) = fipsr2 + (delx2+dely2)*fipsr3+delx2*dely2*fipsr4
+         Rn_5(Ind_202) = fipsr2 + (delx2+delz2)*fipsr3+delx2*delz2*fipsr4
+         Rn_5(Ind_022) = fipsr2 + (delz2+dely2)*fipsr3+delz2*dely2*fipsr4
+         Rn_5(Ind_211) = delz*dely*(fipsr3+delx2*fipsr4)
+         Rn_5(Ind_121) = delx*delz*(fipsr3+dely2*fipsr4)
+         Rn_5(Ind_112) = delx*dely*(fipsr3+delz2*fipsr4)
+         Rn_5(Ind_500) = delx*(15.0d0*fipsr3 + delx2*(10.0d0*fipsr4+delx2*fipsr5))
+         Rn_5(Ind_050) = dely*(15.0d0*fipsr3 + dely2*(10.0d0*fipsr4+dely2*fipsr5))
+         Rn_5(Ind_005) = delz*(15.0d0*fipsr3 + delz2*(10.0d0*fipsr4+delz2*fipsr5))
+         Rn_5(Ind_410) = dely*(3.0d0*fipsr3 + delx2*(6.0d0*fipsr4+delx2*fipsr5))
+         Rn_5(Ind_401) = delz*(3.0d0*fipsr3 + delx2*(6.0d0*fipsr4+delx2*fipsr5))
+         Rn_5(Ind_140) = delx*(3.0d0*fipsr3 + dely2*(6.0d0*fipsr4+dely2*fipsr5))
+         Rn_5(Ind_041) = delz*(3.0d0*fipsr3 + dely2*(6.0d0*fipsr4+dely2*fipsr5))
+         Rn_5(Ind_104) = delx*(3.0d0*fipsr3 + delz2*(6.0d0*fipsr4+delz2*fipsr5))
+         Rn_5(Ind_014) = dely*(3.0d0*fipsr3 + delz2*(6.0d0*fipsr4+delz2*fipsr5))
+         Rn_5(Ind_320) = delx*(3.0d0*fipsr3 + (delx2+3.0d0*dely2)*fipsr4+delx2*dely2*fipsr5)
+         Rn_5(Ind_302) = delx*(3.0d0*fipsr3 + (delx2+3.0d0*delz2)*fipsr4+delx2*delz2*fipsr5)
+         Rn_5(Ind_230) = dely*(3.0d0*fipsr3 + (dely2+3.0d0*delx2)*fipsr4+delx2*dely2*fipsr5)
+         Rn_5(Ind_032) = dely*(3.0d0*fipsr3 + (dely2+3.0d0*delz2)*fipsr4+delz2*dely2*fipsr5)
+         Rn_5(Ind_203) = delz*(3.0d0*fipsr3 + (delz2+3.0d0*delx2)*fipsr4+delx2*delz2*fipsr5)
+         Rn_5(Ind_023) = delz*(3.0d0*fipsr3 + (delz2+3.0d0*dely2)*fipsr4+delz2*dely2*fipsr5)
+         Rn_5(Ind_311) = delx*dely*delz*(3.0d0*fipsr4+delx2*fipsr5)
+         Rn_5(Ind_131) = delx*dely*delz*(3.0d0*fipsr4+dely2*fipsr5)
+         Rn_5(Ind_113) = delx*dely*delz*(3.0d0*fipsr4+delz2*fipsr5)
+         Rn_5(Ind_221) = delz*(fipsr3 + (delx2+dely2)*fipsr4+delx2*dely2*fipsr5)
+         Rn_5(Ind_212) = dely*(fipsr3 + (delx2+delz2)*fipsr4+delx2*delz2*fipsr5)
+         Rn_5(Ind_122) = delx*(fipsr3 + (delz2+dely2)*fipsr4+delz2*dely2*fipsr5)
+     ! phi array (electrostatic potential at i due to j permanent moments
+     ! and derivs of that esp wrt r_i )
+     ! minus signs arise due to derivs of r_j - r_i wrt r_i
+     do jj = 1,10
+        gmj(jj) = global_multipole(jj,j)
+        gmi(jj) = global_multipole(jj,i)
+     enddo
+     phi(Ind_000)=Rn_5(Ind_000)*gmj(Ind_000)+Rn_5(Ind_100)*gmj(Ind_100)+ &
+                  Rn_5(Ind_010)*gmj(Ind_010)+Rn_5(Ind_001)*gmj(Ind_001)+ &
+                  Rn_5(Ind_200)*gmj(Ind_200)+Rn_5(Ind_020)*gmj(Ind_020)+ &
+                  Rn_5(Ind_002)*gmj(Ind_002)+Rn_5(Ind_110)*gmj(Ind_110)+ &
+                  Rn_5(Ind_101)*gmj(Ind_101)+Rn_5(Ind_011)*gmj(Ind_011)
+     phi(Ind_100)=-(Rn_5(Ind_100)*gmj(Ind_000)+Rn_5(Ind_200)*gmj(Ind_100)+ &
+                    Rn_5(Ind_110)*gmj(Ind_010)+Rn_5(Ind_101)*gmj(Ind_001)+ &
+                    Rn_5(Ind_300)*gmj(Ind_200)+Rn_5(Ind_120)*gmj(Ind_020)+ &
+                    Rn_5(Ind_102)*gmj(Ind_002)+Rn_5(Ind_210)*gmj(Ind_110)+ &
+                    Rn_5(Ind_201)*gmj(Ind_101)+Rn_5(Ind_111)*gmj(Ind_011))
+     phi(Ind_010)=-(Rn_5(Ind_010)*gmj(Ind_000)+Rn_5(Ind_110)*gmj(Ind_100)+ &
+                    Rn_5(Ind_020)*gmj(Ind_010)+Rn_5(Ind_011)*gmj(Ind_001)+ &
+                    Rn_5(Ind_210)*gmj(Ind_200)+Rn_5(Ind_030)*gmj(Ind_020)+ &
+                    Rn_5(Ind_012)*gmj(Ind_002)+Rn_5(Ind_120)*gmj(Ind_110)+ &
+                    Rn_5(Ind_111)*gmj(Ind_101)+Rn_5(Ind_021)*gmj(Ind_011))
+     phi(Ind_001)=-(Rn_5(Ind_001)*gmj(Ind_000)+Rn_5(Ind_101)*gmj(Ind_100)+ &
+                    Rn_5(Ind_011)*gmj(Ind_010)+Rn_5(Ind_002)*gmj(Ind_001)+ &
+                    Rn_5(Ind_201)*gmj(Ind_200)+Rn_5(Ind_021)*gmj(Ind_020)+ &
+                    Rn_5(Ind_003)*gmj(Ind_002)+Rn_5(Ind_111)*gmj(Ind_110)+ &
+                    Rn_5(Ind_102)*gmj(Ind_101)+Rn_5(Ind_012)*gmj(Ind_011))
+     phi(Ind_200)=Rn_5(Ind_200)*gmj(Ind_000)+Rn_5(Ind_300)*gmj(Ind_100)+ &
+                  Rn_5(Ind_210)*gmj(Ind_010)+Rn_5(Ind_201)*gmj(Ind_001)+ &
+                  Rn_5(Ind_400)*gmj(Ind_200)+Rn_5(Ind_220)*gmj(Ind_020)+ &
+                  Rn_5(Ind_202)*gmj(Ind_002)+Rn_5(Ind_310)*gmj(Ind_110)+ &
+                  Rn_5(Ind_301)*gmj(Ind_101)+Rn_5(Ind_211)*gmj(Ind_011)
+     phi(Ind_020)=Rn_5(Ind_020)*gmj(Ind_000)+Rn_5(Ind_120)*gmj(Ind_100)+ &
+                  Rn_5(Ind_030)*gmj(Ind_010)+Rn_5(Ind_021)*gmj(Ind_001)+ &
+                  Rn_5(Ind_220)*gmj(Ind_200)+Rn_5(Ind_040)*gmj(Ind_020)+ &
+                  Rn_5(Ind_022)*gmj(Ind_002)+Rn_5(Ind_130)*gmj(Ind_110)+ &
+                  Rn_5(Ind_121)*gmj(Ind_101)+Rn_5(Ind_031)*gmj(Ind_011)
+     phi(Ind_002)=Rn_5(Ind_002)*gmj(Ind_000)+Rn_5(Ind_102)*gmj(Ind_100)+ &
+                  Rn_5(Ind_012)*gmj(Ind_010)+Rn_5(Ind_003)*gmj(Ind_001)+ &
+                  Rn_5(Ind_202)*gmj(Ind_200)+Rn_5(Ind_022)*gmj(Ind_020)+ &
+                  Rn_5(Ind_004)*gmj(Ind_002)+Rn_5(Ind_112)*gmj(Ind_110)+ &
+                  Rn_5(Ind_103)*gmj(Ind_101)+Rn_5(Ind_013)*gmj(Ind_011)
+     phi(Ind_110)=Rn_5(Ind_110)*gmj(Ind_000)+Rn_5(Ind_210)*gmj(Ind_100)+ &
+                  Rn_5(Ind_120)*gmj(Ind_010)+Rn_5(Ind_111)*gmj(Ind_001)+ &
+                  Rn_5(Ind_310)*gmj(Ind_200)+Rn_5(Ind_130)*gmj(Ind_020)+ &
+                  Rn_5(Ind_112)*gmj(Ind_002)+Rn_5(Ind_220)*gmj(Ind_110)+ &
+                  Rn_5(Ind_211)*gmj(Ind_101)+Rn_5(Ind_121)*gmj(Ind_011)
+     phi(Ind_101)=Rn_5(Ind_101)*gmj(Ind_000)+Rn_5(Ind_201)*gmj(Ind_100)+ &
+                  Rn_5(Ind_111)*gmj(Ind_010)+Rn_5(Ind_102)*gmj(Ind_001)+ &
+                  Rn_5(Ind_301)*gmj(Ind_200)+Rn_5(Ind_121)*gmj(Ind_020)+ &
+                  Rn_5(Ind_103)*gmj(Ind_002)+Rn_5(Ind_211)*gmj(Ind_110)+ &
+                  Rn_5(Ind_202)*gmj(Ind_101)+Rn_5(Ind_112)*gmj(Ind_011)
+     phi(Ind_011)=Rn_5(Ind_011)*gmj(Ind_000)+Rn_5(Ind_111)*gmj(Ind_100)+ &
+                  Rn_5(Ind_021)*gmj(Ind_010)+Rn_5(Ind_012)*gmj(Ind_001)+ &
+                  Rn_5(Ind_211)*gmj(Ind_200)+Rn_5(Ind_031)*gmj(Ind_020)+ &
+                  Rn_5(Ind_013)*gmj(Ind_002)+Rn_5(Ind_121)*gmj(Ind_110)+ &
+                  Rn_5(Ind_112)*gmj(Ind_101)+Rn_5(Ind_022)*gmj(Ind_011)
+     phi(Ind_300)=-(Rn_5(Ind_300)*gmj(Ind_000)+Rn_5(Ind_400)*gmj(Ind_100)+ &
+                    Rn_5(Ind_310)*gmj(Ind_010)+Rn_5(Ind_301)*gmj(Ind_001)+ &
+                    Rn_5(Ind_500)*gmj(Ind_200)+Rn_5(Ind_320)*gmj(Ind_020)+ &
+                    Rn_5(Ind_302)*gmj(Ind_002)+Rn_5(Ind_410)*gmj(Ind_110)+ &
+                    Rn_5(Ind_401)*gmj(Ind_101)+Rn_5(Ind_311)*gmj(Ind_011))
+     phi(Ind_030)=-(Rn_5(Ind_030)*gmj(Ind_000)+Rn_5(Ind_130)*gmj(Ind_100)+ &
+                    Rn_5(Ind_040)*gmj(Ind_010)+Rn_5(Ind_031)*gmj(Ind_001)+ &
+                    Rn_5(Ind_230)*gmj(Ind_200)+Rn_5(Ind_050)*gmj(Ind_020)+ &
+                    Rn_5(Ind_032)*gmj(Ind_002)+Rn_5(Ind_140)*gmj(Ind_110)+ &
+                    Rn_5(Ind_131)*gmj(Ind_101)+Rn_5(Ind_041)*gmj(Ind_011))
+     phi(Ind_003)=-(Rn_5(Ind_003)*gmj(Ind_000)+Rn_5(Ind_103)*gmj(Ind_100)+ &
+                    Rn_5(Ind_013)*gmj(Ind_010)+Rn_5(Ind_004)*gmj(Ind_001)+ &
+                    Rn_5(Ind_203)*gmj(Ind_200)+Rn_5(Ind_023)*gmj(Ind_020)+ &
+                    Rn_5(Ind_005)*gmj(Ind_002)+Rn_5(Ind_113)*gmj(Ind_110)+ &
+                    Rn_5(Ind_104)*gmj(Ind_101)+Rn_5(Ind_014)*gmj(Ind_011))
+     phi(Ind_210)=-(Rn_5(Ind_210)*gmj(Ind_000)+Rn_5(Ind_310)*gmj(Ind_100)+ &
+                    Rn_5(Ind_220)*gmj(Ind_010)+Rn_5(Ind_211)*gmj(Ind_001)+ &
+                    Rn_5(Ind_410)*gmj(Ind_200)+Rn_5(Ind_230)*gmj(Ind_020)+ &
+                    Rn_5(Ind_212)*gmj(Ind_002)+Rn_5(Ind_320)*gmj(Ind_110)+ &
+                    Rn_5(Ind_311)*gmj(Ind_101)+Rn_5(Ind_221)*gmj(Ind_011) )
+     phi(Ind_201)=-(Rn_5(Ind_201)*gmj(Ind_000)+Rn_5(Ind_301)*gmj(Ind_100)+ &
+                    Rn_5(Ind_211)*gmj(Ind_010)+Rn_5(Ind_202)*gmj(Ind_001)+ &
+                    Rn_5(Ind_401)*gmj(Ind_200)+Rn_5(Ind_221)*gmj(Ind_020)+ &
+                    Rn_5(Ind_203)*gmj(Ind_002)+Rn_5(Ind_311)*gmj(Ind_110)+ &
+                    Rn_5(Ind_302)*gmj(Ind_101)+Rn_5(Ind_212)*gmj(Ind_011))
+     phi(Ind_120)=-(Rn_5(Ind_120)*gmj(Ind_000)+Rn_5(Ind_220)*gmj(Ind_100)+ &
+                    Rn_5(Ind_130)*gmj(Ind_010)+Rn_5(Ind_121)*gmj(Ind_001)+ &
+                    Rn_5(Ind_320)*gmj(Ind_200)+Rn_5(Ind_140)*gmj(Ind_020)+ &
+                    Rn_5(Ind_122)*gmj(Ind_002)+Rn_5(Ind_230)*gmj(Ind_110)+ &
+                    Rn_5(Ind_221)*gmj(Ind_101)+Rn_5(Ind_131)*gmj(Ind_011))
+     phi(Ind_021)=-(Rn_5(Ind_021)*gmj(Ind_000)+Rn_5(Ind_121)*gmj(Ind_100)+ &
+                    Rn_5(Ind_031)*gmj(Ind_010)+Rn_5(Ind_022)*gmj(Ind_001)+ &
+                    Rn_5(Ind_221)*gmj(Ind_200)+Rn_5(Ind_041)*gmj(Ind_020)+ &
+                    Rn_5(Ind_023)*gmj(Ind_002)+Rn_5(Ind_131)*gmj(Ind_110)+ &
+                    Rn_5(Ind_122)*gmj(Ind_101)+Rn_5(Ind_032)*gmj(Ind_011))
+     phi(Ind_102)=-(Rn_5(Ind_102)*gmj(Ind_000)+Rn_5(Ind_202)*gmj(Ind_100)+ &
+                    Rn_5(Ind_112)*gmj(Ind_010)+Rn_5(Ind_103)*gmj(Ind_001)+ &
+                    Rn_5(Ind_302)*gmj(Ind_200)+Rn_5(Ind_122)*gmj(Ind_020)+ &
+                    Rn_5(Ind_104)*gmj(Ind_002)+Rn_5(Ind_212)*gmj(Ind_110)+ &
+                    Rn_5(Ind_203)*gmj(Ind_101)+Rn_5(Ind_113)*gmj(Ind_011))
+     phi(Ind_012)=-(Rn_5(Ind_012)*gmj(Ind_000)+Rn_5(Ind_112)*gmj(Ind_100)+ &
+                    Rn_5(Ind_022)*gmj(Ind_010)+Rn_5(Ind_013)*gmj(Ind_001)+ &
+                    Rn_5(Ind_212)*gmj(Ind_200)+Rn_5(Ind_032)*gmj(Ind_020)+ &
+                    Rn_5(Ind_014)*gmj(Ind_002)+Rn_5(Ind_122)*gmj(Ind_110)+ &
+                    Rn_5(Ind_113)*gmj(Ind_101)+Rn_5(Ind_023)*gmj(Ind_011))
+     phi(Ind_111)=-(Rn_5(Ind_111)*gmj(Ind_000)+Rn_5(Ind_211)*gmj(Ind_100)+ &
+                    Rn_5(Ind_121)*gmj(Ind_010)+Rn_5(Ind_112)*gmj(Ind_001)+ &
+                    Rn_5(Ind_311)*gmj(Ind_200)+Rn_5(Ind_131)*gmj(Ind_020)+ &
+                    Rn_5(Ind_113)*gmj(Ind_002)+Rn_5(Ind_221)*gmj(Ind_110)+ &
+                    Rn_5(Ind_212)*gmj(Ind_101)+Rn_5(Ind_122)*gmj(Ind_011))
+     e_pp = phi(Ind_000)*gmi(Ind_000) + phi(Ind_100)*gmi(Ind_100) + &
+            phi(Ind_010)*gmi(Ind_010) + phi(Ind_001)*gmi(Ind_001) + &
+            phi(Ind_200)*gmi(Ind_200) + phi(Ind_020)*gmi(Ind_020) + &
+            phi(Ind_002)*gmi(Ind_002) + phi(Ind_110)*gmi(Ind_110) + &
+            phi(Ind_101)*gmi(Ind_101) + phi(Ind_011)*gmi(Ind_011)
+     ! gradient of e_pp wrt r_i
+     g_pp(1) = phi(Ind_100)*gmi(Ind_000) + phi(Ind_200)*gmi(Ind_100) + &
+               phi(Ind_110)*gmi(Ind_010) + phi(Ind_101)*gmi(Ind_001) + &
+               phi(Ind_300)*gmi(Ind_200) + phi(Ind_120)*gmi(Ind_020) + &
+               phi(Ind_102)*gmi(Ind_002) + phi(Ind_210)*gmi(Ind_110) + &
+               phi(Ind_201)*gmi(Ind_101) + phi(Ind_111)*gmi(Ind_011)
+     g_pp(2) = phi(Ind_010)*gmi(Ind_000) + phi(Ind_110)*gmi(Ind_100) + &
+               phi(Ind_020)*gmi(Ind_010) + phi(Ind_011)*gmi(Ind_001) + &
+               phi(Ind_210)*gmi(Ind_200) + phi(Ind_030)*gmi(Ind_020) + &
+               phi(Ind_012)*gmi(Ind_002) + phi(Ind_120)*gmi(Ind_110) + &
+               phi(Ind_111)*gmi(Ind_101) + phi(Ind_021)*gmi(Ind_011)
+     g_pp(3) = phi(Ind_001)*gmi(Ind_000) + phi(Ind_101)*gmi(Ind_100) + &
+               phi(Ind_011)*gmi(Ind_010) + phi(Ind_002)*gmi(Ind_001) + &
+               phi(Ind_201)*gmi(Ind_200) + phi(Ind_021)*gmi(Ind_020) + &
+               phi(Ind_003)*gmi(Ind_002) + phi(Ind_111)*gmi(Ind_110) + &
+               phi(Ind_102)*gmi(Ind_101) + phi(Ind_012)*gmi(Ind_011)
+     ! torque field at i due to permanent mpoles of j
+     do jj = 1,10
+        torque_field(jj,i) = torque_field(jj,i) + phi(jj)
+     enddo
+     ! next do field at j due to the permanent mpoles of i to get torque at j
+     ! electrostatic potential at j due to permanent mpoles at i
+     ! and derivatives of that with respect to r_j
+     ! minus signs due to deriv of r_j-r_i wrt r_i entering into potential
+     phi(Ind_000)=Rn_5(Ind_000)*gmi(Ind_000)-Rn_5(Ind_100)*gmi(Ind_100)- &
+                  Rn_5(Ind_010)*gmi(Ind_010)-Rn_5(Ind_001)*gmi(Ind_001)+ &
+                  Rn_5(Ind_200)*gmi(Ind_200)+Rn_5(Ind_020)*gmi(Ind_020)+ &
+                  Rn_5(Ind_002)*gmi(Ind_002)+Rn_5(Ind_110)*gmi(Ind_110)+ &
+                  Rn_5(Ind_101)*gmi(Ind_101)+Rn_5(Ind_011)*gmi(Ind_011)
+     phi(Ind_100)=Rn_5(Ind_100)*gmi(Ind_000)-Rn_5(Ind_200)*gmi(Ind_100)- &
+                  Rn_5(Ind_110)*gmi(Ind_010)-Rn_5(Ind_101)*gmi(Ind_001)+ &
+                  Rn_5(Ind_300)*gmi(Ind_200)+Rn_5(Ind_120)*gmi(Ind_020)+ &
+                  Rn_5(Ind_102)*gmi(Ind_002)+Rn_5(Ind_210)*gmi(Ind_110)+ &
+                  Rn_5(Ind_201)*gmi(Ind_101)+Rn_5(Ind_111)*gmi(Ind_011)
+     phi(Ind_010)=Rn_5(Ind_010)*gmi(Ind_000)-Rn_5(Ind_110)*gmi(Ind_100)- &
+                  Rn_5(Ind_020)*gmi(Ind_010)-Rn_5(Ind_011)*gmi(Ind_001)+ &
+                  Rn_5(Ind_210)*gmi(Ind_200)+Rn_5(Ind_030)*gmi(Ind_020)+ &
+                  Rn_5(Ind_012)*gmi(Ind_002)+Rn_5(Ind_120)*gmi(Ind_110)+ &
+                  Rn_5(Ind_111)*gmi(Ind_101)+Rn_5(Ind_021)*gmi(Ind_011)
+     phi(Ind_001)=Rn_5(Ind_001)*gmi(Ind_000)-Rn_5(Ind_101)*gmi(Ind_100)- &
+                  Rn_5(Ind_011)*gmi(Ind_010)-Rn_5(Ind_002)*gmi(Ind_001)+ &
+                  Rn_5(Ind_201)*gmi(Ind_200)+Rn_5(Ind_021)*gmi(Ind_020)+ &
+                  Rn_5(Ind_003)*gmi(Ind_002)+Rn_5(Ind_111)*gmi(Ind_110)+ &
+                  Rn_5(Ind_102)*gmi(Ind_101)+Rn_5(Ind_012)*gmi(Ind_011)
+     phi(Ind_200)=Rn_5(Ind_200)*gmi(Ind_000)-Rn_5(Ind_300)*gmi(Ind_100)- &
+                  Rn_5(Ind_210)*gmi(Ind_010)-Rn_5(Ind_201)*gmi(Ind_001)+ &
+                  Rn_5(Ind_400)*gmi(Ind_200)+Rn_5(Ind_220)*gmi(Ind_020)+ &
+                  Rn_5(Ind_202)*gmi(Ind_002)+Rn_5(Ind_310)*gmi(Ind_110)+ &
+                  Rn_5(Ind_301)*gmi(Ind_101)+Rn_5(Ind_211)*gmi(Ind_011)
+     phi(Ind_020)=Rn_5(Ind_020)*gmi(Ind_000)-Rn_5(Ind_120)*gmi(Ind_100)- &
+                  Rn_5(Ind_030)*gmi(Ind_010)-Rn_5(Ind_021)*gmi(Ind_001)+ &
+                  Rn_5(Ind_220)*gmi(Ind_200)+Rn_5(Ind_040)*gmi(Ind_020)+ &
+                  Rn_5(Ind_022)*gmi(Ind_002)+Rn_5(Ind_130)*gmi(Ind_110)+ &
+                  Rn_5(Ind_121)*gmi(Ind_101)+Rn_5(Ind_031)*gmi(Ind_011)
+     phi(Ind_002)=Rn_5(Ind_002)*gmi(Ind_000)-Rn_5(Ind_102)*gmi(Ind_100)- &
+                  Rn_5(Ind_012)*gmi(Ind_010)-Rn_5(Ind_003)*gmi(Ind_001)+ &
+                  Rn_5(Ind_202)*gmi(Ind_200)+Rn_5(Ind_022)*gmi(Ind_020)+ &
+                  Rn_5(Ind_004)*gmi(Ind_002)+Rn_5(Ind_112)*gmi(Ind_110)+ &
+                  Rn_5(Ind_103)*gmi(Ind_101)+Rn_5(Ind_013)*gmi(Ind_011)
+     phi(Ind_110)=Rn_5(Ind_110)*gmi(Ind_000)-Rn_5(Ind_210)*gmi(Ind_100)- &
+                  Rn_5(Ind_120)*gmi(Ind_010)-Rn_5(Ind_111)*gmi(Ind_001)+ &
+                  Rn_5(Ind_310)*gmi(Ind_200)+Rn_5(Ind_130)*gmi(Ind_020)+ &
+                  Rn_5(Ind_112)*gmi(Ind_002)+Rn_5(Ind_220)*gmi(Ind_110)+ &
+                  Rn_5(Ind_211)*gmi(Ind_101)+Rn_5(Ind_121)*gmi(Ind_011)
+     phi(Ind_101)=Rn_5(Ind_101)*gmi(Ind_000)-Rn_5(Ind_201)*gmi(Ind_100)- &
+                  Rn_5(Ind_111)*gmi(Ind_010)-Rn_5(Ind_102)*gmi(Ind_001)+ &
+                  Rn_5(Ind_301)*gmi(Ind_200)+Rn_5(Ind_121)*gmi(Ind_020)+ &
+                  Rn_5(Ind_103)*gmi(Ind_002)+Rn_5(Ind_211)*gmi(Ind_110)+ &
+                  Rn_5(Ind_202)*gmi(Ind_101)+Rn_5(Ind_112)*gmi(Ind_011)
+     phi(Ind_011)=Rn_5(Ind_011)*gmi(Ind_000)-Rn_5(Ind_111)*gmi(Ind_100)- &
+                  Rn_5(Ind_021)*gmi(Ind_010)-Rn_5(Ind_012)*gmi(Ind_001)+ &
+                  Rn_5(Ind_211)*gmi(Ind_200)+Rn_5(Ind_031)*gmi(Ind_020)+ &
+                  Rn_5(Ind_013)*gmi(Ind_002)+Rn_5(Ind_121)*gmi(Ind_110)+ &
+                  Rn_5(Ind_112)*gmi(Ind_101)+Rn_5(Ind_022)*gmi(Ind_011)
+     ! torque field at j due to permanent mpoles of i
+     do jj = 1,10
+       torque_field(jj,j) = torque_field(jj,j) + phi(jj)
+     enddo
+     e_ind = 0.d0
+     g_ind(1) = 0.d0
+     g_ind(2) = 0.d0
+     g_ind(3) = 0.d0
+     if ( is_polarizable(i) .or. is_polarizable(j) )then
+        do jj = 1,3
+           i_di(jj) = ind_dip_d(jj,i)
+           i_dj(jj) = ind_dip_d(jj,j)
+           i_pi(jj) = ind_dip_p(jj,i)
+           i_pj(jj) = ind_dip_p(jj,j)
+        enddo
+        ! first the direct dipoles interact with polar field
+        ! recall A gives coulomb, BD damped and B the erfc*1/r contributions
+         ! IPS for point multipoles
+        wtdump=polar_weight(k)
+         call Fipsmdq(delr,wtdump,fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5)
+         fipsr1=fipsr1+wtdump*dumpr1
+         fipsr2=fipsr2+wtdump*dumpr2
+         fipsr3=fipsr3+wtdump*dumpr3
+         fipsr4=fipsr4+wtdump*dumpr4
+         !Rn_4(Ind_000) = fipsr0 
+         Rn_4(Ind_100) = delx*fipsr1
+         Rn_4(Ind_010) = dely*fipsr1
+         Rn_4(Ind_001) = delz*fipsr1
+         Rn_4(Ind_200) = fipsr1 + delx2*fipsr2
+         Rn_4(Ind_020) = fipsr1 + dely2*fipsr2
+         Rn_4(Ind_002) = fipsr1 + delz2*fipsr2
+         Rn_4(Ind_110) = delx*dely*fipsr2
+         Rn_4(Ind_101) = delx*delz*fipsr2
+         Rn_4(Ind_011) = dely*delz*fipsr2
+         Rn_4(Ind_300) = delx*(3.d0*fipsr2 + delx2*fipsr3)
+         Rn_4(Ind_030) = dely*(3.d0*fipsr2 + dely2*fipsr3)
+         Rn_4(Ind_003) = delz*(3.d0*fipsr2 + delz2*fipsr3)
+         Rn_4(Ind_210) = dely*(fipsr2 + delx2*fipsr3)
+         Rn_4(Ind_201) = delz*(fipsr2 + delx2*fipsr3)
+         Rn_4(Ind_120) = delx*(fipsr2 + dely2*fipsr3)
+         Rn_4(Ind_021) = delz*(fipsr2 + dely2*fipsr3)
+         Rn_4(Ind_102) = delx*(fipsr2 + delz2*fipsr3)
+         Rn_4(Ind_012) = dely*(fipsr2 + delz2*fipsr3)
+         Rn_4(Ind_111) = delx*dely*delz*fipsr3
+         Rn_4(Ind_400) = 3.0d0*fipsr2 + delx2*(6.0d0*fipsr3+delx2*fipsr4)
+         Rn_4(Ind_040) = 3.0d0*fipsr2 + dely2*(6.0d0*fipsr3+dely2*fipsr4)
+         Rn_4(Ind_004) = 3.0d0*fipsr2 + delz2*(6.0d0*fipsr3+delz2*fipsr4)
+         Rn_4(Ind_310) = delx*dely*(3.0d0*fipsr3+delx2*fipsr4)
+         Rn_4(Ind_301) = delx*delz*(3.0d0*fipsr3+delx2*fipsr4)
+         Rn_4(Ind_130) = delx*dely*(3.0d0*fipsr3+dely2*fipsr4)
+         Rn_4(Ind_031) = dely*delz*(3.0d0*fipsr3+dely2*fipsr4)
+         Rn_4(Ind_103) = delx*delz*(3.0d0*fipsr3+delz2*fipsr4)
+         Rn_4(Ind_013) = dely*delz*(3.0d0*fipsr3+delz2*fipsr4)
+         Rn_4(Ind_220) = fipsr2 + (delx2+dely2)*fipsr3+delx2*dely2*fipsr4
+         Rn_4(Ind_202) = fipsr2 + (delx2+delz2)*fipsr3+delx2*delz2*fipsr4
+         Rn_4(Ind_022) = fipsr2 + (delz2+dely2)*fipsr3+delz2*dely2*fipsr4
+         Rn_4(Ind_211) = delz*dely*(fipsr3+delx2*fipsr4)
+         Rn_4(Ind_121) = delx*delz*(fipsr3+dely2*fipsr4)
+         Rn_4(Ind_112) = delx*dely*(fipsr3+delz2*fipsr4)
+        if ( is_polarizable(i) )then
+           ! induced direct dipoles at i interact with permanent at j
+           !phi(Ind_000)  NOT NEEDED
+           !phi(Ind_000)= &
+                   !Rn_4(Ind_000)*gmj(Ind_000)+Rn_4(Ind_100)*gmj(Ind_100)+ &
+                   !Rn_4(Ind_010)*gmj(Ind_010)+Rn_4(Ind_001)*gmj(Ind_001)+ &
+                   !Rn_4(Ind_200)*gmj(Ind_200)+Rn_4(Ind_020)*gmj(Ind_020)+ &
+                   !Rn_4(Ind_002)*gmj(Ind_002)+Rn_4(Ind_110)*gmj(Ind_110)+ &
+                   !Rn_4(Ind_101)*gmj(Ind_101)+Rn_4(Ind_011)*gmj(Ind_011)
+           phi(Ind_100)= &
+                 -(Rn_4(Ind_100)*gmj(Ind_000)+Rn_4(Ind_200)*gmj(Ind_100)+ &
+                   Rn_4(Ind_110)*gmj(Ind_010)+Rn_4(Ind_101)*gmj(Ind_001)+ &
+                   Rn_4(Ind_300)*gmj(Ind_200)+Rn_4(Ind_120)*gmj(Ind_020)+ &
+                   Rn_4(Ind_102)*gmj(Ind_002)+Rn_4(Ind_210)*gmj(Ind_110)+ &
+                   Rn_4(Ind_201)*gmj(Ind_101)+Rn_4(Ind_111)*gmj(Ind_011))
+           phi(Ind_010)= &
+                 -(Rn_4(Ind_010)*gmj(Ind_000)+Rn_4(Ind_110)*gmj(Ind_100)+ &
+                   Rn_4(Ind_020)*gmj(Ind_010)+Rn_4(Ind_011)*gmj(Ind_001)+ &
+                   Rn_4(Ind_210)*gmj(Ind_200)+Rn_4(Ind_030)*gmj(Ind_020)+ &
+                   Rn_4(Ind_012)*gmj(Ind_002)+Rn_4(Ind_120)*gmj(Ind_110)+ &
+                   Rn_4(Ind_111)*gmj(Ind_101)+Rn_4(Ind_021)*gmj(Ind_011))
+           phi(Ind_001)= &
+                 -(Rn_4(Ind_001)*gmj(Ind_000)+Rn_4(Ind_101)*gmj(Ind_100)+ &
+                   Rn_4(Ind_011)*gmj(Ind_010)+Rn_4(Ind_002)*gmj(Ind_001)+ &
+                   Rn_4(Ind_201)*gmj(Ind_200)+Rn_4(Ind_021)*gmj(Ind_020)+ &
+                   Rn_4(Ind_003)*gmj(Ind_002)+Rn_4(Ind_111)*gmj(Ind_110)+ &
+                   Rn_4(Ind_102)*gmj(Ind_101)+Rn_4(Ind_012)*gmj(Ind_011))
+           phi(Ind_200)=  &
+                   Rn_4(Ind_200)*gmj(Ind_000)+Rn_4(Ind_300)*gmj(Ind_100)+ &
+                   Rn_4(Ind_210)*gmj(Ind_010)+Rn_4(Ind_201)*gmj(Ind_001)+ &
+                   Rn_4(Ind_400)*gmj(Ind_200)+Rn_4(Ind_220)*gmj(Ind_020)+ &
+                   Rn_4(Ind_202)*gmj(Ind_002)+Rn_4(Ind_310)*gmj(Ind_110)+ &
+                   Rn_4(Ind_301)*gmj(Ind_101)+Rn_4(Ind_211)*gmj(Ind_011)
+           phi(Ind_020)= &
+                   Rn_4(Ind_020)*gmj(Ind_000)+Rn_4(Ind_120)*gmj(Ind_100)+ &
+                   Rn_4(Ind_030)*gmj(Ind_010)+Rn_4(Ind_021)*gmj(Ind_001)+ &
+                   Rn_4(Ind_220)*gmj(Ind_200)+Rn_4(Ind_040)*gmj(Ind_020)+ &
+                   Rn_4(Ind_022)*gmj(Ind_002)+Rn_4(Ind_130)*gmj(Ind_110)+ &
+                   Rn_4(Ind_121)*gmj(Ind_101)+Rn_4(Ind_031)*gmj(Ind_011)
+           phi(Ind_002)= &
+                   Rn_4(Ind_002)*gmj(Ind_000)+Rn_4(Ind_102)*gmj(Ind_100)+ &
+                   Rn_4(Ind_012)*gmj(Ind_010)+Rn_4(Ind_003)*gmj(Ind_001)+ &
+                   Rn_4(Ind_202)*gmj(Ind_200)+Rn_4(Ind_022)*gmj(Ind_020)+ &
+                   Rn_4(Ind_004)*gmj(Ind_002)+Rn_4(Ind_112)*gmj(Ind_110)+ &
+                   Rn_4(Ind_103)*gmj(Ind_101)+Rn_4(Ind_013)*gmj(Ind_011)
+           phi(Ind_110)= &
+                   Rn_4(Ind_110)*gmj(Ind_000)+Rn_4(Ind_210)*gmj(Ind_100)+ &
+                   Rn_4(Ind_120)*gmj(Ind_010)+Rn_4(Ind_111)*gmj(Ind_001)+ &
+                   Rn_4(Ind_310)*gmj(Ind_200)+Rn_4(Ind_130)*gmj(Ind_020)+ &
+                   Rn_4(Ind_112)*gmj(Ind_002)+Rn_4(Ind_220)*gmj(Ind_110)+ &
+                   Rn_4(Ind_211)*gmj(Ind_101)+Rn_4(Ind_121)*gmj(Ind_011)
+           phi(Ind_101)= &
+                   Rn_4(Ind_101)*gmj(Ind_000)+Rn_4(Ind_201)*gmj(Ind_100)+ &
+                   Rn_4(Ind_111)*gmj(Ind_010)+Rn_4(Ind_102)*gmj(Ind_001)+ &
+                   Rn_4(Ind_301)*gmj(Ind_200)+Rn_4(Ind_121)*gmj(Ind_020)+ &
+                   Rn_4(Ind_103)*gmj(Ind_002)+Rn_4(Ind_211)*gmj(Ind_110)+ &
+                   Rn_4(Ind_202)*gmj(Ind_101)+Rn_4(Ind_112)*gmj(Ind_011)
+           phi(Ind_011)=  &
+                   Rn_4(Ind_011)*gmj(Ind_000)+Rn_4(Ind_111)*gmj(Ind_100)+ &
+                   Rn_4(Ind_021)*gmj(Ind_010)+Rn_4(Ind_012)*gmj(Ind_001)+ &
+                   Rn_4(Ind_211)*gmj(Ind_200)+Rn_4(Ind_031)*gmj(Ind_020)+ &
+                   Rn_4(Ind_013)*gmj(Ind_002)+Rn_4(Ind_121)*gmj(Ind_110)+ &
+                   Rn_4(Ind_112)*gmj(Ind_101)+Rn_4(Ind_022)*gmj(Ind_011)
+           e_ind = e_ind + 0.5d0* &
+                    ( phi(Ind_100)*i_di(1) + phi(Ind_010)*i_di(2) + &
+                      phi(Ind_001)*i_di(3) )
+           g_ind(1) = g_ind(1) + 0.5d0* &
+                   (  phi(Ind_200)*i_di(1) + phi(Ind_110)*i_di(2) + &
+                      phi(Ind_101)*i_di(3) )
+           g_ind(2) = g_ind(2) + 0.5d0* &
+                   (  phi(Ind_110)*i_di(1) + phi(Ind_020)*i_di(2) + &
+                      phi(Ind_011)*i_di(3) )
+           g_ind(3) = g_ind(3) + 0.5d0* &
+                   (  phi(Ind_101)*i_di(1) + phi(Ind_011)*i_di(2) + &
+                      phi(Ind_002)*i_di(3) )
+           ! calculate the potential at j due to direct induced at i
+           ! and derivatives of that with respect to r_j
+           ! minus signs due to deriv of r_j-r_i wrt r_i entering into potential
+           phi(Ind_000) = -(Rn_4(Ind_100)*i_di(1)+Rn_4(Ind_010)*i_di(2) + &
+                            Rn_4(Ind_001)*i_di(3))
+           phi(Ind_100) = -(Rn_4(Ind_200)*i_di(1)+Rn_4(Ind_110)*i_di(2) + &
+                            Rn_4(Ind_101)*i_di(3))
+           phi(Ind_010) = -(Rn_4(Ind_110)*i_di(1)+Rn_4(Ind_020)*i_di(2) + &
+                            Rn_4(Ind_011)*i_di(3))
+           phi(Ind_001) = -(Rn_4(Ind_101)*i_di(1)+Rn_4(Ind_011)*i_di(2) + &
+                            Rn_4(Ind_002)*i_di(3))
+           phi(Ind_200) = -(Rn_4(Ind_300)*i_di(1)+Rn_4(Ind_210)*i_di(2) + &
+                            Rn_4(Ind_201)*i_di(3))
+           phi(Ind_020) = -(Rn_4(Ind_120)*i_di(1)+Rn_4(Ind_030)*i_di(2) + &
+                            Rn_4(Ind_021)*i_di(3))
+           phi(Ind_002) = -(Rn_4(Ind_102)*i_di(1)+Rn_4(Ind_012)*i_di(2) + &
+                            Rn_4(Ind_003)*i_di(3))
+           phi(Ind_110) = -(Rn_4(Ind_210)*i_di(1)+Rn_4(Ind_120)*i_di(2) + &
+                            Rn_4(Ind_111)*i_di(3))
+           phi(Ind_101) = -(Rn_4(Ind_201)*i_di(1)+Rn_4(Ind_111)*i_di(2) + &
+                            Rn_4(Ind_102)*i_di(3))
+           phi(Ind_011) = -(Rn_4(Ind_111)*i_di(1)+Rn_4(Ind_021)*i_di(2) + &
+                            Rn_4(Ind_012)*i_di(3))
+           ! torque field at j due to direct induced mpoles of i
+           ! note factor of 1/2
+           do jj = 1,10
+              torque_field(jj,j) = torque_field(jj,j) + 0.5d0*phi(jj)
+           enddo
+        endif !is_polarizable(i)
+        if ( is_polarizable(j) )then
+           ! induced direct dipoles at j interact with permanent at i
+           ! phi array (electrostatic potential at i due to j induced moments
+           ! and derivs of that esp wrt r_i )
+           ! first that due to ind_dip_d for energy contribution
+           ! minus signs arise due to derivs of r_j - r_i wrt r_i
+           phi(Ind_000) = Rn_4(Ind_100)*i_dj(1)+Rn_4(Ind_010)*i_dj(2) + &
+                          Rn_4(Ind_001)*i_dj(3)
+           phi(Ind_100) = -(Rn_4(Ind_200)*i_dj(1)+Rn_4(Ind_110)*i_dj(2) + &
+                            Rn_4(Ind_101)*i_dj(3))
+           phi(Ind_010) = -(Rn_4(Ind_110)*i_dj(1)+Rn_4(Ind_020)*i_dj(2) + &
+                            Rn_4(Ind_011)*i_dj(3))
+           phi(Ind_001) = -(Rn_4(Ind_101)*i_dj(1)+Rn_4(Ind_011)*i_dj(2) + &
+                            Rn_4(Ind_002)*i_dj(3))
+           phi(Ind_200) = Rn_4(Ind_300)*i_dj(1)+Rn_4(Ind_210)*i_dj(2) + &
+                          Rn_4(Ind_201)*i_dj(3)
+           phi(Ind_020) = Rn_4(Ind_120)*i_dj(1)+Rn_4(Ind_030)*i_dj(2) + &
+                          Rn_4(Ind_021)*i_dj(3)
+           phi(Ind_002) = Rn_4(Ind_102)*i_dj(1)+Rn_4(Ind_012)*i_dj(2) + &
+                          Rn_4(Ind_003)*i_dj(3)
+           phi(Ind_110) = Rn_4(Ind_210)*i_dj(1)+Rn_4(Ind_120)*i_dj(2) + &
+                          Rn_4(Ind_111)*i_dj(3)
+           phi(Ind_101) = Rn_4(Ind_201)*i_dj(1)+Rn_4(Ind_111)*i_dj(2) + &
+                          Rn_4(Ind_102)*i_dj(3)
+           phi(Ind_011) = Rn_4(Ind_111)*i_dj(1)+Rn_4(Ind_021)*i_dj(2) + &
+                          Rn_4(Ind_012)*i_dj(3)
+           phi(Ind_300) = -(Rn_4(Ind_400)*i_dj(1)+Rn_4(Ind_310)*i_dj(2) + &
+                            Rn_4(Ind_301)*i_dj(3))
+           phi(Ind_030) = -(Rn_4(Ind_130)*i_dj(1)+Rn_4(Ind_040)*i_dj(2) + &
+                            Rn_4(Ind_031)*i_dj(3))
+           phi(Ind_003) = -(Rn_4(Ind_103)*i_dj(1)+Rn_4(Ind_013)*i_dj(2) + &
+                            Rn_4(Ind_004)*i_dj(3))
+           phi(Ind_210) = -(Rn_4(Ind_310)*i_dj(1)+Rn_4(Ind_220)*i_dj(2) + &
+                            Rn_4(Ind_211)*i_dj(3))
+           phi(Ind_201) = -(Rn_4(Ind_301)*i_dj(1)+Rn_4(Ind_211)*i_dj(2) + &
+                            Rn_4(Ind_202)*i_dj(3))
+           phi(Ind_120) = -(Rn_4(Ind_220)*i_dj(1)+Rn_4(Ind_130)*i_dj(2) + &
+                            Rn_4(Ind_121)*i_dj(3))
+           phi(Ind_021) = -(Rn_4(Ind_121)*i_dj(1)+Rn_4(Ind_031)*i_dj(2) + &
+                            Rn_4(Ind_022)*i_dj(3))
+           phi(Ind_102) = -(Rn_4(Ind_202)*i_dj(1)+Rn_4(Ind_112)*i_dj(2) + &
+                            Rn_4(Ind_103)*i_dj(3))
+           phi(Ind_012) = -(Rn_4(Ind_112)*i_dj(1)+Rn_4(Ind_022)*i_dj(2) + &
+                            Rn_4(Ind_013)*i_dj(3))
+           phi(Ind_111) = -(Rn_4(Ind_211)*i_dj(1)+Rn_4(Ind_121)*i_dj(2) + &
+                            Rn_4(Ind_112)*i_dj(3))
+           e_ind = e_ind + 0.5d0* &
+                   (phi(Ind_000)*gmi(Ind_000)+phi(Ind_100)*gmi(Ind_100)+ &
+                    phi(Ind_010)*gmi(Ind_010)+phi(Ind_001)*gmi(Ind_001)+ &
+                    phi(Ind_200)*gmi(Ind_200)+phi(Ind_020)*gmi(Ind_020)+ &
+                    phi(Ind_002)*gmi(Ind_002)+phi(Ind_110)*gmi(Ind_110)+ &
+                    phi(Ind_101)*gmi(Ind_101)+phi(Ind_011)*gmi(Ind_011))
+           g_ind(1) = g_ind(1) + 0.5d0* &
+                   (phi(Ind_100)*gmi(Ind_000)+phi(Ind_200)*gmi(Ind_100)+ &
+                    phi(Ind_110)*gmi(Ind_010)+phi(Ind_101)*gmi(Ind_001)+ &
+                    phi(Ind_300)*gmi(Ind_200)+phi(Ind_120)*gmi(Ind_020)+ &
+                    phi(Ind_102)*gmi(Ind_002)+phi(Ind_210)*gmi(Ind_110)+ &
+                    phi(Ind_201)*gmi(Ind_101)+phi(Ind_111)*gmi(Ind_011))
+           g_ind(2) = g_ind(2) + 0.5d0* &
+                   (phi(Ind_010)*gmi(Ind_000)+phi(Ind_110)*gmi(Ind_100)+ &
+                    phi(Ind_020)*gmi(Ind_010)+phi(Ind_011)*gmi(Ind_001)+ &
+                    phi(Ind_210)*gmi(Ind_200)+phi(Ind_030)*gmi(Ind_020)+ &
+                    phi(Ind_012)*gmi(Ind_002)+phi(Ind_120)*gmi(Ind_110)+ &
+                    phi(Ind_111)*gmi(Ind_101)+phi(Ind_021)*gmi(Ind_011))
+           g_ind(3) = g_ind(3) + 0.5d0* &
+                   (phi(Ind_001)*gmi(Ind_000)+phi(Ind_101)*gmi(Ind_100)+ &
+                    phi(Ind_011)*gmi(Ind_010)+phi(Ind_002)*gmi(Ind_001)+ &
+                    phi(Ind_201)*gmi(Ind_200)+phi(Ind_021)*gmi(Ind_020)+ &
+                    phi(Ind_003)*gmi(Ind_002)+phi(Ind_111)*gmi(Ind_110)+ &
+                    phi(Ind_102)*gmi(Ind_101)+phi(Ind_012)*gmi(Ind_011))
+           ! torque field at i due to direct dipoles of j
+           ! note factor of 1/2
+           do jj = 1,10
+             torque_field(jj,i) = torque_field(jj,i) + 0.5d0*phi(jj)
+           enddo
+        endif ! is_polarizable(j) )then
+        ! next the polar dipoles interact with direct field in grad
+        ! recall A gives coulomb, BD damped and B the erfc*1/r contributions
+         ! IPS for point multipoles
+         wtdump=direct_weight(k)
+         call Fipsmdq(delr,wtdump,fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5)
+         fipsr1=fipsr1+wtdump*dumpr1
+         fipsr2=fipsr2+wtdump*dumpr2
+         fipsr3=fipsr3+wtdump*dumpr3
+         fipsr4=fipsr4+wtdump*dumpr4
+         Rn_4(Ind_000) = fipsr0 
+         Rn_4(Ind_100) = delx*fipsr1
+         Rn_4(Ind_010) = dely*fipsr1
+         Rn_4(Ind_001) = delz*fipsr1
+         Rn_4(Ind_200) = fipsr1 + delx2*fipsr2
+         Rn_4(Ind_020) = fipsr1 + dely2*fipsr2
+         Rn_4(Ind_002) = fipsr1 + delz2*fipsr2
+         Rn_4(Ind_110) = delx*dely*fipsr2
+         Rn_4(Ind_101) = delx*delz*fipsr2
+         Rn_4(Ind_011) = dely*delz*fipsr2
+         Rn_4(Ind_300) = delx*(3.d0*fipsr2 + delx2*fipsr3)
+         Rn_4(Ind_030) = dely*(3.d0*fipsr2 + dely2*fipsr3)
+         Rn_4(Ind_003) = delz*(3.d0*fipsr2 + delz2*fipsr3)
+         Rn_4(Ind_210) = dely*(fipsr2 + delx2*fipsr3)
+         Rn_4(Ind_201) = delz*(fipsr2 + delx2*fipsr3)
+         Rn_4(Ind_120) = delx*(fipsr2 + dely2*fipsr3)
+         Rn_4(Ind_021) = delz*(fipsr2 + dely2*fipsr3)
+         Rn_4(Ind_102) = delx*(fipsr2 + delz2*fipsr3)
+         Rn_4(Ind_012) = dely*(fipsr2 + delz2*fipsr3)
+         Rn_4(Ind_111) = delx*dely*delz*fipsr3
+         Rn_4(Ind_400) = 3.0d0*fipsr2 + delx2*(6.0d0*fipsr3+delx2*fipsr4)
+         Rn_4(Ind_040) = 3.0d0*fipsr2 + dely2*(6.0d0*fipsr3+dely2*fipsr4)
+         Rn_4(Ind_004) = 3.0d0*fipsr2 + delz2*(6.0d0*fipsr3+delz2*fipsr4)
+         Rn_4(Ind_310) = delx*dely*(3.0d0*fipsr3+delx2*fipsr4)
+         Rn_4(Ind_301) = delx*delz*(3.0d0*fipsr3+delx2*fipsr4)
+         Rn_4(Ind_130) = delx*dely*(3.0d0*fipsr3+dely2*fipsr4)
+         Rn_4(Ind_031) = dely*delz*(3.0d0*fipsr3+dely2*fipsr4)
+         Rn_4(Ind_103) = delx*delz*(3.0d0*fipsr3+delz2*fipsr4)
+         Rn_4(Ind_013) = dely*delz*(3.0d0*fipsr3+delz2*fipsr4)
+         Rn_4(Ind_220) = fipsr2 + (delx2+dely2)*fipsr3+delx2*dely2*fipsr4
+         Rn_4(Ind_202) = fipsr2 + (delx2+delz2)*fipsr3+delx2*delz2*fipsr4
+         Rn_4(Ind_022) = fipsr2 + (delz2+dely2)*fipsr3+delz2*dely2*fipsr4
+         Rn_4(Ind_211) = delz*dely*(fipsr3+delx2*fipsr4)
+         Rn_4(Ind_121) = delx*delz*(fipsr3+dely2*fipsr4)
+         Rn_4(Ind_112) = delx*dely*(fipsr3+delz2*fipsr4)
+        if ( is_polarizable(i) )then
+           ! induced direct dipoles at i interact with permanent at j
+           !phi(Ind_000)  NOT NEEDED
+           !phi(Ind_000)= &
+                   !Rn_4(Ind_000)*gmj(Ind_000)+Rn_4(Ind_100)*gmj(Ind_100)+ &
+                   !Rn_4(Ind_010)*gmj(Ind_010)+Rn_4(Ind_001)*gmj(Ind_001)+ &
+                   !Rn_4(Ind_200)*gmj(Ind_200)+Rn_4(Ind_020)*gmj(Ind_020)+ &
+                   !Rn_4(Ind_002)*gmj(Ind_002)+Rn_4(Ind_110)*gmj(Ind_110)+ &
+                   !Rn_4(Ind_101)*gmj(Ind_101)+Rn_4(Ind_011)*gmj(Ind_011)
+           phi(Ind_100)= &
+                 -(Rn_4(Ind_100)*gmj(Ind_000)+Rn_4(Ind_200)*gmj(Ind_100)+ &
+                   Rn_4(Ind_110)*gmj(Ind_010)+Rn_4(Ind_101)*gmj(Ind_001)+ &
+                   Rn_4(Ind_300)*gmj(Ind_200)+Rn_4(Ind_120)*gmj(Ind_020)+ &
+                   Rn_4(Ind_102)*gmj(Ind_002)+Rn_4(Ind_210)*gmj(Ind_110)+ &
+                   Rn_4(Ind_201)*gmj(Ind_101)+Rn_4(Ind_111)*gmj(Ind_011))
+           phi(Ind_010)= &
+                 -(Rn_4(Ind_010)*gmj(Ind_000)+Rn_4(Ind_110)*gmj(Ind_100)+ &
+                   Rn_4(Ind_020)*gmj(Ind_010)+Rn_4(Ind_011)*gmj(Ind_001)+ &
+                   Rn_4(Ind_210)*gmj(Ind_200)+Rn_4(Ind_030)*gmj(Ind_020)+ &
+                   Rn_4(Ind_012)*gmj(Ind_002)+Rn_4(Ind_120)*gmj(Ind_110)+ &
+                   Rn_4(Ind_111)*gmj(Ind_101)+Rn_4(Ind_021)*gmj(Ind_011))
+           phi(Ind_001)= &
+                 -(Rn_4(Ind_001)*gmj(Ind_000)+Rn_4(Ind_101)*gmj(Ind_100)+ &
+                   Rn_4(Ind_011)*gmj(Ind_010)+Rn_4(Ind_002)*gmj(Ind_001)+ &
+                   Rn_4(Ind_201)*gmj(Ind_200)+Rn_4(Ind_021)*gmj(Ind_020)+ &
+                   Rn_4(Ind_003)*gmj(Ind_002)+Rn_4(Ind_111)*gmj(Ind_110)+ &
+                   Rn_4(Ind_102)*gmj(Ind_101)+Rn_4(Ind_012)*gmj(Ind_011))
+           phi(Ind_200)=  &
+                   Rn_4(Ind_200)*gmj(Ind_000)+Rn_4(Ind_300)*gmj(Ind_100)+ &
+                   Rn_4(Ind_210)*gmj(Ind_010)+Rn_4(Ind_201)*gmj(Ind_001)+ &
+                   Rn_4(Ind_400)*gmj(Ind_200)+Rn_4(Ind_220)*gmj(Ind_020)+ &
+                   Rn_4(Ind_202)*gmj(Ind_002)+Rn_4(Ind_310)*gmj(Ind_110)+ &
+                   Rn_4(Ind_301)*gmj(Ind_101)+Rn_4(Ind_211)*gmj(Ind_011)
+           phi(Ind_020)= &
+                   Rn_4(Ind_020)*gmj(Ind_000)+Rn_4(Ind_120)*gmj(Ind_100)+ &
+                   Rn_4(Ind_030)*gmj(Ind_010)+Rn_4(Ind_021)*gmj(Ind_001)+ &
+                   Rn_4(Ind_220)*gmj(Ind_200)+Rn_4(Ind_040)*gmj(Ind_020)+ &
+                   Rn_4(Ind_022)*gmj(Ind_002)+Rn_4(Ind_130)*gmj(Ind_110)+ &
+                   Rn_4(Ind_121)*gmj(Ind_101)+Rn_4(Ind_031)*gmj(Ind_011)
+           phi(Ind_002)= &
+                   Rn_4(Ind_002)*gmj(Ind_000)+Rn_4(Ind_102)*gmj(Ind_100)+ &
+                   Rn_4(Ind_012)*gmj(Ind_010)+Rn_4(Ind_003)*gmj(Ind_001)+ &
+                   Rn_4(Ind_202)*gmj(Ind_200)+Rn_4(Ind_022)*gmj(Ind_020)+ &
+                   Rn_4(Ind_004)*gmj(Ind_002)+Rn_4(Ind_112)*gmj(Ind_110)+ &
+                   Rn_4(Ind_103)*gmj(Ind_101)+Rn_4(Ind_013)*gmj(Ind_011)
+           phi(Ind_110)= &
+                   Rn_4(Ind_110)*gmj(Ind_000)+Rn_4(Ind_210)*gmj(Ind_100)+ &
+                   Rn_4(Ind_120)*gmj(Ind_010)+Rn_4(Ind_111)*gmj(Ind_001)+ &
+                   Rn_4(Ind_310)*gmj(Ind_200)+Rn_4(Ind_130)*gmj(Ind_020)+ &
+                   Rn_4(Ind_112)*gmj(Ind_002)+Rn_4(Ind_220)*gmj(Ind_110)+ &
+                   Rn_4(Ind_211)*gmj(Ind_101)+Rn_4(Ind_121)*gmj(Ind_011)
+           phi(Ind_101)= &
+                   Rn_4(Ind_101)*gmj(Ind_000)+Rn_4(Ind_201)*gmj(Ind_100)+ &
+                   Rn_4(Ind_111)*gmj(Ind_010)+Rn_4(Ind_102)*gmj(Ind_001)+ &
+                   Rn_4(Ind_301)*gmj(Ind_200)+Rn_4(Ind_121)*gmj(Ind_020)+ &
+                   Rn_4(Ind_103)*gmj(Ind_002)+Rn_4(Ind_211)*gmj(Ind_110)+ &
+                   Rn_4(Ind_202)*gmj(Ind_101)+Rn_4(Ind_112)*gmj(Ind_011)
+           phi(Ind_011)=  &
+                   Rn_4(Ind_011)*gmj(Ind_000)+Rn_4(Ind_111)*gmj(Ind_100)+ &
+                   Rn_4(Ind_021)*gmj(Ind_010)+Rn_4(Ind_012)*gmj(Ind_001)+ &
+                   Rn_4(Ind_211)*gmj(Ind_200)+Rn_4(Ind_031)*gmj(Ind_020)+ &
+                   Rn_4(Ind_013)*gmj(Ind_002)+Rn_4(Ind_121)*gmj(Ind_110)+ &
+                   Rn_4(Ind_112)*gmj(Ind_101)+Rn_4(Ind_022)*gmj(Ind_011)
+           g_ind(1) = g_ind(1) + 0.5d0* &
+                   (  phi(Ind_200)*i_pi(1) + phi(Ind_110)*i_pi(2) + &
+                      phi(Ind_101)*i_pi(3) )
+           g_ind(2) = g_ind(2) + 0.5d0* &
+                   (  phi(Ind_110)*i_pi(1) + phi(Ind_020)*i_pi(2) + &
+                      phi(Ind_011)*i_pi(3) )
+           g_ind(3) = g_ind(3) + 0.5d0* &
+                   (  phi(Ind_101)*i_pi(1) + phi(Ind_011)*i_pi(2) + &
+                      phi(Ind_002)*i_pi(3) )
+           ! calculate the potential at j due to polar induced at i
+           ! and derivatives of that with respect to r_j
+           ! minus signs due to deriv of r_j-r_i wrt r_i entering into potential
+           phi(Ind_000) = -(Rn_4(Ind_100)*i_pi(1)+Rn_4(Ind_010)*i_pi(2) + &
+                            Rn_4(Ind_001)*i_pi(3))
+           phi(Ind_100) = -(Rn_4(Ind_200)*i_pi(1)+Rn_4(Ind_110)*i_pi(2) + &
+                            Rn_4(Ind_101)*i_pi(3))
+           phi(Ind_010) = -(Rn_4(Ind_110)*i_pi(1)+Rn_4(Ind_020)*i_pi(2) + &
+                            Rn_4(Ind_011)*i_pi(3))
+           phi(Ind_001) = -(Rn_4(Ind_101)*i_pi(1)+Rn_4(Ind_011)*i_pi(2) + &
+                            Rn_4(Ind_002)*i_pi(3))
+           phi(Ind_200) = -(Rn_4(Ind_300)*i_pi(1)+Rn_4(Ind_210)*i_pi(2) + &
+                            Rn_4(Ind_201)*i_pi(3))
+           phi(Ind_020) = -(Rn_4(Ind_120)*i_pi(1)+Rn_4(Ind_030)*i_pi(2) + &
+                            Rn_4(Ind_021)*i_pi(3))
+           phi(Ind_002) = -(Rn_4(Ind_102)*i_pi(1)+Rn_4(Ind_012)*i_pi(2) + &
+                            Rn_4(Ind_003)*i_pi(3))
+           phi(Ind_110) = -(Rn_4(Ind_210)*i_pi(1)+Rn_4(Ind_120)*i_pi(2) + &
+                            Rn_4(Ind_111)*i_pi(3))
+           phi(Ind_101) = -(Rn_4(Ind_201)*i_pi(1)+Rn_4(Ind_111)*i_pi(2) + &
+                            Rn_4(Ind_102)*i_pi(3))
+           phi(Ind_011) = -(Rn_4(Ind_111)*i_pi(1)+Rn_4(Ind_021)*i_pi(2) + &
+                            Rn_4(Ind_012)*i_pi(3))
+           ! torque field at j due to direct induced mpoles of i
+           ! note factor of 1/2
+           do jj = 1,10
+              torque_field(jj,j) = torque_field(jj,j) + 0.5d0*phi(jj)
+           enddo
+        endif !is_polarizable(i)
+        if ( is_polarizable(j) )then
+           ! induced polar dipoles at j interact with permanent at i
+           ! phi array (electrostatic potential at i due to j induced moments
+           ! and derivs of that esp wrt r_i )
+           ! minus signs arise due to derivs of r_j - r_i wrt r_i
+           phi(Ind_000) = Rn_4(Ind_100)*i_pj(1)+Rn_4(Ind_010)*i_pj(2) + &
+                          Rn_4(Ind_001)*i_pj(3)
+           phi(Ind_100) = -(Rn_4(Ind_200)*i_pj(1)+Rn_4(Ind_110)*i_pj(2) + &
+                            Rn_4(Ind_101)*i_pj(3))
+           phi(Ind_010) = -(Rn_4(Ind_110)*i_pj(1)+Rn_4(Ind_020)*i_pj(2) + &
+                            Rn_4(Ind_011)*i_pj(3))
+           phi(Ind_001) = -(Rn_4(Ind_101)*i_pj(1)+Rn_4(Ind_011)*i_pj(2) + &
+                            Rn_4(Ind_002)*i_pj(3))
+           phi(Ind_200) = Rn_4(Ind_300)*i_pj(1)+Rn_4(Ind_210)*i_pj(2) + &
+                          Rn_4(Ind_201)*i_pj(3)
+           phi(Ind_020) = Rn_4(Ind_120)*i_pj(1)+Rn_4(Ind_030)*i_pj(2) + &
+                          Rn_4(Ind_021)*i_pj(3)
+           phi(Ind_002) = Rn_4(Ind_102)*i_pj(1)+Rn_4(Ind_012)*i_pj(2) + &
+                          Rn_4(Ind_003)*i_pj(3)
+           phi(Ind_110) = Rn_4(Ind_210)*i_pj(1)+Rn_4(Ind_120)*i_pj(2) + &
+                          Rn_4(Ind_111)*i_pj(3)
+           phi(Ind_101) = Rn_4(Ind_201)*i_pj(1)+Rn_4(Ind_111)*i_pj(2) + &
+                          Rn_4(Ind_102)*i_pj(3)
+           phi(Ind_011) = Rn_4(Ind_111)*i_pj(1)+Rn_4(Ind_021)*i_pj(2) + &
+                          Rn_4(Ind_012)*i_pj(3)
+           phi(Ind_300) = -(Rn_4(Ind_400)*i_pj(1)+Rn_4(Ind_310)*i_pj(2) + &
+                            Rn_4(Ind_301)*i_pj(3))
+           phi(Ind_030) = -(Rn_4(Ind_130)*i_pj(1)+Rn_4(Ind_040)*i_pj(2) + &
+                            Rn_4(Ind_031)*i_pj(3))
+           phi(Ind_003) = -(Rn_4(Ind_103)*i_pj(1)+Rn_4(Ind_013)*i_pj(2) + &
+                            Rn_4(Ind_004)*i_pj(3))
+           phi(Ind_210) = -(Rn_4(Ind_310)*i_pj(1)+Rn_4(Ind_220)*i_pj(2) + &
+                            Rn_4(Ind_211)*i_pj(3))
+           phi(Ind_201) = -(Rn_4(Ind_301)*i_pj(1)+Rn_4(Ind_211)*i_pj(2) + &
+                            Rn_4(Ind_202)*i_pj(3))
+           phi(Ind_120) = -(Rn_4(Ind_220)*i_pj(1)+Rn_4(Ind_130)*i_pj(2) + &
+                            Rn_4(Ind_121)*i_pj(3))
+           phi(Ind_021) = -(Rn_4(Ind_121)*i_pj(1)+Rn_4(Ind_031)*i_pj(2) + &
+                            Rn_4(Ind_022)*i_pj(3))
+           phi(Ind_102) = -(Rn_4(Ind_202)*i_pj(1)+Rn_4(Ind_112)*i_pj(2) + &
+                            Rn_4(Ind_103)*i_pj(3))
+           phi(Ind_012) = -(Rn_4(Ind_112)*i_pj(1)+Rn_4(Ind_022)*i_pj(2) + &
+                            Rn_4(Ind_013)*i_pj(3))
+           phi(Ind_111) = -(Rn_4(Ind_211)*i_pj(1)+Rn_4(Ind_121)*i_pj(2) + &
+                            Rn_4(Ind_112)*i_pj(3))
+           g_ind(1) = g_ind(1) + 0.5d0* &
+                   (phi(Ind_100)*gmi(Ind_000)+phi(Ind_200)*gmi(Ind_100)+ &
+                    phi(Ind_110)*gmi(Ind_010)+phi(Ind_101)*gmi(Ind_001)+ &
+                    phi(Ind_300)*gmi(Ind_200)+phi(Ind_120)*gmi(Ind_020)+ &
+                    phi(Ind_102)*gmi(Ind_002)+phi(Ind_210)*gmi(Ind_110)+ &
+                    phi(Ind_201)*gmi(Ind_101)+phi(Ind_111)*gmi(Ind_011))
+           g_ind(2) = g_ind(2) + 0.5d0* &
+                   (phi(Ind_010)*gmi(Ind_000)+phi(Ind_110)*gmi(Ind_100)+ &
+                    phi(Ind_020)*gmi(Ind_010)+phi(Ind_011)*gmi(Ind_001)+ &
+                    phi(Ind_210)*gmi(Ind_200)+phi(Ind_030)*gmi(Ind_020)+ &
+                    phi(Ind_012)*gmi(Ind_002)+phi(Ind_120)*gmi(Ind_110)+ &
+                    phi(Ind_111)*gmi(Ind_101)+phi(Ind_021)*gmi(Ind_011))
+           g_ind(3) = g_ind(3) + 0.5d0* &
+                   (phi(Ind_001)*gmi(Ind_000)+phi(Ind_101)*gmi(Ind_100)+ &
+                    phi(Ind_011)*gmi(Ind_010)+phi(Ind_002)*gmi(Ind_001)+ &
+                    phi(Ind_201)*gmi(Ind_200)+phi(Ind_021)*gmi(Ind_020)+ &
+                    phi(Ind_003)*gmi(Ind_002)+phi(Ind_111)*gmi(Ind_110)+ &
+                    phi(Ind_102)*gmi(Ind_101)+phi(Ind_012)*gmi(Ind_011))
+           ! torque field at i due to polar dipoles of j
+           ! note factor of 1/2
+           do jj = 1,10
+             torque_field(jj,i) = torque_field(jj,i) + 0.5d0*phi(jj)
+           enddo
+        endif ! is_polarizable(j) )then
+        ! finally the induced-induced interactions
+        if ( is_polarizable(i) .and. is_polarizable(j) )then
+           ! recall A gives coulomb, BD damped and B the erfc*1/r contributions
+         ! IPS for point multipoles
+        wtdump=mutual_weight(k)
+        call Fipsmdq(delr,wtdump,fipsr0,fipsr1,fipsr2,fipsr3,fipsr4,fipsr5)
+         fipsr1=fipsr1+wtdump*dumpr1
+         fipsr2=fipsr2+wtdump*dumpr2
+         fipsr3=fipsr3+wtdump*dumpr3
+         fipsr4=fipsr4+wtdump*dumpr4
+         !Rn_3(Ind_000) = fipsr0 
+         Rn_3(Ind_100) = delx*fipsr1
+         Rn_3(Ind_010) = dely*fipsr1
+         Rn_3(Ind_001) = delz*fipsr1
+         Rn_3(Ind_200) = fipsr1 + delx2*fipsr2
+         Rn_3(Ind_020) = fipsr1 + dely2*fipsr2
+         Rn_3(Ind_002) = fipsr1 + delz2*fipsr2
+         Rn_3(Ind_110) = delx*dely*fipsr2
+         Rn_3(Ind_101) = delx*delz*fipsr2
+         Rn_3(Ind_011) = dely*delz*fipsr2
+         Rn_3(Ind_300) = delx*(3.d0*fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_030) = dely*(3.d0*fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_003) = delz*(3.d0*fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_210) = dely*(fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_201) = delz*(fipsr2 + delx2*fipsr3)
+         Rn_3(Ind_120) = delx*(fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_021) = delz*(fipsr2 + dely2*fipsr3)
+         Rn_3(Ind_102) = delx*(fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_012) = dely*(fipsr2 + delz2*fipsr3)
+         Rn_3(Ind_111) = delx*dely*delz*fipsr3
+           ! phi array (electrostatic pot at i due to j induced direct
+           ! and derivs of that esp wrt r_i )
+           phi(Ind_200) = Rn_3(Ind_300)*i_dj(1)+Rn_3(Ind_210)*i_dj(2)+ &
+                          Rn_3(Ind_201)*i_dj(3)
+           phi(Ind_020) = Rn_3(Ind_120)*i_dj(1)+Rn_3(Ind_030)*i_dj(2)+ &
+                          Rn_3(Ind_021)*i_dj(3)
+           phi(Ind_002) = Rn_3(Ind_102)*i_dj(1)+Rn_3(Ind_012)*i_dj(2)+ &
+                          Rn_3(Ind_003)*i_dj(3)
+           phi(Ind_110) = Rn_3(Ind_210)*i_dj(1)+Rn_3(Ind_120)*i_dj(2)+ &
+                          Rn_3(Ind_111)*i_dj(3)
+           phi(Ind_101) = Rn_3(Ind_201)*i_dj(1)+Rn_3(Ind_111)*i_dj(2)+ &
+                          Rn_3(Ind_102)*i_dj(3)
+           phi(Ind_011) = Rn_3(Ind_111)*i_dj(1)+Rn_3(Ind_021)*i_dj(2)+ &
+                          Rn_3(Ind_012)*i_dj(3)
+           g_ind(1) = g_ind(1) + 0.5d0* &
+                         (phi(Ind_200)*i_pi(1)+phi(Ind_110)*i_pi(2) + &
+                          phi(Ind_101)*i_pi(3))
+           g_ind(2) = g_ind(2) + 0.5d0* &
+                         (phi(Ind_110)*i_pi(1)+phi(Ind_020)*i_pi(2) + &
+                          phi(Ind_011)*i_pi(3))
+           g_ind(3) = g_ind(3) + 0.5d0* &
+                         (phi(Ind_101)*i_pi(1)+phi(Ind_011)*i_pi(2) + &
+                          phi(Ind_002)*i_pi(3))
+           ! phi array (electrostatic pot at i due to j induced polar
+           ! and derivs of that esp wrt r_i )
+           phi(Ind_200) = Rn_3(Ind_300)*i_pj(1)+Rn_3(Ind_210)*i_pj(2)+ &
+                          Rn_3(Ind_201)*i_pj(3)
+           phi(Ind_020) = Rn_3(Ind_120)*i_pj(1)+Rn_3(Ind_030)*i_pj(2)+ &
+                          Rn_3(Ind_021)*i_pj(3)
+           phi(Ind_002) = Rn_3(Ind_102)*i_pj(1)+Rn_3(Ind_012)*i_pj(2)+ &
+                          Rn_3(Ind_003)*i_pj(3)
+           phi(Ind_110) = Rn_3(Ind_210)*i_pj(1)+Rn_3(Ind_120)*i_pj(2)+ &
+                          Rn_3(Ind_111)*i_pj(3)
+           phi(Ind_101) = Rn_3(Ind_201)*i_pj(1)+Rn_3(Ind_111)*i_pj(2)+ &
+                          Rn_3(Ind_102)*i_pj(3)
+           phi(Ind_011) = Rn_3(Ind_111)*i_pj(1)+Rn_3(Ind_021)*i_pj(2)+ &
+                          Rn_3(Ind_012)*i_pj(3)
+           g_ind(1) = g_ind(1) + 0.5d0* &
+                         (phi(Ind_200)*i_di(1)+phi(Ind_110)*i_di(2) + &
+                          phi(Ind_101)*i_di(3))
+           g_ind(2) = g_ind(2) + 0.5d0* &
+                         (phi(Ind_110)*i_di(1)+phi(Ind_020)*i_di(2) + &
+                          phi(Ind_011)*i_di(3))
+           g_ind(3) = g_ind(3) + 0.5d0* &
+                         (phi(Ind_101)*i_di(1)+phi(Ind_011)*i_di(2) + &
+                          phi(Ind_002)*i_di(3))
+        endif !is_polarizable(i) .and. is_polarizable(j) 
+     endif !( is_polarizable(i) .or. is_polarizable(j) )then
+     ! frc is negative gradient
+     ene_perm = ene_perm + coulomb_const_kcal_per_mole*e_pp
+     ene_ind  = ene_ind + coulomb_const_kcal_per_mole*e_ind
+     frc(1,j) = frc(1,j) + coulomb_const_kcal_per_mole*(g_pp(1) + g_ind(1))
+     frc(2,j) = frc(2,j) + coulomb_const_kcal_per_mole*(g_pp(2) + g_ind(2))
+     frc(3,j) = frc(3,j) + coulomb_const_kcal_per_mole*(g_pp(3) + g_ind(3))
+     frc(1,i) = frc(1,i) - coulomb_const_kcal_per_mole*(g_pp(1) + g_ind(1))
+     frc(2,i) = frc(2,i) - coulomb_const_kcal_per_mole*(g_pp(2) + g_ind(2))
+     frc(3,i) = frc(3,i) - coulomb_const_kcal_per_mole*(g_pp(3) + g_ind(3))
+     vxx = vxx - coulomb_const_kcal_per_mole*delx*(g_pp(1) + g_ind(1))
+     vxy = vxy - coulomb_const_kcal_per_mole*delx*(g_pp(2) + g_ind(2))
+     vxz = vxz - coulomb_const_kcal_per_mole*delx*(g_pp(3) + g_ind(3))
+     vyx = vyx - coulomb_const_kcal_per_mole*dely*(g_pp(1) + g_ind(1))
+     vyy = vyy - coulomb_const_kcal_per_mole*dely*(g_pp(2) + g_ind(2))
+     vyz = vyz - coulomb_const_kcal_per_mole*dely*(g_pp(3) + g_ind(3))
+     vzx = vzx - coulomb_const_kcal_per_mole*delz*(g_pp(1) + g_ind(1))
+     vzy = vzy - coulomb_const_kcal_per_mole*delz*(g_pp(2) + g_ind(2))
+     vzz = vzz - coulomb_const_kcal_per_mole*delz*(g_pp(3) + g_ind(3))
+   enddo !n_adj = 1,num_adjust_list
+   virial(1,1) = virial(1,1) + vxx
+   virial(1,2) = virial(1,2) + half*(vxy + vyx)
+   virial(1,3) = virial(1,3) + half*(vxz + vzx)
+   virial(2,1) = virial(2,1) + half*(vxy + vyx)
+   virial(2,2) = virial(2,2) + vyy
+   virial(2,3) = virial(2,3) + half*(vyz + vzy)
+   virial(3,1) = virial(3,1) + half*(vxz + vzx)
+   virial(3,2) = virial(3,2) + half*(vyz + vzy)
+   virial(3,3) = virial(3,3) + vzz
+end subroutine AM_ADJUST_ips_ene_frc
 !-------------------------------------------------------
 end module amoeba_adjust

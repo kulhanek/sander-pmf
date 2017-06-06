@@ -1,62 +1,64 @@
 #include "copyright.h"
 
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Platform independent exit; returns an exit status to the OS.
+!------------------------------------------------------------------------------
+! mexit: Platform independent exit, designed to produce the same behavior and
+!        return the same status to the OS no matter the architecture.  This
+!        routine detects the specific platform and proceeds accordingly.
+!
+! Arguments:
+!   output_unit:   this unit will be closed if its index is greater than zero
+!                  and this is not an MPI slave process
+!   status:        exit status (returned)
+!------------------------------------------------------------------------------
 subroutine mexit(output_unit, status)
-   
-   !  mexit() - machine-dependent exit() procedure, designed to return an
-   !            appropriate (success/failure) value to the operating system.
-   
 #ifdef PUPIL_SUPPORT
-   use pupildata
+  use pupildata
 #endif
 
-   implicit none
-   integer output_unit  ! close this unit if greater than zero, non-MPI
-   integer status       ! exit status; error if non-zero
+  implicit none
+  integer output_unit
+  integer status
 
 #ifdef MPI
-   include 'mpif.h'
-   integer ierr
+  include 'mpif.h'
+  integer ierr
 #  include "parallel.h"
    
-   !       ...status .gt. 0 implies an error condition, therefore
-   !       kill all the nodes.  mpi_abort on the world communicator
-   !       should do this, but it does not on some implementations.
-   !       some MPI's have an environmental sledge hammer that kills
-   !       every MPI process if one dies: mpiexec -kill
-   
-   if (status /= 0) then
-      call amflsh(output_unit)
-      call mpi_abort(MPI_COMM_WORLD, status, ierr)
-   else
-      call mpi_finalize(ierr)
-   end if
+  ! Status .gt. 0 implies an error condition, therefore
+  ! kill all the nodes.  mpi_abort on the world communicator
+  ! should do this, but it does not on some implementations.
+  ! Some MPI's have an environmental sledge hammer that kills
+  ! every MPI process if one dies: mpiexec -kill   
+  if (status /= 0) then
+    call amflsh(output_unit)
+    call mpi_abort(MPI_COMM_WORLD, status, ierr)
+  else
+    call mpi_finalize(ierr)
+  endif
 #endif
 
 #ifdef PUPIL_SUPPORT
-!jtc ========================= PUPIL INTERFACE =========================
-!     Terminate the PUPIL CORBA interface, only if such an interface
-!     exists.
-      if (pupactive) then
-         puperror = 0
-         call killcorbaintfc(puperror)
-         if(puperror /= 0) write(6,*) 'Error ending PUPIL CORBA interface.'
-      end if
-!jtc ========================= PUPIL INTERFACE =========================
+  ! Terminate the PUPIL CORBA interface, only if such an interface exists.
+  if (pupactive) then
+    puperror = 0
+    call killcorbaintfc(puperror)
+    if (puperror /= 0) then
+      write(6,*) 'Error ending PUPIL CORBA interface.'
+    endif
+  endif
 #endif
 
-   if (output_unit > 0 .and. status/=0) then
-      close(unit=output_unit)
-   end if
+  if (output_unit > 0 .and. status/=0) then
+    close(unit = output_unit)
+  endif
 
 #ifdef XLF90
-   if (status /= 0) then
-      stop 1
-   else
-      stop 0
-   end if
+  if (status /= 0) then
+    stop 1
+  else
+    stop 0
+  endif
 #else
-   call exit(status)
+  call exit(status)
 #endif
 end subroutine mexit 

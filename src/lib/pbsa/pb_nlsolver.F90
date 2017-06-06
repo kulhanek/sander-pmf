@@ -29,7 +29,7 @@ module pb_nlsolver
 
 !  All
    _REAL_,allocatable :: am1(:), am2(:), am3(:), ad(:), ad1(:)
-   _REAL_,allocatable :: bv(:), xv(:), rv(:), iv(:), xcorr(:) 
+   _REAL_,allocatable :: bv(:), xv(:), rv(:), iv(:), xcorr(:)
    _REAL_,allocatable :: pv(:), tv(:), zv(:)
 
 contains
@@ -40,8 +40,8 @@ subroutine init_param(nx,ny,nz,nxny,nxnynz,p_maxitn,p_npbstep,p_npbgrid, &
    integer nx, ny, nz, nxny, nxnynz, p_maxitn, p_npbstep, p_npbgrid
    _REAL_ ivalence, h, pbkb, pbtemp, istrng, p_wsor, p_lwsor
 
-   uconvg = .true.   
- 
+   uconvg = .true.
+
    xm = nx
    ym = ny
    zm = nz
@@ -65,7 +65,7 @@ subroutine init_param(nx,ny,nz,nxny,nxnynz,p_maxitn,p_npbstep,p_npbgrid, &
    norm2 = ZERO
    savnorm = ZERO
    savnorm2 = ZERO
-   maxbf = ZERO 
+   maxbf = ZERO
    temp = ZERO
 
 end subroutine init_param
@@ -148,7 +148,7 @@ end subroutine allocate_array
 !=====================================================================================================================
 subroutine deallocate_array( solvopt )
 
-   integer solvopt 
+   integer solvopt
 
    select case ( solvopt )
    case (1)
@@ -160,7 +160,7 @@ subroutine deallocate_array( solvopt )
       deallocate( am1, am2, am3, xv, xcorr )
       deallocate( ad, ad1, bv, rv, iv, zv, bz )
       deallocate( mg_index, mg_index_ext, mg_x_idx, mg_size, mg_onorm )
-   case (3) 
+   case (3)
       deallocate( am1, am2, am3 )
       deallocate( ad, ad1, bv, zv, iv, pv, tv, rv )
    case (4)
@@ -213,7 +213,7 @@ subroutine init_array(xs,epsx,epsy,epsz,p_iv,p_bv, &
       xv  = ZERO
       xcorr  = ZERO
       iv(1:xmymzm) = p_iv(1:xmymzm)
-      xv(1+xmym:xmymzm+xmym) = xs(1:xmymzm) 
+      xv(1+xmym:xmymzm+xmym) = xs(1:xmymzm)
 
       call feedepsintoam(epsx,epsy,epsz,am1(xmym+1),am2(xmym+1),am3(xmym+1))
       call pb_initad( epsx,epsy,epsz,ad(1),ad1(1),iv(1) )
@@ -246,7 +246,7 @@ subroutine init_array(xs,epsx,epsy,epsz,p_iv,p_bv, &
       xv  = ZERO
       xcorr  = ZERO
       iv(1:xmymzm) = p_iv(1:xmymzm)
-      xv(1+xmym:xmymzm+xmym) = xs(1:xmymzm) 
+      xv(1+xmym:xmymzm+xmym) = xs(1:xmymzm)
 
       lxmym = mg_size(1,1)*mg_size(2,1)
       call feedepsintoam(epsx,epsy,epsz,am1(lxmym+1),am2(lxmym+1),am3(lxmym+1))
@@ -259,13 +259,13 @@ subroutine init_array(xs,epsx,epsy,epsz,p_iv,p_bv, &
 
       if ( npbstep == 1 ) then
          bv(1:xmymzm) = p_bv(1:xmymzm)
-      else  
+      else
          call resid(xv,am1,am2,am3,ad,ad1,p_bv,bv,iv,npbopt,nbnd,iepsav)
       end if
 
       m = 0
       do i = 1, mg_nlevel
-         m = m + mg_size(1,i) * mg_size(2,i) * mg_size(3,i) 
+         m = m + mg_size(1,i) * mg_size(2,i) * mg_size(3,i)
       end do
       allocate ( lepsx(1:m), lepsy(1:m), lepsz(1:m) )
       call feedepsintoam(epsx,epsy,epsz,lepsx(1),lepsy(1),lepsz(1))
@@ -349,7 +349,7 @@ subroutine init_array(xs,epsx,epsy,epsz,p_iv,p_bv, &
       zv  = ZERO
       xv  = ZERO
       xcorr  = ZERO
-      xv(1+xmym:xmymzm+xmym) = xs(1:xmymzm) 
+      xv(1+xmym:xmymzm+xmym) = xs(1:xmymzm)
 
       call feedepsintoam(epsx,epsy,epsz,am1(1),am2(1),am3(1))
       call pb_initad( epsx,epsy,epsz,ad(1),ad1(1),iv(1) )
@@ -376,7 +376,7 @@ subroutine pb_setupper( am1, am2, am3 )
    do i = 1, xm; do j = 1, ym
       am3(i,j,zm) = ZERO
    end do; end do
- 
+
 end subroutine pb_setupper
 !=====================================================================================================================
 subroutine feedepsintoam(eps1,eps2,eps3,lam1,lam2,lam3)
@@ -433,7 +433,7 @@ subroutine set_am_ad( epsx,epsy,epsz,iv,lam1,lam2,lam3,lad,lad1,lbz, &
             lam3t = epsout
             if ( k1 /= 0 ) lam3t = lam3(i,j,k1)
             lad(i,j,k) = lam1t + lam1(i,j,k) + lam2t + lam2(i,j,k) &
-                       + lam3t + lam3(i,j,k) 
+                       + lam3t + lam3(i,j,k)
          end do
       end do
    end do
@@ -483,7 +483,7 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                           (hmav(epsx(i2  ,j2-1,k2-1),epsx(i2+1,j2-1,k2-1)) + &
                            hmav(epsx(i2  ,j2+1,k2-1),epsx(i2+1,j2+1,k2-1)) + &
                            hmav(epsx(i2  ,j2-1,k2+1),epsx(i2+1,j2-1,k2+1)) + &
-                           hmav(epsx(i2  ,j2+1,k2+1),epsx(i2+1,j2+1,k2+1)))/16.d0 
+                           hmav(epsx(i2  ,j2+1,k2+1),epsx(i2+1,j2+1,k2+1)))/16.d0
 
             epsyr(i,j,k) = hmav(epsy(i2  ,j2  ,k2  ),epsy(i2  ,j2+1,k2  ))/4.d0 + &
                           (hmav(epsy(i2-1,j2  ,k2  ),epsy(i2-1,j2+1,k2  )) + &
@@ -493,7 +493,7 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                           (hmav(epsy(i2-1,j2  ,k2-1),epsy(i2-1,j2+1,k2-1)) + &
                            hmav(epsy(i2+1,j2  ,k2-1),epsy(i2+1,j2+1,k2-1)) + &
                            hmav(epsy(i2-1,j2  ,k2+1),epsy(i2-1,j2+1,k2+1)) + &
-                           hmav(epsy(i2+1,j2  ,k2+1),epsy(i2+1,j2+1,k2+1)))/16.d0 
+                           hmav(epsy(i2+1,j2  ,k2+1),epsy(i2+1,j2+1,k2+1)))/16.d0
 
             epszr(i,j,k) = hmav(epsz(i2  ,j2  ,k2  ),epsz(i2  ,j2  ,k2+1))/4.d0 + &
                           (hmav(epsz(i2  ,j2-1,k2  ),epsz(i2  ,j2-1,k2+1)) + &
@@ -503,13 +503,13 @@ subroutine restrict_eps_map( epsx, epsy, epsz, xn, yn, zn, epsxr, epsyr, epszr, 
                           (hmav(epsz(i2-1,j2-1,k2  ),epsz(i2-1,j2-1,k2+1)) + &
                            hmav(epsz(i2-1,j2+1,k2  ),epsz(i2-1,j2+1,k2+1)) + &
                            hmav(epsz(i2+1,j2-1,k2  ),epsz(i2+1,j2-1,k2+1)) + &
-                           hmav(epsz(i2+1,j2+1,k2  ),epsz(i2+1,j2+1,k2+1)))/16.d0 
+                           hmav(epsz(i2+1,j2+1,k2  ),epsz(i2+1,j2+1,k2+1)))/16.d0
 
          end do
       end do
    end do
 
-contains 
+contains
 
 function hmav(a,b)
 
@@ -604,15 +604,15 @@ subroutine pb_nmg( phi, xs, p_bv, epsout, accept, npbopt, nbnd, iepsav )
 
    integer npbopt, nbnd
    _REAL_ accept, epsout
-   _REAL_ phi(1:xmymzm), xs(1-xmym:xmymzm+xmym), p_bv(1:xmymzm) 
+   _REAL_ phi(1:xmymzm), xs(1-xmym:xmymzm+xmym), p_bv(1:xmymzm)
    integer iepsav(4,1:xmymzm)
 
    integer p1,p2,itmax,l
    integer ditn, maxditn
    _REAL_ vaccept
 
-   ncyc_before = 5 
-   ncyc_after = 5 
+   ncyc_before = 5
+   ncyc_after = 5
 
    itn = 0
    idamp = 1
@@ -625,7 +625,7 @@ subroutine pb_nmg( phi, xs, p_bv, epsout, accept, npbopt, nbnd, iepsav )
    inorm = sum(abs(p_bv(1:xmymzm)))
 !  write (6,*) "NMG itn & norm", 0, inorm
 
-   p1 = 1+xmym 
+   p1 = 1+xmym
    p2 = xmymzm+xmym
 
    if ( npbopt == 0 ) then
@@ -640,7 +640,7 @@ subroutine pb_nmg( phi, xs, p_bv, epsout, accept, npbopt, nbnd, iepsav )
       xcorr = ZERO
 
       if ( npbopt /= 0 .and. itn > 0 ) call update_ad()
-     
+
 !     if ( mod(npbstep+1, npbgrid) == 0 ) then
 !        call resid(xv,am1,am2,am3,ad,ad1,p_bv,bv,iv,npbopt,nbnd,iepsav)
 !     end if
@@ -659,12 +659,12 @@ subroutine pb_nmg( phi, xs, p_bv, epsout, accept, npbopt, nbnd, iepsav )
       savnorm2 = norm2
 !     mg_xcorr(p1:p2) = damp*mg_xcorr(p1:p2)
 !     write (6,*) "NMG itn & norm", itn, norm
-         
+
       if ( itn .ge. maxitn .or. norm .le. accept*inorm ) then
          uconvg = .false.
 !        write (6,*) "NMG itn & norm", itn, norm
          if ( itn .ge. maxitn ) then
-            write(6,'(a)') 'PBMD WARNING: Multigrid maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: Multigrid maxitn exceeded!'
          endif
       end if
 
@@ -677,7 +677,7 @@ end subroutine pb_nmg
 subroutine pb_fmg ( epsout, itmax, vaccept, nnorm )
 
 !  use pbtimer_module
-   
+
    integer litn, itmax
    _REAL_  vaccept,epsout,nnorm
 
@@ -701,7 +701,7 @@ subroutine pb_fmg ( epsout, itmax, vaccept, nnorm )
 
 !  if ( nnorm > 0.9d0 ) then
 !     errtol = 0.9d0 * nnorm
-!  else 
+!  else
 !     errtol = nnorm * nnorm
 !  end if
 
@@ -759,14 +759,14 @@ subroutine pb_fmg ( epsout, itmax, vaccept, nnorm )
       lnorm = sum(abs(rv(1:xmymzm)))
 !     write(6,'(a)')  '   Multigrid itn & norm', litn, lnorm
 
-!  
+!
 !  convergence
-!  
-      if ( litn .ge. itmax .or. lnorm .le. errtol ) then 
+!
+      if ( litn .ge. itmax .or. lnorm .le. errtol ) then
          luconvg = .false.
 !        write(6,'(a)')  '   Multigrid itn & norm', litn, lnorm
          if ( litn .ge. itmax ) then
-            write(6,'(a)') 'PBMD WARNING: Multigrid maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: Multigrid maxitn exceeded!'
          endif
       end if
 
@@ -778,7 +778,7 @@ subroutine update_ad
 
    integer j
 
-   bz(1:xmymzm) = iv(1:xmymzm) * cosh( iv(1:xmymzm)*xv(1+xmym:xmymzm+xmym)*ktinv ) * factor1  
+   bz(1:xmymzm) = iv(1:xmymzm) * cosh( iv(1:xmymzm)*xv(1+xmym:xmymzm+xmym)*ktinv ) * factor1
    ad(1:xmymzm) = ad1(1:xmymzm) + bz(1:xmymzm)
 
    do j = 2, mg_nlevel
@@ -821,20 +821,20 @@ subroutine restrict_ad(xf,yf,zf,xc,yc,zc,bzf,bzc,adc,ad1c)
                                  TWO * bzf(i2  ,j2+1,k2  ) + &
                                  bzf(i2+1,j2+1,k2  ) ) + &
                                ( bzf(i2-1,j2-1,k2+1) + &
-                                 TWO * bzf(i2  ,j2-1,k2+1) + & 
+                                 TWO * bzf(i2  ,j2-1,k2+1) + &
                                  bzf(i2+1,j2-1,k2+1) ) + &
                         TWO  * ( bzf(i2-1,j2  ,k2+1) + &
                                  TWO * bzf(i2  ,j2  ,k2+1) + &
                                  bzf(i2+1,j2  ,k2+1) ) + &
                                ( bzf(i2-1,j2+1,k2+1) + &
-                                 TWO * bzf(i2  ,j2+1,k2+1) + & 
-                                 bzf(i2+1,j2+1,k2+1) ) 
+                                 TWO * bzf(i2  ,j2+1,k2+1) + &
+                                 bzf(i2+1,j2+1,k2+1) )
             bzc(i,j,k) = bzc(i,j,k) / 16.d0
             adc(i,j,k) = ad1c(i,j,k) + bzc(i,j,k)
             !adc(i,j,k) = ad1c(i,j,k) + adf(i2+1,j2+1,k2+1) - ad1f(i2+1,j2+1,k2+1)
          end do
       end do
-   end do 
+   end do
 
 end subroutine restrict_ad
 !=====================================================================================================================
@@ -907,7 +907,7 @@ subroutine ipl_chain(vi,xnyn,xnynzn,l,v,lbz,am_1,shift_1,am_2,shift_2,am_3,shift
    _REAL_ v1
 
    v1 = ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1)
-   l1 = l + shift_1 
+   l1 = l + shift_1
    vi(l1) = vi(l1) + v1
 
    call ipl_chain2(vi,xnyn,xnynzn,l1,v1,lbz,am_1,shift_1,am_2,-shift_2,am_3,shift_3)
@@ -934,7 +934,7 @@ subroutine ipl_chain2(vi,xnyn,xnynzn,l1,v1,lbz,am_1,shift_1,am_2,shift_2,am_3,sh
 
 end subroutine ipl_chain2
 
-function ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1) 
+function ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1)
 
    integer l,xnyn,xnynzn,shift_1
    _REAL_ ipl_comp1,v,am_1(1-xnyn:xnynzn),lbz(1:xnynzn)
@@ -947,7 +947,7 @@ function ipl_comp1(v,l,lbz,am_1,xnyn,xnynzn,shift_1)
 
 end function ipl_comp1
 
-function ipl_comp2(v,l,lbz,am_1,am_2,xnyn,xnynzn,shift_1,shift_2) 
+function ipl_comp2(v,l,lbz,am_1,am_2,xnyn,xnynzn,shift_1,shift_2)
 
    integer l,xnyn,xnynzn,shift_1,shift_2
    _REAL_ ipl_comp2,v,am_1(1-xnyn:xnynzn),am_2(1-xnyn:xnynzn)
@@ -964,8 +964,8 @@ function ipl_comp2(v,l,lbz,am_1,am_2,xnyn,xnynzn,shift_1,shift_2)
    return
 
 end function ipl_comp2
-            
-function ipl_comp3(v,l,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,shift_3) 
+
+function ipl_comp3(v,l,lbz,am_1,am_2,am_3,xnyn,xnynzn,shift_1,shift_2,shift_3)
 
    integer l,xnyn,xnynzn,shift_1,shift_2,shift_3
    _REAL_ ipl_comp3,v,am_1(1-xnyn:xnynzn),am_2(1-xnyn:xnynzn),am_3(1-xnyn:xnynzn)
@@ -1018,7 +1018,7 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
    do while ( luconvg )
 
 !     start the sor iteration ...
- 
+
       do ii = 1, nxnynz, 1
          xs(ii) = wsor1*xs(ii) + wsor * (lam1(ii-1   ) * xs(ii-1   ) + &
                                          lam1(ii     ) * xs(ii+1   ) + &
@@ -1041,9 +1041,9 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
          lnorm = sum(abs(lrv(1:nxnynz)))
 
 !        write(6,'(a)')  '      relax itn & norm ', litn, lnorm!, onorm
-!  
+!
 !        check convergence
-!  
+!
          if ( litn .ge. itmax .or. ( ncyc .gt. 0 .and. (litn .ge. ncyc .and. lnorm < onorm ) )  .or. lnorm .le. accept*linorm ) then
 
             luconvg = .false.
@@ -1053,9 +1053,9 @@ subroutine relax(xs,nx,ny,nz,lam1,lam2,lam3,lad,lbv,lrv,nxny,nxnynz,ncyc,accept,
                stop
             end if
 !
-            if ( ncyc .gt. 0 ) onorm = lnorm 
+            if ( ncyc .gt. 0 ) onorm = lnorm
             if ( litn .ge. itmax ) then
-               write(6,'(a)') 'PBMD WARNING: SOR maxitn exceeded!'
+               write(6,'(a)') 'PBSA WARNING: SOR maxitn exceeded!'
             endif
          end if
       end if
@@ -1076,7 +1076,7 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
    integer i
    _REAL_ alpha, beta, pdotz, bdotb1, bdotb2, bdotp
 !  _REAL_ bdotc, cdotc
-   
+
 !
 !  begin code
 !
@@ -1094,7 +1094,7 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
 !  iteration 0:
 !  compute <r(0),r(0)>
 !
-   if ( npbopt /= 0 ) ad(1:xmymzm) = ad1(1:xmymzm) 
+   if ( npbopt /= 0 ) ad(1:xmymzm) = ad1(1:xmymzm)
    itn = 0
    do i = 1,xmymzm
        bv(i)  = bv(i)  + am3(i-xmym)*xs(i-xmym) &
@@ -1103,16 +1103,16 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
                        + am1(i     )*xs(i+1   ) &
                        + am2(i     )*xs(i+xm  ) &
                        + am3(i     )*xs(i+xmym) &
-                       - ad (i     )*xs(i     ) 
+                       - ad (i     )*xs(i     )
    end do
    bdotb1 = dot_product(bv(1:xmymzm),bv(1:xmymzm))
 
-   if ( npbopt /= 0 ) then 
+   if ( npbopt /= 0 ) then
       rv(1:xmymzm) = sinh( iv(1:xmymzm) * xs(1:xmymzm) * ktinv )
-      bv(1:xmymzm) = bv(1:xmymzm) - factor * rv(1:xmymzm) 
+      bv(1:xmymzm) = bv(1:xmymzm) - factor * rv(1:xmymzm)
       bdotp = dot_product( bv(1:xmymzm), bv(1:xmymzm) )
    end if
-   
+
    pv(1:xmymzm) = bv(1:xmymzm)
 
    norm = sum(abs(bv(1:xmymzm)))
@@ -1136,8 +1136,8 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
                  - am1(i-1   )*pv(i-1   ) &
                  - am1(i     )*pv(i+1   ) &
                  - am2(i     )*pv(i+xm  ) &
-                 - am3(i     )*pv(i+xmym) & 
-                 + ad (i)     *pv(i)      
+                 - am3(i     )*pv(i+xmym) &
+                 + ad (i)     *pv(i)
       end do
       pdotz = dot_product( pv(1:xmymzm), zv(1:xmymzm) )
 !
@@ -1158,16 +1158,16 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
       xs(1:xmymzm) = xs(1:xmymzm) + alpha*pv(1:xmymzm)
 !     cbv(1:xmymzm) = -alpha*zv(1:xmymzm)
        bv(1:xmymzm) = bv(1:xmymzm) - alpha*zv(1:xmymzm)
-      if ( npbopt /= 0 ) then 
+      if ( npbopt /= 0 ) then
          tv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv
 !        maxbf = maxval(tv(1:xmymzm))
          tv(1:xmymzm) = sinh( tv(1:xmymzm) )
 !        cbv(1:xmymzm) = cbv(1:xmymzm) - factor * ( tv(1:xmymzm) - rv(1:xmymzm) )
          bv(1:xmymzm) = bv(1:xmymzm) - factor * ( tv(1:xmymzm) - rv(1:xmymzm) )
          rv(1:xmymzm) = tv(1:xmymzm)
-      end if 
+      end if
 !     bv(1:xmymzm) = bv(1:xmymzm) + cbv(1:xmymzm)
-      
+
 !
 !     compute beta(i) = <r(i+1),r(i+1)>/<r(i),r(i)>, part one
 !
@@ -1184,7 +1184,7 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
          uconvg = .false.
          ad(1:xmymzm) = factor * tv(1:xmymzm)
          if ( itn .ge. maxitn ) then
-            write(6,'(a)') 'PBMD WARNING: CG maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: CG maxitn exceeded!'
          endif
 
       else
@@ -1197,8 +1197,8 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
 !           bdotc = dot_product(bv(1:xmymzm),cbv(1:xmymzm))
 !           cdotc = dot_product(cbv(1:xmymzm),cbv(1:xmymzm))
 !           beta = bdotc/bdotb1
-!           if ( beta < ZERO ) beta = ZERO 
-!        end if 
+!           if ( beta < ZERO ) beta = ZERO
+!        end if
          bdotb1 = bdotb2
 !
 !     update p(i+1) = r(i+1) + beta(i) p(i)
@@ -1210,7 +1210,7 @@ subroutine pb_ncg ( phi, xs, accept, npbopt )
    end do !  end of the main CG loop
 !  write(6,'(a)')  'itn & norm ',itn, norm
 
-contains 
+contains
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !
 !   Newton's root finding method to solve for alpha  //CQ
@@ -1219,13 +1219,13 @@ contains
 subroutine ntalpha(xs)
 
    _REAL_ xs(1:xmymzm)
-   
+
 !
 ! Local variables
 !
    integer alpcnt,alpimx
    _REAL_ alpcor,alptol,snhtmp,cshtmp
-   
+
    alpimx = 5  ! alpimx = 5 -> 50   //CQ
    alptol = 0.1d0
 
@@ -1259,7 +1259,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
 !  use pbtimer_module
 
 !  Passed variables
-    
+
    integer npbopt
    double precision phi(xmymzm), xs(1-xmym:xmymzm+xmym), accept
    _REAL_ wsor
@@ -1277,7 +1277,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
 !  if ( npbstep == 0 .and. npbopt /= 0 ) then
 !     w = wsor
 !     wsor = 1.5d0
-!     wsor = ONE 
+!     wsor = ONE
 !  end if
 
 !  calculate initial norm
@@ -1287,7 +1287,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
 
 !  the main loop
 
-   uconvg = .true. 
+   uconvg = .true.
    itn = 0
    if ( npbopt == 0 ) zv(1:xmymzm) = ONE/ad(1:xmymzm)
    if ( npbopt /= 0 .and. wsor > ONE ) idamp = 1
@@ -1303,7 +1303,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
       !if (itn == 1) call pbtimer_start(PBTIME_SINH)
 
          !Nicholas without division by xs
-         zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv 
+         zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv
 !        maxbf = maxval(abs(zv(1:xmymzm)))
          ad(1:xmymzm) = factor * sinh( zv(1:xmymzm) )
          zv(1:xmymzm) = ad1(1:xmymzm) * xs(1:xmymzm) + ad(1:xmymzm)
@@ -1343,7 +1343,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !     check convergence every ten steps ...
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   
+
       !Nicholas without division by xs
       if ( npbopt /= 0 ) then
          do ii = 1, xmymzm
@@ -1357,7 +1357,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
 
          ! with damping
          if ( idamp == 1 ) then
-            damp = ONE 
+            damp = ONE
             ditn = 0
 
             do while( norm2 > savnorm2 .and. ditn < maxditn )
@@ -1398,7 +1398,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
                norm2 = dot_product(phi(1:xmymzm),phi(1:xmymzm))
                ditn = ditn + 1
 
-               do while ( norm2 < savnorm2 .and. ditn < maxditn ) 
+               do while ( norm2 < savnorm2 .and. ditn < maxditn )
                   damp = damp / TWO
                   xs(1:xmymzm) = xs(1:xmymzm) - damp * tv(1:xmymzm)
 
@@ -1416,7 +1416,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
                   norm = sum(abs(phi(1:xmymzm)))
                   norm2 = dot_product(phi(1:xmymzm),phi(1:xmymzm))
                   ditn = ditn + 1
-               end do 
+               end do
 
                if ( norm2 >= savnorm2 ) then
                   xs(1:xmymzm) = xs(1:xmymzm) + damp * tv(1:xmymzm)
@@ -1430,11 +1430,11 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
 !           if ( ditn == 0 ) idamp = 0
 
 !           write(6,'(a)') '   ditn, norm2', ditn, norm2
-         end if 
+         end if
 !        write(6,'(a)') '   norm', norm
 
          savnorm2 = norm2
-         
+
       end if
 
       if ( mod(itn, itn_checknorm) == 0 ) then
@@ -1463,7 +1463,7 @@ subroutine pb_dsor ( phi, xs, wsor, accept, npbopt )
          if ( itn >= maxitn .or. norm <= accept*inorm ) then
             uconvg = .false.
 !           write(6,'(a)') 'itn & norm', itn, norm
-            if ( itn .ge. maxitn ) write(6,'(a)') 'PBMD WARNING: SOR maxitn exceeded!'
+            if ( itn .ge. maxitn ) write(6,'(a)') 'PBSA WARNING: SOR maxitn exceeded!'
          end if
 
       end if
@@ -1482,7 +1482,7 @@ subroutine pb_nticcg( phi, xs, p_bv, accept, npbopt, nbnd, iepsav )
    integer npbopt, nbnd
    _REAL_ accept
    _REAL_ phi(1:xmymzm), xs(1-xmym:xmymzm+xmym)
-   _REAL_ p_bv(1:xmymzm) 
+   _REAL_ p_bv(1:xmymzm)
    integer iepsav(4,1:xmymzm)
 
    integer itmax, ditn, maxditn, l
@@ -1519,7 +1519,7 @@ subroutine pb_nticcg( phi, xs, p_bv, accept, npbopt, nbnd, iepsav )
 
       ! update ad
       if ( npbopt /= 0 .and. itn > 0 ) then
-         ad(1:xmymzm) = ad1(1:xmymzm) + iv(1:xmymzm) * cosh( iv(1:xmymzm)*xv(1+xmym:xmymzm+xmym)*ktinv ) * factor1 
+         ad(1:xmymzm) = ad1(1:xmymzm) + iv(1:xmymzm) * cosh( iv(1:xmymzm)*xv(1+xmym:xmymzm+xmym)*ktinv ) * factor1
          sav_ad = ad
       end if
 
@@ -1531,7 +1531,7 @@ subroutine pb_nticcg( phi, xs, p_bv, accept, npbopt, nbnd, iepsav )
 
       call nt_iccg( xcorr, am1, am2, am3, ad, &
                     bv, rd, pv, tv, zv, &
-                    vaccept, pnorm1, pnorm2)   
+                    vaccept, pnorm1, pnorm2)
 
       itn = itn + 1
       xv = xv + xcorr
@@ -1551,12 +1551,12 @@ subroutine pb_nticcg( phi, xs, p_bv, accept, npbopt, nbnd, iepsav )
 
       savnorm2 = norm2
 !     write (6,*) "NT itn & norm", itn, norm
-         
+
       if ( itn .ge. maxitn .or. norm .le. accept*inorm ) then
          uconvg = .false.
 !        write (6,*) "NT itn & norm", itn, norm
          if ( itn .ge. maxitn ) then
-            write(6,'(a)') 'PBMD WARNING: Multigrid maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING: Multigrid maxitn exceeded!'
          endif
       end if
 
@@ -1578,7 +1578,7 @@ subroutine innt(lxv,lxcorr,lam1,lam2,lam3,lad,lad1,ibv,lbv,lrv,liv, &
 
    ! with damping
    if ( idamp == 1 ) then
-      damp = ONE 
+      damp = ONE
       ditn = 0
 
       do while( norm  > savnorm  .and. ditn < maxditn .and. itn > 1 )
@@ -1605,7 +1605,7 @@ subroutine innt(lxv,lxcorr,lam1,lam2,lam3,lad,lad1,ibv,lbv,lrv,liv, &
 
          ditn = ditn + 1
 
-         do while ( norm  < savnorm  .and. ditn < maxditn ) 
+         do while ( norm  < savnorm  .and. ditn < maxditn )
             damp = damp / TWO
             lxv = lxv - damp * lxcorr
             lbv = lrv
@@ -1618,7 +1618,7 @@ subroutine innt(lxv,lxcorr,lam1,lam2,lam3,lad,lad1,ibv,lbv,lrv,liv, &
                        nbnd,iepsav)
 
             ditn = ditn + 1
-         end do 
+         end do
 
          if ( norm  >= savnorm  ) then
             lxv = lxv + damp * lxcorr
@@ -1640,7 +1640,7 @@ end subroutine innt
 subroutine resid(lxs,lam1,lam2,lam3,lad,lad1,lbv,lrv,liv,npbopt,nbnd,iepsav)
 
 !  use pbtimer_module
-   
+
    integer nbnd,npbopt
    _REAL_ lxs(1-xmym:xmymzm+xmym), lam1(1-xmym:xmymzm), lam2(1-xmym:xmymzm), lam3(1-xmym:xmymzm)
    _REAL_ lad(1:xmymzm), lad1(1:xmymzm), lbv(1:xmymzm), lrv(1:xmymzm), liv(1:xmymzm)
@@ -1649,14 +1649,14 @@ subroutine resid(lxs,lam1,lam2,lam3,lad,lad1,lbv,lrv,liv,npbopt,nbnd,iepsav)
    integer ii,ip,i,j,k
 
    if ( npbopt == 0 ) then
-      do ii = 1,xmymzm 
+      do ii = 1,xmymzm
          lrv(ii) = lam1(ii-1) * lxs(ii-1) + lam1(ii)* lxs(ii+1) + &
                   lam2(ii-xm) * lxs(ii-xm) + lam2(ii)*lxs(ii+xm) + &
                   lam3(ii-xmym) * lxs(ii-xmym) + lam3(ii)*lxs(ii+xmym) + &
                   lbv(ii) - lad(ii)* lxs(ii)
       end do
    else
-      do ii = 1,xmymzm 
+      do ii = 1,xmymzm
          lrv(ii) = lam1(ii-1) * lxs(ii-1) + lam1(ii)* lxs(ii+1) + &
                    lam2(ii-xm) * lxs(ii-xm) + lam2(ii)*lxs(ii+xm) + &
                    lam3(ii-xmym) * lxs(ii-xmym) + lam3(ii)*lxs(ii+xmym) + &
@@ -1676,19 +1676,19 @@ end subroutine resid
 !+ MICCG core iteration routine
 subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
                      lbv, lrd, lpv, ltv, lzv, &
-                     vaccept, pnorm1, pnorm2 )   
+                     vaccept, pnorm1, pnorm2 )
 
    ! Passed variables
-   
-   _REAL_ xs(1-xmym:xmymzm+xmym) 
+
+   _REAL_ xs(1-xmym:xmymzm+xmym)
    _REAL_ lam1(1-xmym:xmymzm+xmym), lam2(1-xmym:xmymzm+xmym), lam3(1-xmym:xmymzm+xmym)
    _REAL_ lad(1:xmymzm+xmym), lbv(1-xmym:xmymzm)
    _REAL_ lrd(1-xmym:xmymzm+xmym), ltv(1-xmym:xmymzm+xmym)
    _REAL_ lzv(1-xmym:xmymzm+xmym), lpv(1-xmym:xmymzm+xmym)
    _REAL_ vaccept, pnorm1, pnorm2
-    
+
    ! Local variables
-    
+
    logical luconvg
    integer i,j,litn,mitn
    _REAL_ alpha, beta, pdotz, bdotb1, bdotb2
@@ -1706,7 +1706,7 @@ subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
    mitn = 10000
 
 !  write(6,'(a)')  '   iccg itn & norm & vaccept', 0, norm, vaccept
- 
+
    ! initialization
 !  write(6,'(a)') "fmiccg", fmiccg
    do i = 1, xmymzm
@@ -1715,7 +1715,7 @@ subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
          lam2(i-xm  )*(fmiccg*lam1(i-xm  )+       lam2(i-xm  )+fmiccg*lam3(i-xm  ))*lrd(i-xm  ) - &
          lam3(i-xmym)*(fmiccg*lam1(i-xmym)+fmiccg*lam2(i-xmym)+       lam3(i-xmym))*lrd(i-xmym) )
    end do
-    
+
    do i = 1, xmymzm
       lad(i) = lad(i)*lrd(i)
       lrd(i) = sqrt(lrd(i))
@@ -1724,7 +1724,7 @@ subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
       lam2(i-xm  ) = lam2(i-xm  )*lrd(i)*lrd(i-xm  )
       lam3(i-xmym) = lam3(i-xmym)*lrd(i)*lrd(i-xmym)
    end do
-    
+
    linorm = ZERO
    do i = 1, xmymzm
       lad(i) = lad(i) - TWO
@@ -1734,7 +1734,7 @@ subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
                       + lam3(i-xmym)*lbv(i-xmym)
       linorm = linorm + abs(lbv(i))
    end do
-    
+
    do i = xmymzm, 1, -1
       ltv(i) = xs(i) + lam1(i     )*ltv(i+1   ) &
                      + lam2(i     )*ltv(i+xm  ) &
@@ -1750,42 +1750,42 @@ subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
    do i = xmymzm, 1, -1
       lzv(i) = lzv(i) + ltv(i)
       lbv(i) = lbv(i) - lzv(i)
-      
+
       ! iteration 0.
-      
+
       bdotb1 = bdotb1 + lbv(i)*lbv(i)
       lpv(i) = lbv(i)
-      
+
       ! first step of the matrix vector multiplication, see below
-      
+
       ltv(i) = lpv(i) + lam1(i     )*ltv(i+1   ) &
                       + lam2(i     )*ltv(i+xm  ) &
                       + lam3(i     )*ltv(i+xmym)
    end do
-    
+
    litn = 0
    luconvg = .true.
-    
+
    ! the main loop of iccg solver
-    
+
    do while ( luconvg )
-       
+
       ! second and thilrd steps of the matrix vector multiplication
-       
+
       pdotz = ZERO
       do i = 1, xmymzm+xmym
          lzv(i) = lpv(i) + lad (i     )*ltv(i     ) &
                          + lam1(i-1   )*lzv(i-1   ) &
                          + lam2(i-xm  )*lzv(i-xm  ) &
                          + lam3(i-xmym)*lzv(i-xmym)
-         
+
          j = i - xmym
          lzv(j) = lzv(j) + ltv(j)
-         
+
          pdotz = pdotz + lpv(j)*lzv(j)
       end do
       alpha = bdotb1/pdotz
-       
+
 !     lnorm  = ZERO
       lnorm1 = ZERO
       lnorm2 = ZERO
@@ -1804,36 +1804,36 @@ subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
 !        lnorm1: orgininal norm
          lnorm1 = lnorm1 + abs(zzv(i))
          lnorm2 = lnorm2 + abs(lbv(i))
- 
+
          bdotb2 = bdotb2+ lbv(i)*lbv(i)
       end do
-       
+
       litn = litn + 1
 !     write(6,'(a)')  '   iccg itn & norm',litn, lnorm1, lnorm2
-      
+
       ! check convergence
-       
+
       if ( litn >= mitn .or. lnorm1 < vaccept * norm ) then
 !     if ( litn >= mitn .or. lnorm2 < norm ) then
-          
+
          luconvg = .false.
          pnorm2 = lnorm1
 
 !        write(6,'(a)')  '   iccg itn & norm',litn, lnorm1
          if ( litn >= mitn ) then
-            write(6,'(a)') 'PB warning in pb_miccg(): CG maxitn exceeded!'
+            write(6,'(a)') 'PBSA WARNING in pb_miccg(): CG maxitn exceeded!'
          end if
-          
+
       else
-          
+
          beta = bdotb2/bdotb1
          bdotb1 = bdotb2
-          
+
          ! first step of the matrix vector multiplication
-          
+
          do i = xmymzm, 1, -1
             lpv(i) = lbv(i) + beta*lpv(i)
-             
+
             ltv(i) = lpv(i) + lam1(i)*ltv(i+1   ) &
                             + lam2(i)*ltv(i+xm  ) &
                             + lam3(i)*ltv(i+xmym)
@@ -1841,17 +1841,17 @@ subroutine nt_iccg ( xs, lam1, lam2, lam3, lad, &
       end if
 
    end do  !  while ( uconvg ), end of the main iccg loop
-    
+
    ! back scaling of the solution
 
    do i = xmymzm, 1, -1
       ltv(i)  = xs(i) + lam1(i)*ltv(i+1   ) &
                       + lam2(i)*ltv(i+xm  ) &
                       + lam3(i)*ltv(i+xmym)
-       
+
       xs(i) = ltv(i)*lrd(i)
    end do
-    
+
 end subroutine nt_iccg
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 subroutine pb_nsor ( phi, xs, wsor, accept, npbopt )
@@ -1859,7 +1859,7 @@ subroutine pb_nsor ( phi, xs, wsor, accept, npbopt )
 !  use pbtimer_module
 
 ! Passed variables
-    
+
    integer npbopt
    double precision phi(xmymzm), xs(1-xmym:xmymzm+xmym), accept
    _REAL_ wsor
@@ -1876,13 +1876,13 @@ subroutine pb_nsor ( phi, xs, wsor, accept, npbopt )
 !  the main loop
 
    wsor1 = ONE - wsor
-   uconvg = .true. 
+   uconvg = .true.
    itn = 0
 
-   if ( npbopt == 0 ) then 
+   if ( npbopt == 0 ) then
       zv(1:xmymzm) = ONE/ad(1:xmymzm)
    else
-      zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv ; 
+      zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv ;
 !     maxbf = maxval(abs(zv(1:xmymzm)))
       ad(1:xmymzm) = factor * sinh( zv(1:xmymzm) )
       zv(1:xmymzm) = ad1(1:xmymzm) * xs(1:xmymzm) + ad(1:xmymzm)
@@ -1926,7 +1926,7 @@ subroutine pb_nsor ( phi, xs, wsor, accept, npbopt )
       !if (itn == 1) call pbtimer_start(PBTIME_SINH)
 
          !Nicholas without division by xs
-         zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv 
+         zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv
 !        maxbf = maxval(abs(zv(1:xmymzm)))
          ad(1:xmymzm) = factor * sinh( zv(1:xmymzm) )
          zv(1:xmymzm) = ad1(1:xmymzm) * xs(1:xmymzm) + ad(1:xmymzm)
@@ -1938,7 +1938,7 @@ subroutine pb_nsor ( phi, xs, wsor, accept, npbopt )
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !     check convergence every ten steps ...
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   
+
       if ( mod(itn, itn_checknorm) == 0 ) then
          !Nicholas without division by xs
          if (npbopt == 0) then
@@ -1964,7 +1964,7 @@ subroutine pb_nsor ( phi, xs, wsor, accept, npbopt )
 
          if ( itn >= maxitn .or. norm <= accept*inorm ) then
             uconvg = .false.
-            if ( itn .ge. maxitn ) write(6,'(a)') 'PBMD WARNING: SOR maxitn exceeded!'
+            if ( itn .ge. maxitn ) write(6,'(a)') 'PBSA WARNING: SOR maxitn exceeded!'
          end if
       end if
 
@@ -1979,7 +1979,7 @@ subroutine pb_asor ( phi, xs, wsor, accept, npbopt )
 !  use pbtimer_module
 
 !  Passed variables
-    
+
    integer npbopt
    double precision phi(xmymzm), xs(1-xmym:xmymzm+xmym), accept
    _REAL_ wsor
@@ -1996,12 +1996,12 @@ subroutine pb_asor ( phi, xs, wsor, accept, npbopt )
 !  the main loop
 
    wsor1 = ONE - wsor
-   uconvg = .true. 
+   uconvg = .true.
    itn = 0
    if (npbopt == 0 ) then
       zv(1:xmymzm) = ONE/ad(1:xmymzm)
    else
-      zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv 
+      zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv
 !     maxbf = maxval(abs(zv(1:xmymzm)))
       ad(1:xmymzm) = factor * sinh( zv(1:xmymzm) )
       zv(1:xmymzm) = ad1(1:xmymzm) * xs(1:xmymzm) + ad(1:xmymzm)
@@ -2046,7 +2046,7 @@ subroutine pb_asor ( phi, xs, wsor, accept, npbopt )
       !if (itn == 1) call pbtimer_start(PBTIME_SINH)
 
          !Nicholas without division by xs
-         zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv 
+         zv(1:xmymzm) = iv(1:xmymzm) * xs(1:xmymzm) * ktinv
 !        maxbf = maxval(abs(zv(1:xmymzm)))
          ad(1:xmymzm) = factor * sinh( zv(1:xmymzm) )
          zv(1:xmymzm) = ad1(1:xmymzm) * xs(1:xmymzm) + ad(1:xmymzm)
@@ -2058,7 +2058,7 @@ subroutine pb_asor ( phi, xs, wsor, accept, npbopt )
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !     check convergence every ten steps ...
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   
+
       if ( mod(itn, itn_checknorm) == 0 ) then
 
          !Nicholas without division by xs
@@ -2088,11 +2088,11 @@ subroutine pb_asor ( phi, xs, wsor, accept, npbopt )
                wsor1 = ONE - wsor
             end if
          end if
-         savnorm = norm  
-   
+         savnorm = norm
+
          if ( itn >= maxitn .or. norm <= accept*inorm ) then
             uconvg = .false.
-            if ( itn .ge. maxitn ) write(6,'(a)') 'PBMD WARNING: SOR maxitn exceeded!'
+            if ( itn .ge. maxitn ) write(6,'(a)') 'PBSA WARNING: SOR maxitn exceeded!'
          end if
 
       end if
@@ -2103,7 +2103,7 @@ subroutine pb_asor ( phi, xs, wsor, accept, npbopt )
 end subroutine pb_asor
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 subroutine pb_ionene(nfocus,level,savgox,savgoy,savgoz, &
-                     savxm,savym,savzm,savh,phi,ionene)
+                     savxm,savym,savzm,savh,phi,ioncrg,ionene,osmene)
 
    implicit none
 
@@ -2111,17 +2111,43 @@ subroutine pb_ionene(nfocus,level,savgox,savgoy,savgoz, &
    integer savxm(nfocus), savym(nfocus), savzm(nfocus)
    _REAL_ savgox(nfocus), savgoy(nfocus), savgoz(nfocus), savh(nfocus)
    _REAL_ phi(xmymzm)
-   _REAL_ ionene
+   _REAL_ ioncrg(xmymzm)
+   _REAL_ ionene,osmene
 
-   ad (1:xmymzm) = savh(level)*ad(1:xmymzm)/2.0d0
+   _REAL_ iontmp, osmtmp
+
+   ! this is ion charge, not concentration any more
+
+   ad (1:xmymzm) = savh(level)*ad(1:xmymzm)
+   ioncrg(1:xmymzm) = -ad(1:xmymzm)
+
+   ! this is to compute the ion osmotic pressure term
+
    ad1(1:xmymzm) = cosh(iv(1:xmymzm)*phi(1:xmymzm)*ktinv)
+
+   ! this is to convert to summation from integration of the
+   ! pressure term and to use the actual ion concentration, not
+   ! the original ionic strength, i.e. there is a prefactor of kT*c_i
+   ! in front of the Boltzmann factor in the pressure
+
    factor = savh(level)*factor/ktinv
-   if ( level == nfocus ) then 
-      ionene = ionene - sum( ad(1:xmymzm)*phi(1:xmymzm) + &
-                            (ad1(1:xmymzm)-iv(1:xmymzm))*factor )
+
+   ! L. Xiao
+   ! fixed the sign mistake for ionene
+   ! the saving of osmene and iongrd is only turned on for
+   ! single grid run for theoretical studies
+
+   if ( level == nfocus ) then
+      iontmp = 0.50d0*sum( ad(1:xmymzm)*phi(1:xmymzm))
+      osmtmp = -factor*sum( (ad1(1:xmymzm)-1.0d0)*iv(1:xmymzm) )
+      osmene = osmene + osmtmp
+      ionene = ionene + iontmp + osmtmp
    else
+      ! R. Luo added prefactor to ad to be consistent
+      ! with L. Xiao's fix for coarse grids
+      ad(1:xmymzm) = -0.5d0*ad(1:xmymzm)
       call ion_ene(nfocus,level,savgox,savgoy,savgoz, &
-                  savxm,savym,savzm,savh,phi,ad,ad1,iv,ionene)
+         savxm,savym,savzm,savh,phi,ad,ad1,iv,ionene)
    end if
 
 end subroutine pb_ionene
@@ -2141,49 +2167,36 @@ subroutine ion_ene(nfocus,level,savgox,savgoy,savgoz, &
    integer ix1, ix2, iy1, iy2, iz1, iz2
    _REAL_  aa1, aa2, bb1, bb2, cc1, cc2
    _REAL_  h1, h2, tmp, tmp1, tmp2, tmp3, tmp4
-  
-!  find in which coarse grid point the edge of fine grid lies
+
+   ! find in which coarse grid point the edge of fine grid lies
 
    h1 = savh(level); h2 = savh(level+1)
 
    tmp1 = (savgox(level+1) + (h2-h1)*HALF - savgox(level))/h1
-!  print *, tmp1
    ix1  = floor(tmp1)
    aa1  = real(ix1+1) - tmp1
 
    tmp2 = (savgoy(level+1) + (h2-h1)*HALF - savgoy(level))/h1
-!  print *, tmp2
    iy1  = floor(tmp2)
    bb1  = real(iy1+1) - tmp2
 
    tmp3 = (savgoz(level+1) + (h2-h1)*HALF - savgoz(level))/h1
-!  print *, tmp3
    iz1  = floor(tmp3)
    cc1  = real(iz1+1) - tmp3
 
    tmp1 = tmp1 + real(savxm(level+1))*h2/h1
-!  print *, tmp1
    ix2  = floor(tmp1)
    aa2  = tmp1 - real(ix2)
 
    tmp2 = tmp2 + real(savym(level+1))*h2/h1
-!  print *, tmp2
    iy2  = floor(tmp2)
    bb2  = tmp2 - real(iy2)
 
    tmp3 = tmp3 + real(savzm(level+1))*h2/h1
-!  print *, tmp3
    iz2  = floor(tmp3)
    cc2  = tmp3 - real(iz2)
 
-!  print *, ix1, ix2, iy1, iy2, iz1, iz2
-!  print *, aa1, aa2, bb1, bb2, cc1, cc2
-
-!  do i = 1, xm; do j = 1, ym; do k = 1, zm
-!     write(101,*) phi(i,j,k)
-!  end do; end do; end do
-
-!  the grid points inside
+   ! the grid points inside
 
    do i = 1, savxm(level)
       if ( i >= ix1 .or. i <= ix2 ) cycle
@@ -2192,87 +2205,87 @@ subroutine ion_ene(nfocus,level,savgox,savgoy,savgoz, &
          do k = 1, savzm(level)
             if ( k >= iz1 .or. k <= iz2 ) cycle
             ionene = ionene - ad(i,j,k)*phi(i,j,k) - &
-                     (ad1(i,j,k)-iv(i,j,k))*factor                
+                     (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor
          end do
       end do
    end do
-         
-!  the grid points on the six faces
+
+   ! the grid points on the six faces
 
    do j = iy1+1, iy2-1; do k = iz1+1, iz2-1
       i = ix1
       ionene = ionene - (ONE-aa1)*(ad(i,j,k)*phi(i,j,k) + &
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       i = ix2
       ionene = ionene - (ONE-aa2)*(ad(i,j,k)*phi(i,j,k) + &
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    end do; end do
    do i = ix1+1, ix2-1; do k = iz1+1, iz2-1
       j = iy1
       ionene = ionene - (ONE-bb1)*(ad(i,j,k)*phi(i,j,k) + &
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       j = iy2
       ionene = ionene - (ONE-bb2)*(ad(i,j,k)*phi(i,j,k) + &
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    end do; end do
    do i = ix1+1, ix2-1; do j = iy1+1, iy2-1
       k = iz1
       ionene = ionene - (ONE-cc1)*(ad(i,j,k)*phi(i,j,k) + &
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       k = iz2
       ionene = ionene - (ONE-cc2)*(ad(i,j,k)*phi(i,j,k) + &
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    end do; end do
 
-!  the grid points on the twelve edges
+   ! the grid points on the twelve edges
 
    tmp1=ONE-bb1*cc1; tmp2=ONE-bb1*cc2; tmp3=ONE-bb2*cc1; tmp4=ONE-bb2*cc2
    do i = ix1+1, ix2-1
       j = iy1; k = iz1
-      ionene = ionene - tmp1*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp1*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       j = iy1; k = iz2
-      ionene = ionene - tmp2*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp2*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       j = iy2; k = iz1
-      ionene = ionene - tmp3*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp3*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       j = iy2; k = iz2
-      ionene = ionene - tmp4*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp4*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    end do
    tmp1=ONE-aa1*cc1; tmp2=ONE-aa1*cc2; tmp3=ONE-aa2*cc1; tmp4=ONE-aa2*cc2
    do j = iy1+1, iy2-1
       i = ix1; k = iz1
-      ionene = ionene - tmp1*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp1*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       i = ix1; k = iz2
-      ionene = ionene - tmp2*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp2*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       i = ix2; k = iz1
-      ionene = ionene - tmp3*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp3*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       i = ix2; k = iz2
-      ionene = ionene - tmp4*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp4*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    end do
    tmp1=ONE-aa1*bb1; tmp2=ONE-aa1*bb2; tmp3=ONE-aa2*bb1; tmp4=ONE-aa2*bb2
    do k = iz1+1, iz2-1
       i = ix1; j = iy1
-      ionene = ionene - tmp1*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp1*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       i = ix1; j = iy2
-      ionene = ionene - tmp2*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp2*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       i = ix2; j = iy1
-      ionene = ionene - tmp3*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp3*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
       i = ix2; j = iy2
-      ionene = ionene - tmp4*(ad(i,j,k)*phi(i,j,k) + & 
-               (ad1(i,j,k)-iv(i,j,k))*factor)
+      ionene = ionene - tmp4*(ad(i,j,k)*phi(i,j,k) + &
+               (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    end do
 
-!  if the fine grid spans only one coarse grid point in x, y, or z direction
+   ! if the fine grid spans only one coarse grid point in x, y, or z direction
 
    if ( ix1 == ix2 ) then
       aa1 = aa1 - HALF
@@ -2287,32 +2300,32 @@ subroutine ion_ene(nfocus,level,savgox,savgoy,savgoz, &
       aa2 = aa2 - HALF
    end if
 
-!  the grid points at eight corners
+   ! the grid points at eight corners
 
    i=ix1; j=iy1; k=iz1; tmp=ONE-aa1*bb1*cc1
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    i=ix1; j=iy1; k=iz2; tmp=ONE-aa1*bb1*cc2
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    i=ix1; j=iy2; k=iz1; tmp=ONE-aa1*bb2*cc1
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    i=ix1; j=iy2; k=iz2; tmp=ONE-aa1*bb2*cc2
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    i=ix2; j=iy1; k=iz1; tmp=ONE-aa2*bb1*cc1
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    i=ix2; j=iy1; k=iz2; tmp=ONE-aa2*bb1*cc2
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    i=ix2; j=iy2; k=iz1; tmp=ONE-aa2*bb2*cc1
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
    i=ix2; j=iy2; k=iz2; tmp=ONE-aa2*bb2*cc2
    ionene = ionene - tmp*(ad(i,j,k)*phi(i,j,k) + &
-            (ad1(i,j,k)-iv(i,j,k))*factor)
+            (ad1(i,j,k)-1.0d0)*iv(i,j,k)*factor)
 
 end subroutine ion_ene
 

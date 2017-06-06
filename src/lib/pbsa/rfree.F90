@@ -4,11 +4,11 @@
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine rfree here]
 subroutine rfree(ifld,ihol,ivar,fvar,in,iout)
-   
+
    implicit none
-   
+
    !     Author:  George Seibel
-   
+
    !     This is a free format reader for mixed Hollerith and numeric data.
    !     This code is a complete re-write of the old Amber rfree, and is
    !     now machine independent ANSI fortran 77.
@@ -19,32 +19,32 @@ subroutine rfree(ifld,ihol,ivar,fvar,in,iout)
    !     Rev 22-Feb-89: fixed bug in ifld() interpretation
    !     Rev 20-Feb-89: changed stop on EOF to return
    !     Rev 20-Jan-92: made ch2int() ebcdic-capable (BR)
-   
+
    !     PARAMETERS:
-   
+
    integer lenbuf
    !        ... length of character buffer for input line
    parameter (lenbuf=132)
-   
+
    !     INPUT: Local variables
-   
+
    integer ifld(20)  !XP: only rgroup called with dimension 20
    !        ... code for field types to be read:  1 = Hollerith (4 byte int)
    !            2 = integer   3 = float  0 = no more fields
    integer in, iout
    !        ... input and output logical unit numbers
-   
+
    !     OUTPUT:
-   
+
    character(len=4) ihol(*)
    !        ... extracted Hollerith data (4 byte max for Amber)
    integer ivar(20)
    !        ... extracted integer data
    _REAL_  fvar(20)
    !        ... extracted floating pt data
-   
+
    !     INTERNAL:
-   
+
    character(len=lenbuf) buf, token
    !        ... input line buffer,  temp for undecoded tokens
    character(len=4) blank
@@ -61,8 +61,8 @@ subroutine rfree(ifld,ihol,ivar,fvar,in,iout)
    !        ... buf indices = beginning and end of current token
    integer ival, ierr
    !        ... temp for integer values, error return for ch2int()
-   
-   
+
+
    ierr = 0
    nvar = 0
    ntoken = 0
@@ -73,9 +73,9 @@ subroutine rfree(ifld,ihol,ivar,fvar,in,iout)
    ibeg = 1
    iend = lenbuf
    inword = .false.
-   
+
    !     --- initialize the output arrays ---
-   
+
    do 100 i = 1, 80
       if (ifld(i) <= 0) goto 110
       nvar = nvar+1
@@ -93,15 +93,15 @@ subroutine rfree(ifld,ihol,ivar,fvar,in,iout)
          call mexit(iout, 1)
       end if
    100 continue
-   
+
    110 continue
-   
+
    !     --- read entire line into character buffer ---
-   
+
    read(in,'(a)',end=1000) buf
-   
+
    !     --- tokenize buf using any whitespace as delimitter ---
-   
+
    nint = 0
    nhol = 0
    nflt = 0
@@ -121,9 +121,9 @@ subroutine rfree(ifld,ihol,ivar,fvar,in,iout)
             iend = ipt
             token = buf(ibeg:iend)
             lenstr = iend - ibeg
-            
+
             !                    --- decode according to ifld() ---
-            
+
             if (ifld(ntoken) == 1) then
                !                         --- Hollerith was a Great Man ---
                nhol = nhol + 1
@@ -152,63 +152,63 @@ subroutine rfree(ifld,ihol,ivar,fvar,in,iout)
    200 continue
    return
    900 continue
-   
+
    !     --- token could not be decoded ---
-   
+
    write(iout,'(/5x,a,i3,i3,a,/,a)')'rfree: Error decoding variable', &
          ntoken, ifld(ntoken), ' from:', buf(1:iend)
       write(iout,'(/5x,a)')'this indicates that your input contains ',&
    ' incorrect information'
       write(iout,'(/5x,a,i3,a)') 'field ',ntoken,' was supposed to ',&
    ' have a (1=character, 2=integer, 3=decimal) value'
-	
+
    call mexit(iout, 1)
    1000 continue
-   
+
    !     --- hit EOF ---
-   
+
    write(iout,'(/5x,a,i3)') 'rfree: End of file on unit ', in
    call mexit(iout, 1)
-end subroutine rfree 
+end subroutine rfree
 !-----------------------------------------------------------------------
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine ch2int here]
 subroutine ch2int(lenstr, string,ival,ierr)
-   
+
    !     converts character representations of cardinal numbers to integer
    !     Author:  George Seibel
    !     Rev 01-Mar-89: initialize ierr to 0
    !     Initial Rev: 19-Dec-87
    !     implicit none
-   
+
    !     INPUT:
    implicit none
    integer lenstr
    !        ... length of string
    character string*(*)
    !        ... character representation of legitimate integer
-   
+
    !     OUTPUT:
-   
+
    integer ival
    !        ... the integer result
    integer ierr
    !        ... returned as one if any decoding error, zero if ok
-   
+
    !     INTERNAL:
-   
+
    integer i, j, num, ifirst, last, idec
    logical isneg
-   
+
    ierr = 0
-   
+
    !     --- look for minus sign ---
-   
+
    isneg = (index(string,'-') > 0)
-   
+
    !     --- find first and last numeric character ---
-   
+
    last = lenstr
    do 200 i = 1, lenstr
       if (string(i:i) >= '0'.and. string(i:i) <= '9') then
@@ -222,14 +222,14 @@ subroutine ch2int(lenstr, string,ival,ierr)
          goto 300
       end if
    200 continue
-   
+
    !     --- no numerics found - error return ---
-   
+
    ierr = 1
    return
-   
+
    !     --- crunch the number ---
-   
+
    300 continue
    num = 0
    idec = 0
@@ -240,5 +240,5 @@ subroutine ch2int(lenstr, string,ival,ierr)
    if (isneg) num = -num
    ival = num
    return
-end subroutine ch2int 
+end subroutine ch2int
 !-----------------------------------------------------------------------

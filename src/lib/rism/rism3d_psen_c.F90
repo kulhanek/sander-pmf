@@ -1,4 +1,4 @@
-! <compile=optimized>
+!<compile=optimized>
 
 !The 3D-RISM-KH software found here is copyright (c) 2011-2012 by 
 !Andriy Kovalenko, Tyler Luchko and David A. Case.
@@ -104,15 +104,18 @@
       integer :: i, iv, ir, ix, iy, iz, ig, ig1
       _REAL_ :: tuv, orderfac
 
-      do iv = 1,this%pot%solv%natom
-         do iz = 1, this%grid%nr(3)
-            do iy = 1, this%grid%nr(2)
-               do ix = 1, this%grid%nr(1)
-                  ig1 = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+      do iv = 1,this%pot%solvent%numAtomTypes
+         do iz = 1, this%grid%localDimsR(3)
+            do iy = 1, this%grid%localDimsR(2)
+               do ix = 1, this%grid%localDimsR(1)
+                  ig1 = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(2) * this%grid%localDimsR(1)
 #if defined(MPI)
-                  ig = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*(this%grid%nr(1)+2)*this%grid%nr(2)
+                  ig = ix + (iy - 1) * (this%grid%localDimsR(1) + 2) &
+                       + (iz - 1) * (this%grid%localDimsR(1) + 2) * this%grid%localDimsR(2)
 #else
-                  ig = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(1)*this%grid%nr(2)
+                  ig = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(1) * this%grid%localDimsR(2)
 #endif /*defined(MPI)*/
                   tuv = -this%pot%uuv(ix,iy,iz,iv) + huv(ig,iv) - cuv(ix,iy,iz,iv)
                   if(tuv >= 0d0)then
@@ -152,15 +155,18 @@
       _REAL_ ::  tuv, tuv_dT
       _REAL_ :: orderfac
 
-      do iv = 1,this%pot%solv%natom
-         do iz = 1, this%grid%nr(3)
-            do iy = 1, this%grid%nr(2)
-               do ix = 1, this%grid%nr(1)
-                  ig1 = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+      do iv = 1,this%pot%solvent%numAtomTypes
+         do iz = 1, this%grid%localDimsR(3)
+            do iy = 1, this%grid%localDimsR(2)
+               do ix = 1, this%grid%localDimsR(1)
+                  ig1 = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(2) * this%grid%localDimsR(1)
 #if defined(MPI)
-                  ig = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*(this%grid%nr(1)+2)*this%grid%nr(2)
+                  ig = ix + (iy - 1) * (this%grid%localDimsR(1) + 2) + &
+                       (iz - 1) * (this%grid%localDimsR(1) + 2) * this%grid%localDimsR(2)
 #else
-                  ig = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(1)*this%grid%nr(2)
+                  ig = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(1) * this%grid%localDimsR(2)
 #endif /*defined(MPI)*/
 
                   tuv_dT = this%pot%uuv(ix,iy,iz,iv) + huv_dT(ig,iv) - cuv_dT(ix,iy,iz,iv)
@@ -189,37 +195,36 @@
 !!!   huv  : site-site total correlation function
 !!!   cuv  : site-site direct correlation function
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function rism3d_psen_exchem(this, huv, cuv) result(exchem)
+    function rism3d_psen_excessChemicalPotential(this, huv, cuv) result(excessChemicalPotential)
       implicit none
-      type(rism3d_psen), intent(inout) :: this
+      type(rism3d_psen), intent(in) :: this
       _REAL_, intent(in) :: huv(:,:),cuv(:,:,:,:)
-      _REAL_ :: exchem(this%pot%solv%natom)
+      _REAL_ :: excessChemicalPotential(this%pot%solvent%numAtomTypes)
       _REAL_ :: tuv, tsuv
-      integer :: ix, iy, iz, iv, ig, igk
-      exchem = 0.d0
-      do iv=1,this%pot%solv%natom
-         do iz=1,this%grid%nr(3)
-            do iy=1,this%grid%nr(2)
-               do ix=1,this%grid%nr(1)
-!!$                  ig = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
-!!$#if defined(MPI)
-!!$                  igk = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*this%grid%nr(2)*(this%grid%nr(1)+2)
-!!$#else
-!!$                  igk = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
-!!$#endif /*defined(MPI)*/
-!!$                  tuv = huv(igk,iv) - cuv(ix,iy,iz,iv)
-!!$                  exchem(iv) = exchem(iv) + 0.5d0*huv(igk,iv)*tuv - cuv(ix,iy,iz,iv)
-!!$                  if (huv(igk,iv) > 0d0)  then
-!!$                     tsuv = tuv - this%pot%uuv(ix,iy,iz,iv)
-!!$                     exchem(iv) = exchem(iv) - tsuv**(this%order1)/this%order1fac
-!!$                  endif
-                  exchem(iv) = exchem(iv)+rism3d_psen_exchem_IJK(this,huv,cuv,(/ix,iy,iz/),iv)
+      integer :: ix, iy, iz, iv, igk
+      excessChemicalPotential = 0.d0
+      do iv=1,this%pot%solvent%numAtomTypes
+         do iz=1,this%grid%localDimsR(3)
+            do iy=1,this%grid%localDimsR(2)
+               do ix=1,this%grid%localDimsR(1)
+#if defined(MPI)
+                  igk = ix + (iy-1)*(this%grid%localDimsR(1)+2) + (iz-1)*this%grid%localDimsR(2)*(this%grid%localDimsR(1)+2)
+#else
+                  igk = ix + (iy-1)*this%grid%localDimsR(1) + (iz-1)*this%grid%localDimsR(2)*this%grid%localDimsR(1)
+#endif /*defined(MPI)*/
+                  tuv = huv(igk,iv) - cuv(ix,iy,iz,iv)
+                  excessChemicalPotential(iv) = excessChemicalPotential(iv) + 0.5d0*huv(igk,iv)*tuv - cuv(ix,iy,iz,iv)
+                  if (huv(igk,iv) > 0d0)  then
+                     tsuv = tuv - this%pot%uuv(ix,iy,iz,iv)
+                     excessChemicalPotential(iv) = excessChemicalPotential(iv) - tsuv**(this%order1)/this%order1fac
+                  endif
                end do
             end do
          end do
-         exchem(iv) =  exchem(iv)*this%grid%voxel
+         excessChemicalPotential(iv) =  this%pot%solvent%density(iv)*&
+              excessChemicalPotential(iv)*this%grid%voxelVolume
       enddo
-    end function rism3d_psen_exchem
+    end function rism3d_psen_excessChemicalPotential
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Calculates the excess chemical potential in kT at the requested grid point
@@ -231,30 +236,30 @@
 !!!OUT:
 !!!   The contribution to the excess chemical potential from grid point i, j, k
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function rism3d_psen_exchem_IJK(this, huv, cuv,ijk,iv) result(exchem)
+    function rism3d_psen_excessChemicalPotential_IJK(this, huv, cuv,ijk,iv) result(excessChemicalPotential)
       implicit none
       type(rism3d_psen), intent(in) :: this
       _REAL_, intent(in) :: huv(:,:),cuv(:,:,:,:)
       integer, intent(in) :: ijk(3), iv
-      _REAL_ :: exchem
+      _REAL_ :: excessChemicalPotential
       _REAL_ :: tuv, tsuv
       integer :: ix, iy, iz, igk
       ix=ijk(1)
       iy=ijk(2)
       iz=ijk(3)
 #if defined(MPI)
-      igk = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*this%grid%nr(2)*(this%grid%nr(1)+2)
+      igk = ix + (iy-1)*(this%grid%localDimsR(1)+2) + (iz-1)*this%grid%localDimsR(2)*(this%grid%localDimsR(1)+2)
 #else
-      igk = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+      igk = ix + (iy-1)*this%grid%localDimsR(1) + (iz-1)*this%grid%localDimsR(2)*this%grid%localDimsR(1)
 #endif /*defined(MPI)*/
       tuv = huv(igk,iv) - cuv(ix,iy,iz,iv)
-      exchem = 0.5d0*huv(igk,iv)*tuv - cuv(ix,iy,iz,iv)
+      excessChemicalPotential = 0.5d0*huv(igk,iv)*tuv - cuv(ix,iy,iz,iv)
       if (huv(igk,iv) > 0d0)  then
          tsuv = tuv - this%pot%uuv(ix,iy,iz,iv)
-         exchem = exchem - tsuv**(this%order1)/this%order1fac
+         excessChemicalPotential = excessChemicalPotential - tsuv**(this%order1)/this%order1fac
       endif
-      exchem = exchem *this%pot%solv%rho(iv)
-    end function rism3d_psen_exchem_IJK
+      excessChemicalPotential = excessChemicalPotential *this%pot%solvent%density(iv)
+    end function rism3d_psen_excessChemicalPotential_IJK
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Calculates the short range part of the excess chemical potential w/ 
@@ -264,21 +269,22 @@
 !!!   huv  : site-site total correlation function
 !!!   cuv  : site-site direct correlation function
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function rism3d_psen_aexchem(this, huv, cuv) result(exchem)
+    function rism3d_psen_aexcessChemicalPotential(this, huv, cuv) result(excessChemicalPotential)
       implicit none
       type(rism3d_psen), intent(inout) :: this
       _REAL_, intent(in) :: huv(:,:),cuv(:,:,:,:)
-      _REAL_ :: exchem(this%pot%solv%natom)
-      !exchemh2lr :: contribution from asymhr**2
-      !exchemhclr :: contribution from asymhr*asymcr
-      !exchemhnlr :: contribution from asymhr**n      
-      _REAL_ :: exchemh2lr(this%pot%solv%natom),exchemhclr(this%pot%solv%natom),&
-           exchemhnlr(this%pot%solv%natom)
+      _REAL_ :: excessChemicalPotential(this%pot%solvent%numAtomTypes)
+      !excessChemicalPotentialh2lr :: contribution from tcfLongRangeAsympR**2
+      !excessChemicalPotentialhclr :: contribution from tcfLongRangeAsympR*dcfLongRangeAsympR
+      !excessChemicalPotentialhnlr :: contribution from tcfLongRangeAsympR**n      
+      _REAL_ :: excessChemicalPotentialh2lr(this%pot%solvent%numAtomTypes), &
+           excessChemicalPotentialhclr(this%pot%solvent%numAtomTypes), &
+           excessChemicalPotentialhnlr(this%pot%solvent%numAtomTypes)
       _REAL_ :: tuv, tsuv, huvlr, cuvlr, tuvlr
       integer :: ix, iy, iz, iv, ig, igk
 
-      if(.not.this%pot%solu%charged)then
-         exchem = rism3d_psen_exchem(this,huv,cuv)
+      if(.not.this%pot%solute%charged)then
+         excessChemicalPotential = rism3d_psen_excessChemicalPotential(this,huv,cuv)
          return
       end if
 
@@ -286,55 +292,60 @@
       !
       !long range part
       !
-      call rism3d_potential_int_h2_hc(this%pot,exchemh2lr,exchemhclr)
-      exchemhnlr = rism3d_potential_int_hn(this%pot,this%order1)
+      call rism3d_potential_int_h2_hc(this%pot,excessChemicalPotentialh2lr,excessChemicalPotentialhclr)
+      excessChemicalPotentialhnlr = rism3d_potential_int_hn(this%pot,this%order1)
       
-      do iv=1,this%pot%solv%natom
-         if(this%pot%solu%totcharge*this%pot%solv%charge_sp(iv) > 0.d0) &
-              exchemhnlr(iv)=0
+      do iv=1,this%pot%solvent%numAtomTypes
+         if(this%pot%solute%totalCharge*this%pot%solvent%charge_sp(iv) > 0.d0) &
+              excessChemicalPotentialhnlr(iv) = 0
       end do
 
       !
       !short range part
       !
-      exchem = 0.d0
+      excessChemicalPotential = 0.d0
       huvlr=0d0
-      do iv=1,this%pot%solv%natom
-         do iz=1,this%grid%nr(3)
-            do iy=1,this%grid%nr(2)
-               do ix=1,this%grid%nr(1)
-                  ig = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+      do iv=1,this%pot%solvent%numAtomTypes
+         do iz=1,this%grid%localDimsR(3)
+            do iy=1,this%grid%localDimsR(2)
+               do ix=1,this%grid%localDimsR(1)
+                  ig = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(2) * this%grid%localDimsR(1)
 #if defined(MPI)
-                  igk = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*this%grid%nr(2)*(this%grid%nr(1)+2)
+                  igk = ix + (iy - 1) * (this%grid%localDimsR(1) + 2) + &
+                       (iz - 1) * this%grid%localDimsR(2) * (this%grid%localDimsR(1) + 2)
 #else
-                  igk = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+                  igk = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(2) * this%grid%localDimsR(1)
 #endif /*defined(MPI)*/
                   tuv = huv(igk,iv) - cuv(ix,iy,iz,iv)
-                  if(this%pot%solv%ionic)&
-                       huvlr = this%pot%solv%charge_sp(iv)*this%pot%asymhr(ig)
-                  cuvlr = this%pot%solv%charge(iv)*this%pot%asymcr(ig)
+                  if(this%pot%solvent%ionic)&
+                       huvlr = this%pot%solvent%charge_sp(iv)*this%pot%tcfLongRangeAsympR(ig)
+                  cuvlr = this%pot%solvent%charge(iv)*this%pot%dcfLongRangeAsympR(ig)
                   tuvlr = huvlr - cuvlr
-                  exchem(iv) = exchem(iv) + 0.5d0*huv(igk,iv)*tuv - cuv(ix,iy,iz,iv)
-!!$                  exchem(iv) = exchem(iv) - (0.5d0*huvlr*tuvlr - cuvlr)
-                  exchem(iv) = exchem(iv) - (0.5d0*huvlr*tuvlr)
+                  excessChemicalPotential(iv) = excessChemicalPotential(iv) + 0.5d0*huv(igk,iv)*tuv - cuv(ix,iy,iz,iv)
+!!$                  excessChemicalPotential(iv) = excessChemicalPotential(iv) - (0.5d0*huvlr*tuvlr - cuvlr)
+                  excessChemicalPotential(iv) = excessChemicalPotential(iv) - (0.5d0*huvlr*tuvlr)
                   if (huv(igk,iv) > 0d0)  then
                      tsuv = tuv - this%pot%uuv(ix,iy,iz,iv)
-                     exchem(iv) = exchem(iv) - tsuv**(this%order1)/this%order1fac
+                     excessChemicalPotential(iv) = excessChemicalPotential(iv) - tsuv**(this%order1)/this%order1fac
                   endif
 
-                  if (this%pot%solu%totcharge*this%pot%solv%charge_sp(iv) <= 0.d0) then
+                  if (this%pot%solute%totalCharge*this%pot%solvent%charge_sp(iv) <= 0.d0) then
                      !recall that cuvlr = - uuvlr so 
                      !(huvlr - cuvlr - uuvlr)**n = huvlr**n
-                     exchem(iv) = exchem(iv)  + huvlr**(this%order1)/this%order1fac
+                     excessChemicalPotential(iv) = excessChemicalPotential(iv)  + huvlr**(this%order1)/this%order1fac
                   endif
                end do
             end do
          end do
-         exchem(iv) =  this%pot%solv%rho(iv)*(exchem(iv)*this%grid%voxel &
-              +  (exchemh2lr(iv) - exchemhclr(iv))/2d0 - exchemhnlr(iv)/this%order1fac)
+         excessChemicalPotential(iv) =  this%pot%solvent%density(iv) &
+              * (excessChemicalPotential(iv) * this%grid%voxelVolume &
+              +  (excessChemicalPotentialh2lr(iv) - excessChemicalPotentialhclr(iv)) / 2d0 &
+              -  excessChemicalPotentialhnlr(iv) / this%order1fac)
       enddo
 
-    end function rism3d_psen_aexchem
+    end function rism3d_psen_aexcessChemicalPotential
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Calculates the solvation energy, dE = dmu + dTS, from the temperature derivative w/o
@@ -348,46 +359,46 @@
 !!!OUT:
 !!!    solvation energy without long-range correction
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function rism3d_psen_solvEne(this, huv_dT, cuv_dT, huv, cuv) result(solvEne)
+    function rism3d_psen_solvationEnergy(this, huv_dT, cuv_dT, huv, cuv) result(solvationEnergy)
       implicit none
       type(rism3d_psen), intent(inout) :: this
       _REAL_, intent(in) :: huv_dT(:,:),cuv_dT(:,:,:,:)
       _REAL_, intent(in) :: huv(:,:),cuv(:,:,:,:)
-      _REAL_ :: solvEne(this%pot%solv%natom)
+      _REAL_ :: solvationEnergy(this%pot%solvent%numAtomTypes)
       !tuv :: t* = beta*u + h - c
       !tuv :: dT t* = beta*u + dT h - dT c
       _REAL_ :: tuv, tuv_dT
       !orderfac :: order-n factorial
       _REAL_ orderfac
-      integer :: ix, iy, iz, iv, ig, igk
-
-      solvEne = 0.d0
-      do iv=1,this%pot%solv%natom
-         do iz=1,this%grid%nr(3)
-            do iy=1,this%grid%nr(2)
-               do ix=1,this%grid%nr(1)
-!!$                  ig = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
-!!$#if defined(MPI)
-!!$                  igk = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*this%grid%nr(2)*(this%grid%nr(1)+2)
-!!$#else
-!!$                  igk = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
-!!$#endif /*defined(MPI)*/
-!!$                  solvEne(iv) = solvEne(iv) + huv(igk,iv)*huv_dT(igk,iv) &
-!!$                       - (1.d0+0.5d0*huv(igk,iv))*cuv_dT(ix,iy,iz,iv) &
-!!$                       - 0.5d0*cuv(ix,iy,iz,iv)*huv_dT(igk,iv)
-!!$                  if (huv(igk,iv) > 0d0)  then
-!!$                     tuv = -this%pot%uuv(ix,iy,iz,iv) + huv(ig,iv) - cuv(ix,iy,iz,iv)
-!!$                     tuv_dT = this%pot%uuv(ix,iy,iz,iv) + huv_dT(ig,iv) - cuv_dT(ix,iy,iz,iv)
-!!$                     solvEne(iv) = solvEne(iv) - tuv**this%order/orderfac * tuv_dT
-!!$                  endif
-                  solvene(iv)= solvene(iv)+&
-                       rism3d_psen_solvEne_IJK(this, huv_dT, cuv_dT, huv, cuv, (/ix,iy,iz/), iv)
+      integer :: ix, iy, iz, iv, igk
+      orderfac = this%order1fac/this%order1
+      solvationEnergy = 0.d0
+      do iv=1,this%pot%solvent%numAtomTypes
+         do iz=1,this%grid%localDimsR(3)
+            do iy=1,this%grid%localDimsR(2)
+               do ix=1,this%grid%localDimsR(1)
+#if defined(MPI)
+                  igk = ix + (iy-1)*(this%grid%localDimsR(1)+2)&
+                       + (iz-1)*this%grid%localDimsR(2)*(this%grid%localDimsR(1)+2)
+#else
+                  igk = ix + (iy-1)*this%grid%localDimsR(1) &
+                       + (iz-1)*this%grid%localDimsR(2)*this%grid%localDimsR(1)
+#endif /*defined(MPI)*/
+                  solvationEnergy(iv) = solvationEnergy(iv) + huv(igk,iv)*huv_dT(igk,iv) &
+                       - (1.d0+0.5d0*huv(igk,iv))*cuv_dT(ix,iy,iz,iv) &
+                       - 0.5d0*cuv(ix,iy,iz,iv)*huv_dT(igk,iv)
+                  if (huv(igk,iv) > 0d0)  then
+                     tuv = -this%pot%uuv(ix,iy,iz,iv) + huv(igk,iv) - cuv(ix,iy,iz,iv)
+                     tuv_dT = this%pot%uuv(ix,iy,iz,iv) + huv_dT(igk,iv) - cuv_dT(ix,iy,iz,iv)
+                     solvationEnergy(iv) = solvationEnergy(iv) - tuv**this%order/orderfac * tuv_dT
+                  endif
                end do
             end do
          end do
-         solvEne(iv) =  solvEne(iv)*this%grid%voxel
+         solvationEnergy(iv) =  -1d0*this%pot%solvent%density(iv)*&
+              solvationEnergy(iv)*this%grid%voxelVolume
       enddo
-    end function rism3d_psen_solvEne
+    end function rism3d_psen_solvationEnergy
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Calculates the solvation energy, dE = dmu + dTS, from the
@@ -403,19 +414,19 @@
 !!!OUT:
 !!!    Contribution to the solvation energy from grid point i, j, k
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function rism3d_psen_solvEne_IJK(this, huv_dT, cuv_dT, huv, cuv, ijk, iv) result(solvEne)
+    function rism3d_psen_solvationEnergy_IJK(this, huv_dT, cuv_dT, huv, cuv, ijk, iv) result(solvationEnergy)
       implicit none
       type(rism3d_psen), intent(in) :: this
       _REAL_, intent(in) :: huv_dT(:,:),cuv_dT(:,:,:,:)
       _REAL_, intent(in) :: huv(:,:),cuv(:,:,:,:)
       integer, intent(in) :: ijk(3), iv
-      _REAL_ :: solvEne
+      _REAL_ :: solvationEnergy
       !tuv :: t* = beta*u + h - c
       !tuv :: dT t* = beta*u + dT h - dT c
       _REAL_ :: tuv, tuv_dT
       !orderfac :: order-n factorial
       _REAL_ orderfac      
-      integer :: ix, iy, iz, ig,igk
+      integer :: ix, iy, iz,igk
 
       !use the precomputed (n+1)! to get n!
       orderfac = this%order1fac/this%order1
@@ -423,22 +434,21 @@
       ix=ijk(1)
       iy=ijk(2)
       iz=ijk(3)
-      ig = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
 #if defined(MPI)
-      igk = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*this%grid%nr(2)*(this%grid%nr(1)+2)
+      igk = ix + (iy-1)*(this%grid%localDimsR(1)+2) + (iz-1)*this%grid%localDimsR(2)*(this%grid%localDimsR(1)+2)
 #else
-      igk = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+      igk = ix + (iy-1)*this%grid%localDimsR(1) + (iz-1)*this%grid%localDimsR(2)*this%grid%localDimsR(1)
 #endif /*defined(MPI)*/
-      solvEne = -huv(igk,iv)*huv_dT(igk,iv) &
+      solvationEnergy = -huv(igk,iv)*huv_dT(igk,iv) &
            + (1.d0+0.5d0*huv(igk,iv))*cuv_dT(ix,iy,iz,iv) &
            + 0.5d0*cuv(ix,iy,iz,iv)*huv_dT(igk,iv)
       if (huv(igk,iv) > 0d0)  then
-         tuv = -this%pot%uuv(ix,iy,iz,iv) + huv(ig,iv) - cuv(ix,iy,iz,iv)
-         tuv_dT = this%pot%uuv(ix,iy,iz,iv) + huv_dT(ig,iv) - cuv_dT(ix,iy,iz,iv)
-         solvEne = solvEne + tuv**this%order/orderfac * tuv_dT
+         tuv = -this%pot%uuv(ix,iy,iz,iv) + huv(igk,iv) - cuv(ix,iy,iz,iv)
+         tuv_dT = this%pot%uuv(ix,iy,iz,iv) + huv_dT(igk,iv) - cuv_dT(ix,iy,iz,iv)
+         solvationEnergy = solvationEnergy + tuv**this%order/orderfac * tuv_dT
       endif
-      solvEne=solvEne*this%pot%solv%rho(iv)
-    end function rism3d_psen_solvEne_IJK
+      solvationEnergy=solvationEnergy*this%pot%solvent%density(iv)
+    end function rism3d_psen_solvationEnergy_IJK
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Calculates the solvation energy, dE = dmu + dTS, from the temperature derivative w/
@@ -452,14 +462,14 @@
 !!!OUT:
 !!!    excess chemical potential with long-range correction
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function rism3d_psen_asolvEne(this, huv_dT, cuv_dT, huv, cuv) result(solvEne)
+    function rism3d_psen_asolvationEnergy(this, huv_dT, cuv_dT, huv, cuv) result(solvationEnergy)
       implicit none
       type(rism3d_psen), intent(inout) :: this
       _REAL_, intent(in) :: huv_dT(:,:),cuv_dT(:,:,:,:)
       _REAL_, intent(in) :: huv(:,:),cuv(:,:,:,:)
-      _REAL_ :: solvEne(this%pot%solv%natom)
-      _REAL_ :: solvEneh2lr(this%pot%solv%natom),solvEnehclr(this%pot%solv%natom),&
-           solvEnehnlr(this%pot%solv%natom)
+      _REAL_ :: solvationEnergy(this%pot%solvent%numAtomTypes)
+      _REAL_ :: solvationEnergyh2lr(this%pot%solvent%numAtomTypes),solvationEnergyhclr(this%pot%solvent%numAtomTypes),&
+           solvationEnergyhnlr(this%pot%solvent%numAtomTypes)
       !tuv :: t* = beta*u + h - c
       !tuv :: dT t* = beta*u + dT h - dT c
       _REAL_ :: tuv, tuv_dT, huvlr, cuvlr
@@ -467,65 +477,68 @@
       _REAL_ orderfac
       integer :: ix, iy, iz, iv, ig, igk
 
-      if(.not.this%pot%solu%charged)then
-         solvene = rism3d_psen_solvene(this,huv_dT,cuv_dT,huv,cuv)
+      if(.not.this%pot%solute%charged)then
+         solvationEnergy = rism3d_psen_solvationEnergy(this,huv_dT,cuv_dT,huv,cuv)
          return
       end if
 
       !
       !long range part
       !
-      call rism3d_potential_int_h2_hc(this%pot,solvEneh2lr,solvEnehclr)
-      solvEnehnlr = rism3d_potential_int_hn(this%pot,this%order1)
+      call rism3d_potential_int_h2_hc(this%pot,solvationEnergyh2lr,solvationEnergyhclr)
+      solvationEnergyhnlr = rism3d_potential_int_hn(this%pot,this%order1)
 
-      do iv=1,this%pot%solv%natom
-         if(this%pot%solu%totcharge*this%pot%solv%charge_sp(iv) <= 0.d0) &
-              solvEnehnlr(iv)=0
+      do iv=1,this%pot%solvent%numAtomTypes
+         if(this%pot%solute%totalCharge*this%pot%solvent%charge_sp(iv) <= 0.d0) &
+              solvationEnergyhnlr(iv)=0
       end do
 
       !
       !short range part
       !
-      solvEne = 0.d0
+      solvationEnergy = 0.d0
       huvlr=0d0
       !use the precomputed (n+1)! to get n!
       orderfac = this%order1fac/this%order1
-      do iv=1,this%pot%solv%natom
-         do iz=1,this%grid%nr(3)
-            do iy=1,this%grid%nr(2)
-               do ix=1,this%grid%nr(1)
-                  ig = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+      do iv=1,this%pot%solvent%numAtomTypes
+         do iz=1,this%grid%localDimsR(3)
+            do iy=1,this%grid%localDimsR(2)
+               do ix=1,this%grid%localDimsR(1)
+                  ig = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(2) * this%grid%localDimsR(1)
 #if defined(MPI)
-                  igk = ix + (iy-1)*(this%grid%nr(1)+2) + (iz-1)*this%grid%nr(2)*(this%grid%nr(1)+2)
+                  igk = ix + (iy - 1) * (this%grid%localDimsR(1) + 2) + &
+                       (iz - 1) * this%grid%localDimsR(2) * (this%grid%localDimsR(1) + 2)
 #else
-                  igk = ix + (iy-1)*this%grid%nr(1) + (iz-1)*this%grid%nr(2)*this%grid%nr(1)
+                  igk = ix + (iy - 1) * this%grid%localDimsR(1) + &
+                       (iz - 1) * this%grid%localDimsR(2) * this%grid%localDimsR(1)
 #endif /*defined(MPI)*/
-                  if(this%pot%solv%ionic)&
-                       huvlr = this%pot%solv%charge_sp(iv)*this%pot%asymhr(ig)
-                  cuvlr = this%pot%solv%charge(iv)*this%pot%asymcr(ig)
-                  solvEne(iv) = solvEne(iv) + huv(igk,iv)*huv_dT(igk,iv) &
+                  if(this%pot%solvent%ionic)&
+                       huvlr = this%pot%solvent%charge_sp(iv)*this%pot%tcfLongRangeAsympR(ig)
+                  cuvlr = this%pot%solvent%charge(iv)*this%pot%dcfLongRangeAsympR(ig)
+                  solvationEnergy(iv) = solvationEnergy(iv) + huv(igk,iv)*huv_dT(igk,iv) &
                        - (1.d0+0.5d0*huv(igk,iv))*cuv_dT(ix,iy,iz,iv) &
                        - 0.5d0*cuv(ix,iy,iz,iv)*huv_dT(igk,iv)
                   if (huv(igk,iv) > 0d0)  then
-                     tuv = -this%pot%uuv(ix,iy,iz,iv) + huv(ig,iv) - cuv(ix,iy,iz,iv)
-                     tuv_dT = this%pot%uuv(ix,iy,iz,iv) + huv_dT(ig,iv) - cuv_dT(ix,iy,iz,iv)
-                     solvEne(iv) = solvEne(iv) - tuv**this%order/orderfac * tuv_dT
+                     tuv = -this%pot%uuv(ix,iy,iz,iv) + huv(igk,iv) - cuv(ix,iy,iz,iv)
+                     tuv_dT = this%pot%uuv(ix,iy,iz,iv) + huv_dT(igk,iv) - cuv_dT(ix,iy,iz,iv)
+                     solvationEnergy(iv) = solvationEnergy(iv) - tuv**this%order/orderfac * tuv_dT
                   endif
 
-                  solvEne(iv) = solvEne(iv) + huvlr*huvlr - huvlr*cuvlr
-                  if (this%pot%solu%totcharge*this%pot%solv%charge_sp(iv) <= 0.d0) then
+                  solvationEnergy(iv) = solvationEnergy(iv) + huvlr*huvlr - huvlr*cuvlr
+                  if (this%pot%solute%totalCharge*this%pot%solvent%charge_sp(iv) <= 0.d0) then
                      !recall that cuvlr = - uuvlr so 
                      !(huvlr - cuvlr - uuvlr)**n = huvlr**n
-                     solvEne(iv) = solvEne(iv) - huvlr**this%order1/orderfac
+                     solvationEnergy(iv) = solvationEnergy(iv) - huvlr**this%order1/orderfac
                   endif
                end do
             end do
          end do
-         solvEne(iv) =  -1d0*(this%pot%solv%rho(iv)*(solvEne(iv)*this%grid%voxel &
-              -  (solvEneh2lr(iv) - solvEnehclr(iv) - solvEnehnlr(iv)/orderfac)))
+         solvationEnergy(iv) =  -1d0*(this%pot%solvent%density(iv)*(solvationEnergy(iv)*this%grid%voxelVolume &
+              -  (solvationEnergyh2lr(iv) - solvationEnergyhclr(iv) - solvationEnergyhnlr(iv)/orderfac)))
       enddo
 
-    end function rism3d_psen_asolvEne
+    end function rism3d_psen_asolvationEnergy
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!Frees memory and resets the PSEN closure

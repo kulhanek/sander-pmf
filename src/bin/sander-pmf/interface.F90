@@ -38,7 +38,7 @@ module sander_api
 !              fockp_d1, fockp_d2, fockp_d3, fockp_d4, damp, vshift, &
 !              pseudo_diag_criteria, min_heavy_mass, r_switch_hi, r_switch_lo
 !    character(len=8192) :: qmmask, coremask, buffermask, centermask
-!    character(len=256) :: dftb_3rd_order
+!    character(len=256) :: dftb_3rd_order, dftb_slko_path
 !    character(len=12) :: qm_theory
 ! end type qmmm_input_options
 
@@ -85,6 +85,8 @@ module sander_api
       double precision :: cut
       double precision :: dielc
       double precision :: rdt
+      double precision :: fswitch
+      double precision :: restraint_wt
 
       ! Integers (toggle options)
       integer :: igb
@@ -100,6 +102,13 @@ module sander_api
       integer :: jfastw
       integer :: ntf
       integer :: ntc
+      integer :: ntr
+      integer :: ibelly
+
+      ! Character string arrays
+      character(len=256) :: restraintmask
+      character(len=256) :: bellymask
+      character(len=256) :: refc
    end type sander_input
 
    private
@@ -110,7 +119,7 @@ module sander_api
 
    public :: gas_sander_input, pme_sander_input, sander_setup, energy_forces, &
              set_positions, set_box, sander_input, qmmm_input_options, &
-             potential_energy_rec, sander_cleanup, MAX_FN_LEN, &
+             potential_energy_rec, sander_cleanup, MAX_FN_LEN, get_box, &
              qm_sander_input, sander_natom, prmtop_struct, read_inpcrd_file, &
              get_inpcrd_natom, destroy_prmtop_struct, read_prmtop_file, &
 #ifdef NO_ALLOCATABLES_IN_TYPE
@@ -173,6 +182,13 @@ subroutine gas_sander_input(inp, gb)
    inp%rdt = 0.d0
    inp%ntc = 1
    inp%ntf = 1
+   inp%fswitch = -1.d0
+   inp%ntr = 0
+   inp%ibelly = 0
+   inp%restraint_wt = 0.d0
+   inp%restraintmask = ''
+   inp%bellymask = ''
+   inp%refc = ''
 
    if (present(gb)) then
       if (gb /= 0 .and. gb /= 1 .and. gb /= 2 .and. gb /= 5 .and. &
@@ -227,6 +243,13 @@ subroutine pme_sander_input(inp)
    inp%rdt = 0.d0
    inp%ntc = 1
    inp%ntf = 1
+   inp%fswitch = -1.d0
+   inp%ntr = 0
+   inp%ibelly = 0
+   inp%restraint_wt = 0.d0
+   inp%restraintmask = ''
+   inp%bellymask = ''
+   inp%refc = ''
 
 end subroutine pme_sander_input
 
@@ -317,7 +340,7 @@ subroutine set_positions(positions)
    implicit none
 
    double precision, intent(in), dimension(natom*3) :: positions
-   
+
    integer :: i, start
 
    if (.not. is_setup_) return ! Not sure how to warn...
@@ -336,11 +359,30 @@ subroutine set_box(a, b, c, alpha, beta, gamma)
 
     double precision, intent(in) :: a, b, c, alpha, beta, gamma
 
-   if (.not. is_setup_) return ! Not sure how to warn...
+    if (.not. is_setup_) return ! Not sure how to warn...
 
     call fill_ucell(a, b, c, alpha, beta, gamma)
 
 end subroutine set_box
+
+subroutine get_box(a_, b_, c_, alpha_, beta_, gamma_)
+
+    use nblist, only : a, b, c, alpha, beta, gamma
+
+    implicit none
+
+    double precision, intent(out) :: a_, b_, c_, alpha_, beta_, gamma_
+
+    if (.not. is_setup_) return ! not sure how to warn
+
+    a_ = a
+    b_ = b
+    c_ = c
+    alpha_ = alpha
+    beta_ = beta
+    gamma_ = gamma
+
+end subroutine get_box
 
 ! Returns the currently active positions
 subroutine get_positions(positions)
@@ -459,7 +501,8 @@ subroutine sander_cleanup()
    end if
    ! CHARMM stuff
    if (charmm_active) call charmm_deallocate_arrays()
-   ! Reset all of the "first" 
+   charmm_active = .false.
+   ! Reset all of the "first"
    call AM_RUNMD_reset
    call mdeng_reset
    call mdwrit_reset
@@ -866,6 +909,21 @@ subroutine ext_set_positions(positions)
    return
 
 end subroutine ext_set_positions
+
+! Gets the periodic box dimensions
+subroutine ext_get_box(a, b, c, alpha, beta, gamma)
+
+    use SANDER_API_MOD, only : mod_func => get_box
+
+    implicit none
+
+    double precision, intent(out) :: a, b, c, alpha, beta, gamma
+
+    call mod_func(a, b, c, alpha, beta, gamma)
+
+    return
+
+end subroutine ext_get_box
 
 ! Sets the periodic box vectors
 subroutine ext_set_box(a, b, c, alpha, beta, gamma)

@@ -7,7 +7,7 @@ parameter(bc_boxr=611)
 ! ... floats:
 
 #  define _REAL_ double precision
-_REAL_ box,cut,dielc,rad,wel,radhb,welhb, &     
+_REAL_ box,cut,dielc,rad,wel,radhb,welhb, &
       cutcap,xcap,ycap,zcap,fcap,rwell
 common/boxr/box(3),cut,dielc, &               !5
       cutcap,xcap,ycap,zcap,fcap,rwell, &     !11

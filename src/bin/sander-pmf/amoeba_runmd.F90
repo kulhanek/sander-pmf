@@ -5,7 +5,6 @@
 module amoeba_runmd
 implicit none
 private
-integer, save :: do_flag
 
 _REAL_,save, allocatable :: acceleration(:,:),old_acceleration(:,:), &
                             old_crd(:,:)
@@ -308,10 +307,8 @@ subroutine AM_RUNMD( ix,ih,ipairs, &
          call prntmd(nstep,t,ener,onefac,7,.false.)
          call amflsh(7)
       endif
-      if ( ntwr > 0 )then
-         if ( mod(nstep,ntwr)==0 )then
-            call AM_RUNMD_write_restrt(natom,t,title,restrt,crd,vel,owrite)
-         endif
+      if ( mod(nstep,ntwr)==0 )then
+         call AM_RUNMD_write_restrt(natom,t,title,restrt,crd,vel,owrite)
       endif
       if ( nscm > 0 )then
         if ( mod(nstep,nscm) == 0 )then

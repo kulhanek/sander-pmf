@@ -32,7 +32,7 @@ subroutine bcast_memory
 
    include 'mpif.h'
 #  include "parallel.h"
-   
+
    integer ier
 
    ! First broadcast the common block

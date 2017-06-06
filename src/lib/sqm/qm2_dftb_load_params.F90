@@ -66,14 +66,13 @@ if (qmmm_mpi%commqmmm_master) then
    ! Memory Allocation
    !===================
 
-   call qm2_dftb_allocate
+   call qm2_dftb_allocate(qmmm_nml%qmtheory%DFTB3)
 
    !=======================
    !     Initializaton
    !=======================
 
-   call getenv('AMBERHOME',skroot)
-   skroot = TRIM(skroot) // '/dat/slko/'
+   call qm2_dftb_get_skroot(qmmm_nml%qmtheory%DFTB3, qmmm_nml%dftb_slko_path, skroot)
 
    ! izp (atom types)
    izp_str%izp(1:NNDIM)=0
@@ -143,8 +142,12 @@ if (qmmm_mpi%commqmmm_master) then
    end do
 
    ! Fill mol%atyp with atomic symbols
+   mol%ishydrogen = .false.
    do i = 1, qmmm_struct%nquant_nlink
       mol%atyp( izp_str%izp(i) ) = elementSymbol( qmmm_struct%iqm_atomic_numbers(i) )
+      if (qmmm_struct%iqm_atomic_numbers(i) == 1) then
+         mol%ishydrogen( izp_str%izp(i) ) = .true.
+      end if
    end do
 
    ! Calculate the number of orbitals
@@ -228,6 +231,13 @@ if (qmmm_mpi%commqmmm_master) then
       call qm2_dftb_read_3rd_order(qmmm_struct%nquant_nlink, skroot)
    end if
 
+!!=================================
+!! AWG: Parameters for DFTB3
+!!=================================
+   if (qmmm_nml%qmtheory%DFTB3) then
+      call qm2_dftb_get_dftb3_parameters(silence,qmmm_struct%nquant_nlink, &
+           qmmm_struct%qm_ntypes,izp_str%izp,qmmm_struct%iqm_atomic_numbers)
+   end if
 
 !!=================================
 !!    CM3 Charges
@@ -316,10 +326,12 @@ subroutine qm2_dftb_check_slko_file(sk_file)
       write(6,*)" directory, is using a different naming scheme, "
       write(6,*)" or that you just don't have it." 
       write(6,*)
-      write(6,*)" These files are supposd to be located in the "
-      write(6,*)" $(AMBERHOME)/dat/slko/"
-      write(6,*)" directory, and be named as <Atom1>-<Atom2>.skf,"
+      write(6,*)" These files are supposd to be located in a "
+      write(6,*)" subdirectory of $(AMBERHOME)/dat/slko/"
+      write(6,*)" and be named as <Atom1>-<Atom2>.skf,"
       write(6,*)" where <Atom1> and <Atom2> are the atomic symbols."
+      write(6,*)" By default the subdirectory is mio-1-1 for DFTB2"
+      write(6,*)" and 3ob-3-1 for DFTB3"
       write(6,*)
       write(6,*)" Note that the integral table files needed for"
       write(6,*)" a DFTB calculation are not distributed with Amber."
@@ -366,7 +378,7 @@ subroutine qm2_dftb_allocate_slko_depn
 end subroutine qm2_dftb_allocate_slko_depn
 
 
-subroutine qm2_dftb_allocate
+subroutine qm2_dftb_allocate(dftb3)
 !!============================================
 !!           Memory Allocation
 !!============================================
@@ -374,6 +386,8 @@ subroutine qm2_dftb_allocate
    use qm2_dftb_module
 
    implicit none
+
+   logical, intent(in) :: dftb3
 
    integer :: ier=0 ! Allocation status
 
@@ -395,6 +409,9 @@ subroutine qm2_dftb_allocate
 
    allocate(scr_space(3*MDIM), stat=ier)
    REQUIRE(ier ==0)
+
+   allocate(uhder(qmmm_struct%qm_ntypes), stat=ier)
+   REQUIRE(ier == 0)
 
 
    ! --------------------------------
@@ -442,6 +459,9 @@ subroutine qm2_dftb_allocate
    REQUIRE(ier == 0)
 
    allocate(mol%atyp(qmmm_struct%qm_ntypes), stat=ier )
+   REQUIRE(ier ==0)
+
+   allocate(mol%ishydrogen(qmmm_struct%qm_ntypes), stat=ier )
    REQUIRE(ier ==0)
 
    ! sktab_structure
@@ -521,13 +541,14 @@ subroutine qm2_dftb_allocate
    allocate(ks_struct%gammamat(NNDIM,NNDIM) , stat=ier)
    REQUIRE(ier == 0)
 
-   allocate(ks_struct%derivx(NNDIM,NNDIM) , stat=ier)
-   REQUIRE(ier == 0)
+   if (dftb3) then
+      allocate(ks_struct%gamma_der(NNDIM,NNDIM) , stat=ier)
+      REQUIRE(ier == 0)
+      allocate(ks_struct%dg3dr(3,NNDIM,NNDIM) , stat=ier)
+      REQUIRE(ier == 0)
+   end if
 
-   allocate(ks_struct%derivy(NNDIM,NNDIM) , stat=ier)
-   REQUIRE(ier == 0)
-
-   allocate(ks_struct%derivz(NNDIM,NNDIM) , stat=ier)
+   allocate(ks_struct%dgdr(3,NNDIM,NNDIM) , stat=ier)
    REQUIRE(ier == 0)
 
    allocate(ks_struct%ev(MDIM) , stat=ier)
@@ -550,6 +571,14 @@ subroutine qm2_dftb_allocate
 
    allocate(ks_struct%shift(NNDIM) , stat=ier)
    REQUIRE(ier == 0)
+
+   if (dftb3) then
+      allocate(ks_struct%shift3(NNDIM) , stat=ier)
+      REQUIRE(ier == 0)
+
+      allocate(ks_struct%shift3A(NNDIM) , stat=ier)
+      REQUIRE(ier == 0)
+   end if
 
    allocate(ks_struct%shiftE(NNDIM) , stat=ier)
    REQUIRE(ier == 0)
@@ -668,6 +697,8 @@ subroutine qm2_dftb_deallocate
    deallocate(scr_space, stat=ier)
    REQUIRE(ier ==0)
 
+   deallocate(uhder, stat=ier)
+   REQUIRE(ier == 0)
 
    ! --------------------------------
    ! Arrays that belong to structures
@@ -712,6 +743,9 @@ subroutine qm2_dftb_deallocate
    REQUIRE(ier == 0)
 
    deallocate(mol%atyp, stat=ier )
+   REQUIRE(ier ==0)
+
+   deallocate(mol%ishydrogen, stat=ier )
    REQUIRE(ier ==0)
 
    ! sktab_structure
@@ -787,13 +821,17 @@ subroutine qm2_dftb_deallocate
    deallocate(ks_struct%gammamat, stat=ier)
    REQUIRE(ier == 0)
 
-   deallocate(ks_struct%derivx, stat=ier)
-   REQUIRE(ier == 0)
+   if (associated(ks_struct%gamma_der)) then
+      deallocate(ks_struct%gamma_der, stat=ier)
+      REQUIRE(ier == 0)
+   end if
 
-   deallocate(ks_struct%derivy, stat=ier)
-   REQUIRE(ier == 0)
+   if (associated(ks_struct%dg3dr)) then
+      deallocate(ks_struct%dg3dr, stat=ier)
+      REQUIRE(ier == 0)
+   end if
 
-   deallocate(ks_struct%derivz, stat=ier)
+   deallocate(ks_struct%dgdr, stat=ier)
    REQUIRE(ier == 0)
 
    deallocate(ks_struct%ev, stat=ier)
@@ -819,6 +857,16 @@ subroutine qm2_dftb_deallocate
 
    deallocate(ks_struct%shift, stat=ier)
    REQUIRE(ier == 0)
+
+   if (associated(ks_struct%shift3)) then
+      deallocate(ks_struct%shift3, stat=ier)
+      REQUIRE(ier == 0)
+   end if
+
+   if (associated(ks_struct%shift3A)) then
+      deallocate(ks_struct%shift3A, stat=ier)
+      REQUIRE(ier == 0)
+   end if
 
    deallocate(ks_struct%shiftE, stat=ier)
    REQUIRE(ier == 0)
@@ -905,6 +953,47 @@ subroutine qm2_dftb_deallocate
 !! End Memory Deallocations
 !!==========================
 end subroutine qm2_dftb_deallocate
+
+subroutine qm2_dftb_get_skroot(DFTB3, user_path, skroot)
+
+  implicit none
+
+  logical, intent(in) :: DFTB3
+  character(len=*), intent(in) :: user_path
+  character(len=*), intent(out) :: skroot
+
+  character(len=256) :: amberhome
+  integer :: last
+
+  call getenv('AMBERHOME',amberhome)
+
+  if (len(trim(user_path)) > 0) then
+
+     if ( user_path(1:1) /= '/') then
+        ! not an absolute path - assume subdirectory of $AMBERHOME/dat/slko
+        skroot = trim(amberhome) // '/dat/slko/' // trim(adjustl(user_path))
+     else
+        skroot = trim(adjustl(user_path))
+     end if
+
+     last = len(trim(skroot))
+     if ( skroot(last:last) /= '/' ) then
+        skroot = trim(skroot) // '/'
+     end if
+
+  else   
+
+     ! no user path, use default paths for DFTB2 and DFTB3
+     if (DFTB3) then
+        skroot = trim(amberhome) // '/dat/slko/3ob-3-1/'
+     else
+        skroot = trim(amberhome) // '/dat/slko/mio-1-1/'
+     end if
+
+  end if
+
+end subroutine qm2_dftb_get_skroot
+
 
 character(LEN=2) function lowercase_atom(atom)
 ! Returns the lowercase of string 'str'

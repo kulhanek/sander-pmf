@@ -10,9 +10,13 @@ module bintraj
    integer :: crd_ncid, vel_ncid, frc_ncid
    integer :: FrameDimID ! Needed for setup_remd_indices
    integer :: CoordVarID, crd_TimeVarID, crd_frame
-   integer :: TempVarID, remd_indices_var_id, Cell_lengthVarID, Cell_angleVarID
+   integer :: TempVarID, Cell_lengthVarID, Cell_angleVarID
    integer :: VelocVarID, vel_TimeVarID, vel_frame
    integer :: FrcVarID, frc_TimeVarID, frc_frame
+
+#ifdef MPI
+   integer :: remd_indices_var_id, repidxVID, crdidxVID
+#endif
 
    public open_binary_files, close_binary_files, write_binary_traj, &
           end_binary_frame, setup_remd_indices, check_atom_mismatch
@@ -52,7 +56,7 @@ subroutine open_binary_files
    logical       :: vel_file_exists = .false.
    logical       :: frc_file_exists = .false.
    logical       :: hasTemperature = .false.
-   integer       :: ierr, atomCnt, ncatom
+   integer       :: ierr, ierr2, ierr3, ierr4, ierr5, atomCnt, ncatom
 
    crd_ncid = -1
    vel_ncid = -1
@@ -115,7 +119,7 @@ subroutine open_binary_files
          if (NC_create( mdvel, owrite, .false., atomCnt, &
                         .false., .true., .false., .false., .true., &
                         .false., title, vel_ncid, vel_TimeVarID, ierr, &
-                        VelocVarID, ierr, ierr, ierr, ierr, ierr ) ) then
+                        VelocVarID, ierr, ierr2, ierr3, ierr4, ierr5 ) ) then
             write(6, '(a)') "Creation of NetCDF velocity file failed."
             call mexit(6,1)
          endif
@@ -125,7 +129,7 @@ subroutine open_binary_files
          if (NC_openWrite( mdvel, vel_ncid )) call mexit(6,1)
          if (NC_setupMdcrd(vel_ncid, vel_title, vel_frame, ncatom, &
                            ierr, VelocVarID, vel_TimeVarID, &
-                           ierr, ierr, ierr)) call mexit(6,1)
+                           ierr, ierr2, ierr3)) call mexit(6,1)
          ! Check for natoms mismatch
          call check_atom_mismatch(atomCnt, ncatom)
          ! Check that there is velocity info
@@ -151,7 +155,7 @@ subroutine open_binary_files
          if (NC_create( mdfrc, owrite, .false., atomCnt, &
                         .false., .false., .false., .false., .true., &
                         .true., title, frc_ncid, frc_TimeVarID, ierr, &
-                        ierr, FrcVarID, ierr, ierr, ierr, ierr ) ) then
+                        ierr5, FrcVarID, ierr, ierr2, ierr3, ierr4 ) ) then
             write(6, '(a)') "Creation of NetCDF force dump file failed."
             call mexit(6, 1)
          end if
@@ -185,10 +189,12 @@ subroutine setup_remd_indices
    implicit none
 #ifdef BINTRAJ
 #  ifdef MPI
-   ! Only setup remd indices if ioutfm and multid remd
-   if ( (ioutfm.ne.0) .and. (rem.eq.-1) ) then
+   if ( ioutfm.ne.0 ) then
       if ( NC_defineRemdIndices(crd_ncid, remd_dimension, remd_indices_var_id, &
-                               remd_types, .false., frameDID=FrameDimID) ) call mexit(6,1)
+                                repidxVID, crdidxVID, &
+                                remd_types, .false., (rem.eq.-1), &
+                                frameDID=FrameDimID) ) &
+         call mexit(6,1)
    endif
 #  endif
 #else
@@ -231,7 +237,8 @@ subroutine write_binary_traj(r,istart,n,unit) ! FIXME: Split into crd,vel,box
    use AmberNetcdf_mod
    use nblist, only: a,b,c,alpha,beta,gamma
 #  ifdef MPI
-      use remd, only: rem, my_remd_data, replica_indexes, remd_dimension, stagid
+      use remd, only: rem, my_remd_data, replica_indexes, remd_dimension, &
+                      stagid, remd_repidx, remd_crdidx
       use sgld, only: trxsgld
 #  endif 
    
@@ -260,6 +267,13 @@ subroutine write_binary_traj(r,istart,n,unit) ! FIXME: Split into crd,vel,box
 #  ifdef MPI
             ! If this is a replica run write temp0
             if (rem.ne.0) then
+               ! Store overall replica and coordinate indices
+               call checkNCerror(nf90_put_var(crd_ncid, repidxVID, remd_repidx,&
+                                              start = (/ crd_frame /)), &
+                                 'write overall replica index')
+               call checkNCerror(nf90_put_var(crd_ncid, crdidxVID, remd_crdidx,&
+                                              start = (/ crd_frame /)), &
+                                 'write overall coordinate index')
                ! multi-D remd: Store indices of this replica in each dimension
                if (rem .eq. -1) then
                   call checkNCerror(nf90_put_var(crd_ncid, remd_indices_var_id, &

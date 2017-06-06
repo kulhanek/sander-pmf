@@ -25,10 +25,10 @@ subroutine prntmd(nstep,nitp,nits,time,ener,fac,iout7,rms)
    logical rms
 
    _REAL_  etot,   ektot,   rms_pbs
-   _REAL_  volume, densit 
+   _REAL_  volume, densit
    _REAL_  press
    _REAL_  ekcmt,   virt
-   _REAL_  epot,   enonb,   eel,    ehbond, ebond,  eangle 
+   _REAL_  epot,   enonb,   eel,    ehbond, ebond,  eangle
    _REAL_  edihed, enb14,   eel14,  econst, epol
    _REAL_  esurf,  e3bod,  dvdl,   edisp
 
@@ -64,36 +64,36 @@ subroutine prntmd(nstep,nitp,nits,time,ener,fac,iout7,rms)
       ektot  = ener(2)
       temp   = ektot/fac(1)
       !eksolt = ener(3)/fac(2)
-      
+
       if(ntt == 5) then
          !eksolv = ener(4)/fac(3)
       else
          rms_pbs = ener(4)
       end if
-      
+
       !scaltp = ener(5)
-      
+
       !boxx   = ener(7)
       !boxy   = ener(8)
       !boxz   = ener(9)
       volume = ener(10)
       densit = ener(42)
-      
+
       !presx  = ener(11)
       !presy  = ener(12)
       !presz  = ener(13)
       press  = ener(14)
-      
+
       !ekcmx  = ener(15)
       !ekcmy  = ener(16)
       !ekcmz  = ener(17)
       ekcmt  = ener(18)
-      
+
       !virx   = ener(19)
       !viry   = ener(20)
       !virz   = ener(21)
       virt   = ener(22)
-      
+
       epot   = ener(23)
       enonb  = ener(24)
       eel    = ener(25)
@@ -117,7 +117,7 @@ subroutine prntmd(nstep,nitp,nits,time,ener,fac,iout7,rms)
       !dipiter = ener(45)
       !dipole_temp = ener(46)
    endif
-   
+
    write(6,9018) nstep,time,temp,press
    write(6,9028) etot,ektot,epot
    write(6,9038) ebond,eangle,edihed
@@ -138,14 +138,14 @@ subroutine prntmd(nstep,nitp,nits,time,ener,fac,iout7,rms)
    if ( volume /= 0.0    ) write(6,9079) densit
 
    write(6,8088)
-   
+
    !     --- flush i/o buffer ---
-   
+
    call amflsh(6)
    if (iout7 == 0) return
-   
+
    !       ----- OUTPUT THE INFO FILE if requested -----
-   
+
    write(7,9018) nstep,time,temp,press
    write(7,9028) etot,ektot,epot
    write(7,9038) ebond,eangle,edihed
@@ -161,7 +161,7 @@ subroutine prntmd(nstep,nitp,nits,time,ener,fac,iout7,rms)
          write(7,9070) epol,e3bod
    if (volume /= 0.0) write(7,9079) densit
    return
-   
+
    8088 format(t2,78('-'),/)
    9018 format(/1x, 'NSTEP =',i9,3x,'TIME(PS) =',f12.3,2x, &
          'TEMP(K) =',f9.2,2x,'PRESS =',f8.1)
@@ -182,16 +182,16 @@ subroutine prntmd(nstep,nitp,nits,time,ener,fac,iout7,rms)
    9078 format (1x,'EKCMT  = ',f14.4,2x,'VIRIAL  = ',f14.4,2x, &
          'VOLUME     = ',f14.4)
    9079 format (52x,'Density    = ',f14.4)
-   
+
    9070 format (1x,'EPOLZ  = ',f14.4,2x,'E3BODY  = ',f14.4)
-   
+
    9089 format (1x,'DV/DL  = ',f14.4)
 
-end subroutine prntmd 
+end subroutine prntmd
 !-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
-!  Printing the final minimization report 
+!  Printing the final minimization report
 !  It becomes clear that many of the arguments in this subroutine are
 !  now dummies, we still preserve the interface for future usage.
 subroutine report_min_results( nstep, gradient_rms, coordinates, &
@@ -217,19 +217,17 @@ subroutine report_min_results( nstep, gradient_rms, coordinates, &
 
    dummyfac=1
 
-   if (master) then
-      write(6, '(/ /20x,a,/)' ) 'FINAL RESULTS'
-      call prntmd( nstep, 0, 0, 0d0, energies, dummyfac, 0, .false. )
-      if (idecomp > 0) call checkdec(idecomp)
-      if (idecomp == 1 .or. idecomp == 2) call printdec(ix)
-      if (idecomp == 3 .or. idecomp == 4) call printpdec(ix)
-   end if
+   write(6, '(/ /20x,a,/)' ) 'FINAL RESULTS'
+   call prntmd( nstep, 0, 0, 0d0, energies, dummyfac, 0, .false. )
+   if (idecomp > 0) call checkdec(idecomp)
+   if (idecomp == 1 .or. idecomp == 2) call printdec(ix)
+   if (idecomp == 3 .or. idecomp == 4) call printpdec(ix)
 
    return
 end subroutine report_min_results
 
 
-!  Print out a "minimization progress" report 
+!  Print out a "minimization progress" report
 !  It becomes clear that many of the arguments in this subroutine are
 !  now dummies, we still preserve the interface for future usage.
 subroutine report_min_progress( nstep, gradient_rms, forces, energies, igraph )
@@ -246,9 +244,7 @@ subroutine report_min_progress( nstep, gradient_rms, forces, energies, igraph )
 
    dummyfac=1
 
-   if (master) then
-      call prntmd( nstep, 0, 0, 0d0, energies, dummyfac, 0, .false. )
-   end if
+   call prntmd( nstep, 0, 0, 0d0, energies, dummyfac, 0, .false. )
 
    return
 end subroutine report_min_progress
@@ -256,29 +252,29 @@ end subroutine report_min_progress
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ print out information on current fdpb calculation
-subroutine pb_print ( ifcap, ipb, natom ) 
-   
+subroutine pb_print ( ifcap, ipb, natom )
+
    ! Module variables
-   
+
    use poisson_boltzmann
    use solvent_accessibility
    implicit none
-   
+
    ! Common variables
-   
+
 #  include "pb_def.h"
 #  include "pb_md.h"
-   
+
    ! Passed vriables
 
    integer ifcap, ipb, natom
-   
+
    ! Local variables
-   
+
    integer ip, iatm
-   
+
    ! begin code
-   
+
    write(6, '(a)'        )
    write(6, '(a)'        ) ' ======== FDPB Summary ========'
    write(6, '(a)'        )
@@ -379,8 +375,26 @@ subroutine pb_print ( ifcap, ipb, natom )
    write(6, '(x,a)'        ) 'Iteration data'
    write(6, '(x,a,i12)'    ) '  Maximum iterations  :', maxitn
    write(6, '(x,a,es23.15)') '  Convergence criteria:', accept
-   
+
    return
 end subroutine pb_print
 
-
+!  Wrapper for i/o buffer flushing routine
+!  Author: George Seibel
+!  Rewritten by: Meng-Juei Hsieh
+!  Working for most Unix (BSD, Convex, Sun, Stellar, SGI Iris...)
+subroutine amflsh(filenum)
+   implicit none
+   integer filenum ! unit file number to flush
+   integer istat   ! return status from flush
+#if defined(AIX) || defined( XLF90)
+   call flush_(filenum) !page 222 in the V2.3 Language Reference of XLF
+#else
+#  ifdef SGI
+      call flush(filenum,istat)
+#  else
+      call flush(filenum)
+#  endif
+#endif
+   return
+end subroutine amflsh

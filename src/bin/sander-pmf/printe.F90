@@ -19,9 +19,6 @@ subroutine report_min_results( nstep, gradient_rms, coordinates, &
    use state
    use decomp, only : checkdec, printdec, printpdec
    use file_io_dat
-#ifdef RISMSANDER
-   use sander_rism_interface, only: rismprm, rism_solvdist_thermo_calc
-#endif
    implicit none
 
    integer, intent(in)             :: nstep
@@ -47,12 +44,6 @@ subroutine report_min_results( nstep, gradient_rms, coordinates, &
    _REAL_           :: gradient_max
    _REAL_ emtmd
 
-#ifdef RISMSANDER
-   !ensure that RISM thermodynamics are print IFF the user wants them.
-   !This part must be run in parallel
-   if ( rismprm%irism == 1 .and. rismprm%write_thermo==1)&
-        call rism_solvdist_thermo_calc(.false.,0)
-#endif /*RISMSANDER*/
    if (master) then
       write(6, '(/ /20x,a,/)' ) 'FINAL RESULTS'
       call grdmax( forces, gradient_max, atom_number_of_gmax )
@@ -97,9 +88,6 @@ subroutine report_min_progress( nstep, gradient_rms, forces, energies, &
    use state
    use file_io_dat
    use crg_reloc, only : ifcr, crprintcharges, cr_print_charge
-#ifdef RISMSANDER
-   use sander_rism_interface, only: rismprm, rism_solvdist_thermo_calc
-#endif
    implicit none
 
    integer, intent(in)           :: nstep
@@ -117,12 +105,6 @@ subroutine report_min_progress( nstep, gradient_rms, forces, energies, &
    integer          :: atom_number_of_gmax
    _REAL_           :: gradient_max
 
-#ifdef RISMSANDER
-   !ensure that RISM thermodynamics are print IFF the user wants them.
-   !This part must be run in parallel
-   if ( rismprm%irism == 1 .and. rismprm%write_thermo==1)&
-        call rism_solvdist_thermo_calc(.false.,0)
-#endif /*RISMSANDER*/
    if (master) then
       call grdmax( forces, gradient_max, atom_number_of_gmax )
       atom_name_of_gmax = igraph(atom_number_of_gmax)
@@ -275,7 +257,7 @@ subroutine printe( nstep, gradient_rms, gradient_max, ene, &
                                     ene%pot%cmap
 
 #ifdef RISMSANDER
-   if( igb == 0 .and. ipb == 0 .and. rismprm%irism == 0) then
+   if( igb == 0 .and. ipb == 0 .and. rismprm%rism == 0) then
 #else
    if( igb == 0 .and. ipb == 0 ) then
 #endif
@@ -287,7 +269,7 @@ subroutine printe( nstep, gradient_rms, gradient_max, ene, &
       write(6,9050) enonb,enele,epb
 #endif /* APBS */
 #ifdef RISMSANDER
-   else if(rismprm%irism == 1 )then
+   else if(rismprm%rism == 1 )then
       write(6,9051) enonb,enele,erism
 #endif
    else
@@ -389,7 +371,7 @@ subroutine printe( nstep, gradient_rms, gradient_max, ene, &
 
 
 #ifdef RISMSANDER
-      if( igb == 0 .and. ipb == 0 .and. rismprm%irism == 0) then
+      if( igb == 0 .and. ipb == 0 .and. rismprm%rism == 0) then
 #else
       if( igb == 0 .and. ipb == 0 ) then
 #endif
@@ -401,7 +383,7 @@ subroutine printe( nstep, gradient_rms, gradient_max, ene, &
          write(7,9050) enonb,enele,epb
 #endif /* APBS */
 #ifdef RISMSANDER
-      else if ( rismprm%irism == 1 ) then
+      else if ( rismprm%rism == 1 ) then
          write(7,9051) enonb,enele,erism
 #endif
       else
@@ -483,7 +465,7 @@ subroutine printe( nstep, gradient_rms, gradient_max, ene, &
    end if
 
 #ifdef RISMSANDER
-   if(rismprm%irism==1 .and. rismprm%write_thermo==1)then
+   if(rismprm%rism==1 .and. rismprm%write_thermo==1)then
       if(rism_calc_type(nstep) == RISM_FULL)&
            call rism_thermo_print(.false.,transfer(ene%pot,pot_array))
    end if

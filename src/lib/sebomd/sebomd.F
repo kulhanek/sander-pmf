@@ -1,6 +1,6 @@
 !------------------------------------------------------------------------
       subroutine sebomd_energy(
-     &  iflag, iflagch, ntb, nat, virial, edc,
+     &  iflag, iflagch, iflagbo, ntb, nat, virial, edc,
      &  boxsander, xyzsander, gradsander,
      &  nresid, presid, chgsander, symbol2,
      &  nmol,pmolid,
@@ -13,8 +13,11 @@
 !     .         2  do no subset (use old subsetting scheme) and calculate
 !     .            energy
 !
-!     iflagch = 0 do not write charges to sebomd.ch
-!     .         1 write charges to sebomd.ch
+!     iflagch = 0 do not write charges to sebomd.chg
+!     .         1 write charges to sebomd.chg
+!
+!     iflagbo = 0 do not write bond orders to sebomd.bnd
+!     .         1 write bond orders to sebomd.bnd
 !
 !     ntb = 0 do not use periodic boundaries conditions
 !     .   > 0 use PBC = .true.
@@ -67,7 +70,7 @@
 #ifdef MPI
 #include "mpif.h"
 #endif
-      integer iflag, iflagch, ntb, nat
+      integer iflag, iflagch, iflagbo, ntb, nat
       integer nresid
       double precision edc
       double precision xyzsander(3*nat), boxsander(3), gradsander(3*nat)
@@ -218,6 +221,9 @@
         if (iflagch.eq.1.and.iflag.ge.1) then
           call se_write_charges(natoms, edc, iatnum, xyz, atchg,
      .                              atchg2, atchg3, dipole_atm)
+        endif
+        if (iflagbo.eq.1.and.iflag.ge.1) then
+          call se_bond_order_wrapper
         endif
 #ifdef MPI
       endif

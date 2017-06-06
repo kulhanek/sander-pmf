@@ -53,7 +53,7 @@ public
       character(LEN=80) :: molfit     ! output molecular file name
       integer :: natc             !  number of atoms represented by the map
       integer, pointer, dimension(:) :: idxatom => null()  !  pointer to atom index array
-      logical :: movable,fitting        ! flag indicating a fixed rigid domain
+      logical :: movable,fitting,tomap        ! flag indicating a fixed rigid domain
       _REAL_ :: mass,winv,tcm         ! mass, invert
       _REAL_ :: energy         ! energy
       INTEGER,dimension(6) :: grids   ! grid numbers in x,y,z,phi,psi,theta
@@ -157,6 +157,7 @@ contains
         emrigs(i)%resolution=resolution
         emrigs(i)%movable=move>0
         emrigs(i)%fitting=ifit>0
+        emrigs(i)%tomap=ifit>1
         emrigs(i)%grids=grids
         emrigs(i)%nminim=minim
       ENDDO
@@ -301,6 +302,8 @@ contains
            if(emrigs(i)%fitting)then
              write(unitout,'("    Rigid-fitting is requested for the constrained atoms with a grid:")')
              write(unitout,'("      x: ",I2," y: ",I2," z: ",I2," theta: ",I2," phi: ",I2," psi: ",I2)')(emrigs(i)%grids(j),j=1,6)
+             if(emrigs(i)%tomap) &
+             write(unitout,'("    Atoms for Rigid ",I4," will be moved to fit the map")')I
            else
              write(unitout,'("    Rigid-fitting is not requested for the constrained atoms.")')
            endif
@@ -317,6 +320,12 @@ contains
            if(unitout>0)then
               write(unitout,'("Rigid ",I4," has been fitted to: ",A," with energy:",E14.6)') &
               I, trim(emaps(j)%mapfile),emrigs(i)%energy
+           endif
+           if(emrigs(i)%tomap)then
+             ! transform the atoms for this rigid dormain
+             CALL TRANSCRD(emrigs(i)%NATC,emrigs(i)%IDXATOM,EMAPS(J)%CX,&
+            EMAPS(J)%CY,EMAPS(J)%CZ,emrigs(i)%TRAN,emrigs(i)%ROT)
+             call rigid_init(emrigs(i))
            endif
         endif
       ENDDO
@@ -1115,6 +1124,46 @@ contains
       MAPN%MAX=AMAX
       RETURN
       END SUBROUTINE MAPCAST
+
+
+      SUBROUTINE TRANSCRD(NATRIG,IDXATM,CX,CY,CZ,T,U)
+!_________________________________________________________________
+!  transform atom coordinates to their fitting position
+!                    By Xiongwu Wu, wuxw@nhlbi.nih.gov
+!_________________________________________________________________
+      use memory_module, only: memory_init,  &
+            residue_pointer,coordinate
+!
+#  include "../include/memory.h"
+      INTEGER NATRIG,IDXATM(*)
+      _REAL_  CX,CY,CZ,T(3),U(3,3)
+!
+      INTEGER IRES,IATOM,I,IA
+      _REAL_ XN,YN,ZN
+      LOGICAL ATSKIP
+!
+      call memory_init()
+      do ires = 1,nres
+         do iatom = residue_pointer(ires), residue_pointer(ires+1)-1
+           ATSKIP=.TRUE.
+           DO I=1,NATRIG
+             IA=IDXATM(I)
+             IF(IATOM==IA)THEN
+               ATSKIP=.FALSE.
+               EXIT
+             ENDIF
+           ENDDO
+           IF(ATSKIP)CYCLE
+           XN=coordinate(1,ia)-T(1)-CX
+           YN=coordinate(2,ia)-T(2)-CY
+           ZN=coordinate(3,ia)-T(3)-CZ
+           coordinate(1,ia)=U(1,1)*XN+U(2,1)*YN+U(3,1)*ZN+CX
+           coordinate(2,ia)=U(1,2)*XN+U(2,2)*YN+U(3,2)*ZN+CY
+           coordinate(3,ia)=U(1,3)*XN+U(2,3)*YN+U(3,3)*ZN+CZ
+         end do
+      end do
+      RETURN
+      END SUBROUTINE TRANSCRD
 
 
       SUBROUTINE WRTFITPDB(UNIT,NATRIG,IDXATM,CX,CY,CZ,T,U)

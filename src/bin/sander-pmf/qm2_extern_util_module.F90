@@ -7,7 +7,8 @@ module qm2_extern_util_module
 
   private
   public :: print_results, check_installation, write_dipole, write_charges, &
-       write_chgfile, debug_enter_function, debug_exit_function
+       write_chgfile, debug_enter_function, debug_exit_function, &
+       is_empty_string
 !    au_to_kcal, a_to_bohr, set_zero
   
   character(len=*), parameter :: module_name = "qm2_extern_util_module"
@@ -287,6 +288,17 @@ module qm2_extern_util_module
     end if
 
   end subroutine debug_exit_function
+
+  function is_empty_string(string) result(is_empty)
+
+    implicit none
+    
+    character(len=*), intent(in) :: string
+    logical :: is_empty
+    
+    is_empty = (len(trim(string)) == 0)
+
+  end function is_empty_string
 
 
 end module qm2_extern_util_module

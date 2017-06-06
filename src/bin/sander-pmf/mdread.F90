@@ -1,6 +1,6 @@
 #include "copyright.h"
 #include "../include/dprec.fh"
-#include "ncsu-config.h"
+#include "nfe-config.h"
 #include "../include/assert.fh"
 #ifndef PBSA
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

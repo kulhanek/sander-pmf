@@ -265,7 +265,8 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
         jptave0, jrsttyp, jrstwt, jshrtd, jtav01, jtav02, jtave1, jtave2, &
         jwtnrg, jwtstp, jwttyp, jxpk, maxgrp, maxrst, maxwt, mxgrp, &
         natom, nave, navint, ncharg, nexact, nhb, nimprp, nmrnum, nprnt, &
-        nres, nstep, nstepl, ntypes, numang, numbnd, numphi
+        nres, nstep, nstepl, ntypes, numang, numbnd, numphi, jfxyz, joutxyz, &
+        jdxyz
    _REAL_ :: ag, bg, cg, cn1, cn2, cut, devang, devdis, devgendis, &
         devpln, devplpt, devtor, dt, dtt, dvang, dvdis, dvgendis, dvpln, &
         dvplpt, dvtor, eenmr, enmr, f, pk, rad, radhb, ravein, rimass, &
@@ -284,7 +285,7 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
 #  include "nmr.h"
    
    integer B_NMRI,B_NMRR
-   parameter (B_NMRI=76)    ! size of NMCLOCI common block
+   parameter (B_NMRI=79)    ! size of NMCLOCI common block
    parameter (B_NMRR=22)    ! size of NMCLOCR common block
    common/nmcloci/nstepl,nstep,j1nmr,j2nmr,j3nmr,j4nmr, &
          jk2nmr,jk3nmr,jnmrat,jrsttyp,jrstwt,jnmrst,jcomdf,jshrtd,jfntyp, &
@@ -292,7 +293,7 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
          jtav01,jtav02,jptave0,jplave0,jgdave0,jjcoef,jwtstp,jwttyp,jxpk,ichgwt,nmrnum, &
          ishrtb,nave(6),nexact(6),ipower(6),navint(6), &
          iavtyp(6),idmpav,maxrst,itimav,maxwt,maxgrp,jaltd, &
-         j3vec,jconstr
+         j3vec,jconstr, jfxyz, joutxyz, jdxyz
    common/nmclocr/stpmlt,wtls(2),dt,tauave(6),taufin(6),ravein(6)
    common/nmclc2/dvdis(2,4),dvang(2,4),dvtor(2,4),dvplpt(2,4),dvpln(2,4),dvgendis(2,4),eenmr(2,6)
 
@@ -347,7 +348,9 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
       jgdave0 = jgdave + 2*maxrst*itimav
       jjcoef = jgdave0 + maxrst*itimav
       j3vec  =  jjcoef + 3*maxrst       ! constraining vectors
-      ! J3VEC require 3*MAXRST storage.
+      jdxyz = j3vec + 3*maxrst
+      ! JDXYZ require 3*MAXRST storage.
+
       ! IWORK array:
       jnmrat = 1
       jrsttyp = jnmrat + 16*maxrst
@@ -361,7 +364,9 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
       jwttyp = jwtstp + 3*maxwt
       jxpk   = jwttyp + maxwt
       jconstr = jxpk + 2*maxrst         ! constrain flags
-      ! JCONSTR requires MAXRST of storage
+      jfxyz = jconstr + maxrst
+      joutxyz = jfxyz + 5*maxrst
+      ! JOUTXYZ requires MAXRST of storage
       
       do j=1,2
          do i = 1,4
@@ -393,7 +398,8 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
             iscrth,ichgwt,ishrtb, &
             natom,nres,nstep0,stpmlt,in,iout,iscop1,iscop2, &
             maxrst,maxwt,maxgrp,nave,nexact,navint,ipower, &
-            ravein,taufin,iavtyp,idmpav,itimav)
+            ravein,taufin,iavtyp,idmpav,itimav, iwork(jfxyz),&
+            iwork(joutxyz), work(jdxyz))
       if (nstep0 /= 0) nstepl = nstep0
       if (nstep0 /= 0) nstep = nint(nstep0*stpmlt)
     case ('CALC')
@@ -408,7 +414,8 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
             work(jtav02),work(jptave),work(jptave0),work(jplave), &
             work(jplave0),work(jgdave),work(jgdave0),work(jjcoef),nave,ipower, &
             tauave,ravein,dt,navint,iavtyp,idmpav,iscop3, &
-            enmr,devdis,devang,devtor,devplpt,devpln,devgendis,iout)
+            enmr,devdis,devang,devtor,devplpt,devpln,devgendis,iout, &
+            iwork(jfxyz), iwork(joutxyz), work(jdxyz))
       do j = 1,4
          dvdis(1,j) = devdis(j)
          dvang(1,j) = devang(j)
@@ -440,7 +447,7 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
             iwork(jnmrst),iwork(jshrtd),wtls,iwork(jfntyp), &
             iwork(jgravt),iwork(jaltd),work(jbave), &
             work(jbav0),nave, &
-            ipower,tauave,navint,ravein,dt,iout,1)
+            ipower,tauave,navint,ravein,dt,iout,1,iwork(jfxyz),work(jdxyz))
       call modwt(work(jwtnrg),iwork(jwtstp),iwork(jwttyp),ichgwt, &
             ishrtb,nstep,temp0,tautp,cut,rk,tk,pk,cn1,cn2,ag,bg,cg, &
             work(jk2nmr),work(jk3nmr),iwork(jshrtd), &
@@ -461,7 +468,7 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
             work(jtave1),work(jtav01),work(jtave2), &
             work(jtav02),work(jptave),work(jptave0),work(jplave),work(jplave0), &
             work(jgdave),work(jgdave0),work(jjcoef),nave,ipower, &
-            taufin,ravein,navint,dt,iscop1,iout)
+            taufin,ravein,navint,dt,iscop1,iout, iwork(jfxyz),work(jdxyz))
 #ifdef MPI
      case ('MPI ')
       
@@ -498,8 +505,8 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
    if (mxgrp > 0) maxgrp = mxgrp
    itimav = itmav
    if (itotst == 0) itimav = 0
-   intreq = 27*maxrst + 5*maxwt + 2*maxgrp
-   irlreq = 22*maxrst + 21*maxrst*itimav + 2*maxwt
+   intreq = 33*maxrst + 5*maxwt + 2*maxgrp
+   irlreq = 25*maxrst + 21*maxrst*itimav + 2*maxwt
    dt = dtt
    return
    
@@ -525,7 +532,7 @@ subroutine nmrcal(x,f,name,irsnam,ipres,rimass,enmr,devdis,devang, &
             work(jtave1),work(jtav01),work(jtave2), &
             work(jtav02),work(jptave),work(jptave0),work(jplave),work(jplave0), &
             work(jgdave),work(jgdave0),work(jjcoef),nave,ipower, &
-            taufin,ravein,navint,dt,iscop1,iout)
+            taufin,ravein,navint,dt,iscop1,iout, iwork(jfxyz),work(jdxyz))
    return
    
    ! The following entry point allows the local step number counter,
@@ -599,7 +606,7 @@ subroutine restal(iscop1,in,ichgwt,nmrnum,itimav,iout,ierr,numgrp)
         igr7, igr8, igrarr, iin, iinc, ilengt, imat, imult, in, iout, &
         ipaver, ir6, iredir, iresid, irstyp, iscop1, istep1, istep2, &
         istrt, itimav, ixpk, j, m, maxigr, n, ninc, nmrnum, nres, &
-        nstep1, nstep2, numgrp, nxpk
+        nstep1, nstep2, numgrp, nxpk, fxyz(5), outxyz
    _REAL_ :: r1, r1a, r2, r2a, r3, r3a, r4, r4a, rjcoef, rk2, rk2a, &
         rk3, rk3a, value1, value2
 
@@ -640,7 +647,7 @@ subroutine restal(iscop1,in,ichgwt,nmrnum,itimav,iout,ierr,numgrp)
          iresid,imult,atnam,igr1,igr2,igr3,igr4,igr5,igr6,igr7,igr8, &
          grnam1,grnam2,grnam3,grnam4,grnam5,grnam6,grnam7,grnam8,&
          r0,r1,r2,r3,r4,k0,rk2,rk3,r0a,r1a,r2a,r3a,r4a,k0a,rk2a,rk3a,ir6,ifntyp, &
-         ifvari,rjcoef,ixpk,nxpk,ialtd,iconstr
+         ifvari,rjcoef,ixpk,nxpk,ialtd,iconstr,fxyz, outxyz
    
    data redirc/'LISTIN    ' , 'LISTOUT   ' , 'DISANG    ', &
          'NOESY     ' , 'SHIFTS    ' , 'DUMPAVE   ', &
@@ -667,7 +674,9 @@ subroutine restal(iscop1,in,ichgwt,nmrnum,itimav,iout,ierr,numgrp)
    dumnam(1) = '    '
    dumnam(2) = '    '
    dumipres = 0
-   
+   fxyz(1:5)=1
+   outxyz=0
+ 
    ! Look for a card starting with the string "&formwt". If one is found, then
    ! the subsequent cards, up until one with TYPE="END" is encountered, are
    ! the weight cards, as formatted input. If this string is not found,
@@ -809,7 +818,9 @@ subroutine restal(iscop1,in,ichgwt,nmrnum,itimav,iout,ierr,numgrp)
       
       call nmlsrc('rst',iin,ifind)
       if (ifind == 0) goto 100
-      
+   
+      fxyz(:)=1     
+      outxyz=0 
       read (iin,nml=rst,end=100)
       
       do jjj=1,maxigr

@@ -181,7 +181,7 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
 !In parallel all threads enter here.
 
    use qm2_dftb_module, only: MDIM,LDIM,NDIM,disper, lmax, dacc, mcharge, &
-         izp_str, ks_struct, fermi_str, dftb_3rd_order_str
+         izp_str, ks_struct, fermi_str, dftb_3rd_order_str, uhder, zeta, mol
    use qmmm_module, only: qmmm_nml, qmmm_struct, qm2_struct, qmmm_mpi
 #ifndef SQM
    use qmmm_module, only: qm_gb, qmewald
@@ -220,7 +220,7 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
    _REAL_  :: gb_escf_corr !GB correction for escf.
 #endif
    _REAL_  :: elec_eng_old, eext
-   _REAL_  :: ecoul, efermi
+   _REAL_  :: ecoul, ecoul3, efermi
 
    ! SCC Charge convergency
    _REAL_  :: ediff
@@ -236,6 +236,8 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
    _REAL_, dimension(100) :: Uhub
    _REAL_, dimension(100) :: DUhub
    _REAL_ :: third_order_h_contrib
+
+   _REAL_ :: tmp
 
 
 #ifdef MPI
@@ -371,9 +373,12 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
             = ks_struct%b(1:qm2_struct%norbs,j) * ks_struct%ev(j)
       end do
 
-      
-
-
+      ! AWG calculate second- and third-order kernels of the electron-electron
+      ! interaction (gamma and Gamma=dgamma/dq)
+      ! AWG do this before the SCF loop, gamma and Gamma do not depend on electron density
+      call gammamatrix(qmmm_nml%qmtheory%dftb3, qmmm_struct%nquant_nlink, &
+           qm_coords, izp_str%izp, mol%ishydrogen, mcharge%uhubb, uhder, zeta, &
+           ks_struct%gammamat, ks_struct%gamma_der)
 
       scc_loop: do inner_scf_count = 1,qmmm_nml%dftb_maxiter
 
@@ -393,9 +398,9 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
         ! zero the whole ks_struct%shift vector (qmmm_struct%nquant_nlink long)
         ks_struct%shift(1:qmmm_struct%nquant_nlink) = 0.0d0
 
-        call HAMILSHIFT(qm_coords, izp_str%izp,&
-              mcharge%uhubb,inner_scf_count,ks_struct%gammamat, &
-              ks_struct%shift, qm2_struct%scf_mchg)
+        call HAMILSHIFT(qmmm_nml%qmtheory%dftb3, qmmm_struct%nquant_nlink, izp_str%izp,&
+             ks_struct%gammamat, ks_struct%gamma_der, qm2_struct%scf_mchg, &
+             ks_struct%shift, ks_struct%shift3, ks_struct%shift3A)
 
         ! EXTERNAL CHARGES SHIFT
         ! ----------------------
@@ -434,31 +439,14 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
         ! Update hamiltonian matrix (here in "a"),
         ! with the charge-dependent part
         
-        ! Restore the Hamiltonian matrix in ks_struct%a
-        ks_struct%a(1:qm2_struct%norbs,1:qm2_struct%norbs) = 0.0d0
+        call build_ks_matrix(qmmm_nml%qmtheory%dftb3, MDIM, ks_struct%a, qm2_struct%norbs, &
+             qmmm_struct%nquant_nlink, ks_struct%ind, izp_str%izp, lmax, ks_struct%hamil, &
+             ks_struct%overl, ks_struct%shift, ks_struct%shift3, ks_struct%shift3A)
         
-        do i = 1,qmmm_struct%nquant_nlink
-           indi = ks_struct%ind(i)
-           liend = lmax( izp_str%izp(i) )**2
-           shifti = ks_struct%shift(i)
-           do li = 1,liend
-              indili = indi + li
-               do j = 1,i          
-               ! --> Note: Only the lower triangle is used
-                 indj = ks_struct%ind(j)
-                 ljend = lmax( izp_str%izp(j) )**2
-                 shiftj = ks_struct%shift(j)
-                 do lj = 1,ljend
-                    indjlj = indj + lj
-                    ks_struct%a(indili,indjlj) = ks_struct%hamil(indili,indjlj) &
-                          + 0.5*ks_struct%overl(indili,indjlj)*(shifti+shiftj)
-                 end do
-              end do
-           end do
-        end do
-
       ! ==========================
       !   Third order SCC-DFTB
+      ! AWG: note this is NOT DFTB3
+      !      this is an old diagonal 3rd order correction to SCC-DFTB  
       ! ==========================
       if (dftb_3rd_order_str%do_3rd_order) then
 
@@ -605,16 +593,24 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
         ! charge-dependent energy contribution
         ! warning: this will only lead to the right result if convergence
         ! has been reached
-        ecoul = 0.0d0
-        eext  = 0.0d0
+        ecoul  = 0.0d0
+        ecoul3 = 0.0d0
+        eext   = 0.0d0
 
         ! COULOMBIC ELECTRONIC REPULSION ENERGY
         ! -------------------------------------
         do i = 1, qmmm_struct%nquant_nlink
-           ecoul = ecoul + &
-                   ks_struct%shift(i) &
-                     *(qmat(i)+mcharge%qzero( izp_str%izp(i)))
+           tmp = qmat(i) + mcharge%qzero(izp_str%izp(i))
+           ecoul = ecoul + ks_struct%shift(i) * tmp
         end do
+
+        if (qmmm_nml%qmtheory%dftb3) then
+           do i = 1, qmmm_struct%nquant_nlink
+              tmp = qmat(i) + mcharge%qzero(izp_str%izp(i))
+              ecoul3 = ecoul3 + ks_struct%shift3(i)*tmp &
+                              + ks_struct%shift3A(i)*qmat(i)
+           end do
+        end if
 
         ! EXTERNAL CHARGES (QM/MM) COULOMB ENERGY
         ! ---------------------------------------
@@ -647,7 +643,7 @@ subroutine eglcao(qm_coords,total_e,elec_eng,ethird,enuclr_qmqm, &
         ! remark: elec_eng contains ks_struct%shiftE aready via ev,
         ! ks_struct%shift also contains -ks_struct%shiftE, i.e. ecoul also
         ! contains contributions from EXT
-        elec_eng = elec_eng-0.5d0*ecoul + 0.5d0*eext + ethird
+        elec_eng = elec_eng-0.5d0*ecoul -ecoul3/3.0d0 + 0.5d0*eext + ethird
 
         ! =================
         !  SCC CONVERGENCE
@@ -875,6 +871,73 @@ subroutine dftb_conv_failure(string1,string2,string3)
    
 end subroutine dftb_conv_failure
 
+
+subroutine build_ks_matrix(dftb3, MDIM, ksmat, norb, natom, offset, atyp, lmax, &
+     hzero, overlap, shift, shift3, shift3A)
+
+  implicit none
+
+  logical, intent(in) :: dftb3
+  integer, intent(in) :: MDIM
+  _REAL_, intent(out) :: ksmat(MDIM,*)
+  integer, intent(in) :: norb, natom, offset(*), atyp(*), lmax(*)
+  _REAL_, intent(in) :: hzero(MDIM,*), overlap(MDIM,*), shift(*), shift3(*), shift3A(*)
+
+  integer :: i, indi, liend, li, indili, j, indj, ljend, indjlj, lj
+  _REAL_, parameter :: half = 0.5d0
+  _REAL_, parameter :: third = 1.0d0/3.0d0
+  _REAL_, parameter :: two = 2.0d0
+
+  ksmat(1:norb,1:norb) = 0.0d0
+
+  if (dftb3) then
+
+     !  DFTB2 and DFTB3 terms
+     do i = 1, natom
+        indi = offset(i)
+        liend = lmax( atyp(i) )**2
+        do li = 1,liend
+           indili = indi + li
+           do j = 1,i          
+              ! --> Note: Only the lower triangle is used
+              indj = offset(j)
+              ljend = lmax( atyp(j) )**2
+              do lj = 1,ljend
+                 indjlj = indj + lj
+                 ksmat(indili,indjlj) = hzero(indili,indjlj) &
+                      + half*overlap(indili,indjlj) &
+                        *(shift(i)+shift(j) &
+                          +third*(two*shift3(i)+shift3A(i)+two*shift3(j)+shift3A(j)))
+              end do
+           end do
+        end do
+     end do
+
+  else
+
+     ! only DFTB2 terms
+     do i = 1, natom
+        indi = offset(i)
+        liend = lmax( atyp(i) )**2
+        do li = 1,liend
+           indili = indi + li
+           do j = 1,i          
+              ! --> Note: Only the lower triangle is used
+              indj = offset(j)
+              ljend = lmax( atyp(j) )**2
+              do lj = 1,ljend
+                 indjlj = indj + lj
+                 ksmat(indili,indjlj) = hzero(indili,indjlj) &
+                      + 0.5d0*overlap(indili,indjlj)*(shift(i)+shift(j))
+              end do
+           end do
+        end do
+     end do
+
+  end if
+  
+
+end subroutine build_ks_matrix
 
 !!!=========================================
 !!! Currently, this subroutine is not used.

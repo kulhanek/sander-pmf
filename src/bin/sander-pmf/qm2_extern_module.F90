@@ -16,8 +16,10 @@ module qm2_extern_module
 ! Date: August 2010
 !
 ! Extensions by Andreas Goetz (agoetz@sdsc.edu)
+! Date: November 2010 and later
 !
-! Date: November 2010
+! MRCC interface by Bence Hegely
+! Date: February 2017
 !
 ! ----------------------------------------------------------------
 
@@ -28,6 +30,7 @@ module qm2_extern_module
   use qm2_extern_gau_module   , only: get_gau_forces
   use qm2_extern_orc_module   , only: get_orc_forces
   use qm2_extern_nw_module    , only: get_nw_forces
+  use qm2_extern_mrcc_module  , only: get_mrcc_forces
 #ifdef MPI
   use qm2_extern_genmpi_module, only: get_genmpi_forces
 #endif
@@ -136,6 +139,10 @@ module qm2_extern_module
       call get_qc_forces( do_gradient, nstep, ntpr, id, nqmatoms, qmcoords,&
            qmtypes, nclatoms, clcoords, escf, dxyzqm, dxyzcl, &
            qmmm_nml%qmcharge, qmmm_nml%spin)
+    case('mrcc')
+      call get_mrcc_forces(do_gradient, nstep, ntpr, id, nqmatoms, qmcoords,&
+           qmtypes, nclatoms, clcoords, escf, dxyzqm, dxyzcl, &
+           qmmm_nml%qmcharge, qmmm_nml%spin)
 #ifdef MPI
     case('genmpi')
       call get_genmpi_forces( do_gradient, nstep, ntpr, id, nqmatoms, qmcoords,&
@@ -164,9 +171,9 @@ module qm2_extern_module
     implicit none
 
     integer :: i, ifind
-    character(len=20) :: programs(9) = (/'adf   ', 'gms   ', 'tc    ', 'gau   ', &
+    character(len=20) :: programs(10) = (/'adf   ', 'gms   ', 'tc    ', 'gau   ', &
                                          'orc   ', 'nw    ', 'qc    ', 'genmpi', &
-                                         'lio   '/)
+                                         'lio   ','mrcc  '/)
     character(len=20), intent(out) :: extern_program
 
     ! Select which external program to use
@@ -242,6 +249,18 @@ module qm2_extern_module
             '| J. Chem. Theory Comput. 8 (2012) 5092-5106', &
             '| DOI: 10.1021/ct3006826'
     end if
+
+    if(trim(extern_program)=='mrcc') then
+     write (6,'(/a/a//a/a/a/a/a/a)') &
+          '| If results obtained with the MRCC code are published,', &
+          '| an appropriate citation would be', &
+          '| MRCC, a quantum chemical program suite written by M. Kállay,',&
+          '| Z. Rolik, J. Csontos, I. Ladjánszki, L. Szegedy, B. Ladóczki,',&
+          '| G. Samu, K. Petrov, M. Farkas, P. Nagy, D. Mester, and B. Hégely.',&
+          '| See also',&
+          '| Z. Rolik, L. Szegedy, I. Ladjánszki, B. Ladóczki, and M. Kállay,',&
+          '| J. Chem. Phys. 139, 094105 (2013), as well as: www.mrcc.hu'
+    endif
 
   end subroutine print_citation_information
 

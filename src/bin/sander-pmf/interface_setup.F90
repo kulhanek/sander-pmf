@@ -3,11 +3,11 @@
 #define ERROR2 12346
 #define ERROR3 12347
 
-#ifndef DISABLE_NCSU
-   use ncsu_sander_hooks, only : &
-      ncsu_on_sander_init => on_sander_init, &
-      ncsu_on_sander_exit => on_sander_exit
-#endif /* DISABLE_NCSU */
+#ifndef DISABLE_NFE
+   use nfe_sander_hooks, only : &
+      nfe_on_sander_init => on_sander_init, &
+      nfe_on_sander_exit => on_sander_exit
+#endif /* DISABLE_NFE */
    use lmod_driver
    use constants, only : INV_AMBER_ELECTROSTATIC
    ! The main qmmm_struct contains all the QMMM variables and arrays
@@ -32,7 +32,7 @@
    use nmr, only: nmrrad, impnum
    use ew_recip, only: deallocate_m1m2m3,first_pme
    use parms
-   use molecule, only : mol_info, allocate_molecule
+   use molecule, only : mol_info, allocate_molecule, deallocate_molecule
    use nblist, only: first_list_flag
    use stack
    use amoeba_runmd, only : AM_RUNMD_get_coords,AM_RUNMD
@@ -205,13 +205,8 @@
       ! Check for illegal input combinations that _would_ cause a fatal error
       ! later in the code. This way we don't quit fatally and give a helpful
       ! error message
-      if (ifbox > 0 .and. ntb == 0) then
-         write(0, '(a)') 'ntb must be 1 for a periodic system'
-         ierr = 1
-         return
-      end if
-      if (ifbox == 0 .and. ntb > 0) then
-         write(0,'(a)') 'ntb must be 0 for a non-periodic system'
+      if (ntb > 0 .and. ifbox == 0) then
+         write(0, '(a)') 'ntb is set but no box info in PRMTOP'
          ierr = 1
          return
       end if
@@ -756,7 +751,7 @@
 
    if (igb == 7 .or. igb == 8 ) &
       call igb7_init(natom, x(l97)) !x(l97) is rborn()
-     !Hai Nguyen: add igb ==8 here
+     ! add igb ==8 here
 
    if (qmmm_nml%ifqnt) then
       ! Apply charge correction if required.
@@ -808,6 +803,9 @@
    if (ntp > 0 .and. barostat == 2) call mcbar_setup(ig)
 
    is_setup_ = .true.
+#ifdef USE_PRMTOP_FILE
+   close(8)
+#endif
 
    return
 
@@ -827,11 +825,15 @@ ERROR1 continue
    is_setup_ = .false.
    call memory_free
    call clean_parms
+   call deallocate_molecule
    if ((igb /= 0 .and. igb /= 10 .and. ipb == 0) &
                  .or. hybridgb>0 .or. icnstph>1) &
       call deallocate_gb
    if (idecomp > 0) &
       call deallocate_int_decomp
+#ifdef USE_PRMTOP_FILE
+   close(8)
+#endif
    return
 
 #undef ERROR1

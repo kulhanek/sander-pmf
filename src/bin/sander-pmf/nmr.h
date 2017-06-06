@@ -34,7 +34,7 @@ integer mring,mshf,mxvar,matom,ma,ma2,lst,mxr,mxtau,mxp, &
 
 !  --- "standard" parameters for jobs like the test cases:
 
-parameter (mring=50)
+parameter (mring=300)
 parameter (mshf=1000)
 parameter (mxvar=50)
 parameter (matom=50000)

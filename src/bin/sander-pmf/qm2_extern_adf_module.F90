@@ -130,7 +130,7 @@ contains
       write (6,'(80a)') ('-', i=1,80)
     end if
     if ( adf_nml%use_dftb ) then
-      keyfile='DFTB.kf'
+      keyfile='dftb.rkf'
     else
       keyfile='TAPE21'
     end if
@@ -454,25 +454,60 @@ contains
         'Will quit now.')
     end if
 
-    ! ATOMS keyword
-    write (iunit,'(a)') 'Atoms'
-    do i = 1, natoms
-      write(iunit,'(a2,1x,3f25.16)') elementSymbol(qmtypes(i)), coords(1:3,i)
-    end do
-    write(iunit,'(a,/)') 'End'
-    
-    ! Don't include BASIS/FRAGMENTS etc if we are on the first call
-    if ( first_call .and.  adf_nml%use_template ) then
-      first_call=.false.
-      if ( do_grad ) write (iunit,'(a)') 'GRADIENT'
-      return
-    end if
+    if ( adf_nml%use_dftb ) then
 
-    if ( .not. adf_nml%use_dftb ) then
+      ! ----------------------------
+      ! DFTB PROGRAM INPUT SPECIFICS
+      ! ----------------------------
+
+      ! System section
+      write (iunit,'(a)') 'System'
+      write (iunit,'(a)') 'Atoms'
+      do i = 1, natoms
+         write(iunit,'(a2,1x,3f25.16)') elementSymbol(qmtypes(i)), coords(1:3,i)
+      end do
+      write(iunit,'(a,/)') 'End'
+      write(iunit,'(a,i2,/)') 'CHARGE ', charge
+      write(iunit,'(a,/)') 'End'
+
+      ! Hamiltonian details
+      write(iunit,'(a,/)') 'DFTB'
+      ! Use mio-1-1 parameters; should become an input option
+      write(iunit,'(a,/)') 'ResourcesDir DFTB.org/mio-1-1'
+      write(iunit,'(a,/)') 'End'
+      
+      ! Task: Request a single point calculation - this includes gradients
+      write(iunit,'(a,/,a,/,a,/)') &
+           'Task', 'runType SP', 'End'
+
+      if ( first_call ) then
+        first_call = .false.
+      else
+        ! Use last kf file as restart file
+        if ( trim(adf_nml%guess) == 'read' ) then
+          write(iunit,'(a,/,a,/,a,/)') 'Restart', 'RestartFile kf.DFTB', 'End'
+        end if
+      end if
+
+    else
 
       ! ---------------------------
       ! ADF PROGRAM INPUT SPECIFICS
       ! ---------------------------
+
+      ! ATOMS keyword
+       write (iunit,'(a)') 'Atoms'
+       do i = 1, natoms
+          write(iunit,'(a2,1x,3f25.16)') elementSymbol(qmtypes(i)), coords(1:3,i)
+       end do
+       write(iunit,'(a,/)') 'End'
+    
+       ! Don't include BASIS/FRAGMENTS etc if we are on the first call
+       if ( first_call .and.  adf_nml%use_template ) then
+          first_call=.false.
+          if ( do_grad ) write (iunit,'(a)') 'GRADIENT'
+          return
+       end if
 
       ! BASIS/RESTART/FRAGMENTS keyword
       if ( first_call ) then
@@ -491,7 +526,7 @@ contains
         write(iunit, '(2(a,/))') &
              ' createoutput None', &
              'End'
-     else
+      else
         ! Use last t21 file as restart file
         if ( trim(adf_nml%guess) == 'read' ) then
            write(iunit,'(a,/,a,/,a,/)') 'Restart adf.t21 &', 'nogeo', 'END'
@@ -532,6 +567,11 @@ contains
       !   end do
       !     write(iunit,'(a,/)') 'End' 
       ! end if
+       
+      ! Use old STO fit if requested
+      if (adf_nml%fit_type /= '') then
+         write(iunit,'(a,/)') 'STOFIT'
+      end if
        
       ! XC keyword
       write(iunit,'(a,/,a,/,a,/)')&
@@ -592,20 +632,6 @@ contains
 
       ! SAVE files (Need TAPE21 to extract sander data and restart)
       write(iunit,'(a,/)')'SAVE TAPE21'
-
-    else   
-
-      ! ----------------------------
-      ! DFTB PROGRAM INPUT SPECIFICS
-      ! ----------------------------
-
-      write(iunit,'(a,i2,/)') 'CHARGE ', charge
-
-      ! SCF Keywords
-      write (iunit,'(a,/,a,E22.16,/,a,/)') &
-           'SCF '                       , &
-           'converge ', adf_nml%scf_conv, &
-           'END'
 
     end if
 

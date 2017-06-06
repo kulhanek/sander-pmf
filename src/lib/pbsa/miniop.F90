@@ -11,7 +11,7 @@ subroutine distan(x1,y1,z1,x2,y2,z2, dis)
    dis = sqrt(dis)
 
    return
-end subroutine distan 
+end subroutine distan
 
 
 
@@ -31,7 +31,7 @@ subroutine privec(n,x)
    end do
    write(*,*) '    '
    return
-end subroutine privec 
+end subroutine privec
 
 
 
@@ -53,7 +53,7 @@ subroutine primat(l,m,n,a)
    end do
    write(*,*) '    '
    return
-end subroutine primat 
+end subroutine primat
 
 
 
@@ -69,7 +69,7 @@ function fmax(a,b)
    fmax=a
    if (a < b) fmax=b
    return
-end function fmax 
+end function fmax
 
 
 
@@ -84,7 +84,7 @@ function fmin(a,b)
    fmin=a
    if (a > b) fmin=b
    return
-end function fmin 
+end function fmin
 
 
 
@@ -114,7 +114,7 @@ subroutine sortin(n,x,io)
    end do
 
    return
-end subroutine sortin 
+end subroutine sortin
 
 
 
@@ -134,7 +134,7 @@ subroutine cpyvec(n,a,b)
    end do
 
    return
-end subroutine cpyvec 
+end subroutine cpyvec
 
 
 
@@ -155,7 +155,7 @@ subroutine cpymat(m,n,a,b)
    end do
 
    return
-end subroutine cpymat 
+end subroutine cpymat
 
 
 
@@ -175,7 +175,7 @@ function dotpro(n,a,b)
    end do
 
    return
-end function dotpro 
+end function dotpro
 
 
 
@@ -200,7 +200,7 @@ function cosin(n,a,b)
 
    cosin = sqrt(prod0)/sqrt(prod1)/sqrt(prod2)
    return
-end function cosin 
+end function cosin
 
 
 
@@ -221,7 +221,7 @@ end function cosin
 !   end do
 !
 !   return
-!end subroutine matvec 
+!end subroutine matvec
 !
 !
 !!-------matmat finds the product a*b of two matrices a and b
@@ -243,7 +243,7 @@ subroutine matmat(l,m,n,a,b,c)
       end do
    end do
    return
-end subroutine matmat 
+end subroutine matmat
 
 !-------transp finds the transpose of a 2D matrix
 
@@ -260,7 +260,7 @@ subroutine transp(m,n,a,b)
       end do
    end do
    return
-end subroutine transp 
+end subroutine transp
 
 
 
@@ -273,7 +273,7 @@ subroutine rootp2(a0,a1,a2,r1,r2,info)
    implicit none
    _REAL_ a0,a1,a2,r1,r2,t
    integer info
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  rootp2 find the two roots of the quadratic  equations:    *
@@ -328,5 +328,5 @@ subroutine rootp2(a0,a1,a2,r1,r2,info)
       end if
    end if  ! (abs(a2) <= 1.0d-10)
 
-end subroutine rootp2 
+end subroutine rootp2
 

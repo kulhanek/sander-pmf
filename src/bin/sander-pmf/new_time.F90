@@ -90,14 +90,14 @@ subroutine fill_timer_array()
    call add_timer(TIME_MDIIS,TIME_R1RISM,'MDIIS time')
    call add_timer(TIME_MDIIS_LAPACK,TIME_MDIIS,'LAPACK time')
    call add_timer(TIME_MDIIS_DATA,TIME_MDIIS,'DATA time')
-   call add_timer(TIME_EXCHEM,TIME_RISM,'EXCHEM time')
+   call add_timer(TIME_EXCESSCHEMICALPOTENTIAL,TIME_RISM,'EXCESSCHEMICALPOTENTIAL time')
    call add_timer(TIME_FF,TIME_RISM,'FF time')
    call add_timer(TIME_SAVECRDINTERP,TIME_RISM,'Save Interpolation Data time')
    call add_timer(TIME_CRDINTERP,TIME_RISM,'CRD Interpolation time')
    call add_timer(TIME_CRDCUTLIST,TIME_CRDINTERP,'Interpolation Neighbour List')
    call add_timer(TIME_REORIENT,TIME_RISM,'Reorient Solute time')
    call add_timer(TIME_RESIZE,TIME_RISM,'Resize Solvent Box time')
-   call add_timer(TIME_PMV,TIME_RISM,'Partial Molar Volume time')
+   call add_timer(TIME_PARTIALMOLARVOLUME,TIME_RISM,'Partial Molar Volume time')
    call add_timer(TIME_CUVPROP,TIME_RISM,'Solution Propagation time')
 #endif
 
@@ -298,28 +298,26 @@ subroutine add_timer(index,par_index,string)
 end subroutine add_timer
 !---------------------------------------------------------
 
+#ifdef MPI
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Synchronize processors to ensure timer accuracy.
 subroutine timer_barrier( communicator )
 
    implicit none
    integer communicator
-   logical barrier_active
 
-#ifdef MPI
    include 'mpif.h'
+   logical barrier_active
    integer ierr
-#endif
 
    barrier_active = .true.
    if ( barrier_active ) then
-#ifdef MPI
       call mpi_barrier( communicator, ierr )
-#endif
    end if
    return
 end subroutine timer_barrier
 !---------------------------------------------------------
+#endif
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ [Enter a one-line description of subroutine timer_start here]

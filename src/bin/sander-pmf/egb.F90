@@ -100,7 +100,7 @@ subroutine igb7_init(natom, rborn)
      if (neckidx(i) < 0 .or. neckidx(i) > 20) then
         write (6,*) "Atom ",i," has radius ",rborn(i), &
                     " outside of allowed range"
-        write (6,*) "of 1.0 to 2.0 angstroms for igb=7. Regenerate &
+        write (6,*) "of 1.0 to 2.0 angstroms for igb=7 or 8. Regenerate &
                     &prmtop file with bondi radii."
         call mexit(6,1)
      end if
@@ -118,7 +118,7 @@ subroutine egb(x,f,rborn,fs,reff,onereff,charge,iac,ico,numex, &
       ,gbvalpha,gbvbeta,gbvgamma &
 #endif
       )
-      ! Hai Nguyen add gbvalpha,gbvbeta,gbvgamma arrays for GB
+      ! gbvalpha,gbvbeta,gbvgamma arrays for GB
       ! put all gbalpha, gbbeta, gbgamma for each atom in these 3 arrays
       ! (look at mdread.f for details)
       
@@ -246,7 +246,7 @@ subroutine egb(x,f,rborn,fs,reff,onereff,charge,iac,ico,numex, &
          qid2h,dvdl,thi,thi2, self_e,reff_j
     _REAL_ :: alpb_beta, one_Arad_beta
 #ifndef LES
-    _REAL_ :: gbvalpha(*),gbvbeta(*),gbvgamma(*) !Hai Nguyen: add gbvalpha,gbvbeta,gbvgamma
+    _REAL_ :: gbvalpha(*),gbvbeta(*),gbvgamma(*) !add gbvalpha,gbvbeta,gbvgamma
 #endif
     
 #ifdef HAS_10_12
@@ -264,7 +264,7 @@ subroutine egb(x,f,rborn,fs,reff,onereff,charge,iac,ico,numex, &
    _REAL_ f_x,f_y,f_z,f_xi,f_yi,f_zi
    _REAL_ dumbo, tmpsd, rborn_i, psi_i
 #ifndef LES
-   _REAL_ gba_i, gbb_i, gbg_i ! Hai Nguyen: temporary variables for GB (calculating GB force)
+   _REAL_ gba_i, gbb_i, gbg_i ! temporary variables for GB (calculating GB force)
 #endif
 
    ! Variables for QMMM specific loops
@@ -1352,7 +1352,7 @@ subroutine egb(x,f,rborn,fs,reff,onereff,charge,iac,ico,numex, &
 #else
 
         psi_i = psi(i)
-        gba_i = gbvalpha(i) ! Hai Nguyen: take gbalpha_i,gbbeta_i,gbgamma_i
+        gba_i = gbvalpha(i) ! take gbalpha_i,gbbeta_i,gbgamma_i
         gbb_i = gbvbeta(i)
         gbg_i = gbvgamma(i)
         thi   = tanh( (gba_i + gbg_i*psi_i*psi_i - gbb_i*psi_i )*psi_i )
@@ -1877,7 +1877,7 @@ subroutine egb_calc_radii(igb,natom,x,fs,reff,onereff,fsmax,rgbmax, &
 #endif
                          )
 
-!Hai Nguyen: don't have igb = 8 for sander.LES. Thus, instead of using gbavalpha,
+!don't have igb = 8 for sander.LES. Thus, instead of using gbavalpha,
 !gbvbeta and gbvgamma array, I still keep original gbalpha, gbbeta, gbgamma 
 !(igb1,2,5,7) for LES part to get correct force
 
@@ -2342,7 +2342,7 @@ subroutine egb_calc_radii(igb,natom,x,fs,reff,onereff,fsmax,rgbmax, &
       call vdinv(vecend, vectmp2, vectmp2) !1.0d0/(rborn-offset)
 
 #ifdef LES
- !Hai Nguyen: Using gbalpha, gbbeta, gbgamma
+ !Using gbalpha, gbbeta, gbgamma
  !Not use igb=8 for LES
       vectmp3(1:vecend) = ((gbalpha+gbgamma*psi(1:vecend)*   &
                             psi(1:vecend)-gbbeta*psi(1:vecend))*psi(1:vecend))
@@ -2459,14 +2459,15 @@ end subroutine egb_calc_radii
 
 ! checking if an atom belongs to nucleic or not
 ! make sure to add new DNA/RNA residue name to this list
-! anyway not to hardcoded nucnamenum? (=37)
+! anyway not to hardcoded nucnamenum? (=60)
 ! tag: gbneck2nu
+! TODO: use DNA/RNA some where?
 subroutine isnucat(nucat,atomindex,nres,nucnamenum,ipres,lbres)
     implicit none
     integer, intent(in) :: atomindex,nres,nucnamenum,ipres(nres)
     integer :: j,k,nucat
     character(4) :: nucname(nucnamenum),lbres(nres)
-    !nucnamenum = 37
+    !nucnamenum = 60
     nucat = 0
     nucname = (/ &
      "A   ", & !1
@@ -2505,7 +2506,30 @@ subroutine isnucat(nucat,atomindex,nres,nucnamenum,ipres,lbres)
      "AP  ", &
      "DAP ", & !35
      "CP  ", &
-     "CAP "  /) !37
+     "AF2 ", &
+     "AF5 ", &
+     "AF3 ", &
+     "GF2 ", & !40
+     "GF3 ", &
+     "GF5 ", &
+     "CF2 ", &
+     "CFZ ", &
+     "CF3 ", & !45
+     "CF5 ", &
+     "UF2 ", &
+     "UF5 ", &
+     "UF3 ", &
+     "UFT ", & !50
+     "OMC ", &
+     "OMG ", &
+     "MC3 ", &
+     "MC5 ", &
+     "MG3 ", & !55
+     "MG5 ", &
+     "SIC ", &
+     "NAM ", &
+     "NM5 ", &
+     "CAP "  /)!60
 
     do j=1,nres-1
         !find residue to which atom i belongs

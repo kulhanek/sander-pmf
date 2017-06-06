@@ -45,6 +45,10 @@ _REAL_,save::  AIPSE(0:3),BIPSE(3), &
        PIPSE0,PIPSVA0,PIPSVC0,PIPSEC,PIPSVAC,PIPSVCC,  &
        EIPSSNB,EIPSSEL,VIRIPS,EIPSANB,EIPSAEL,VIRAIPS
 
+_REAL_,save::  AMIPS0(0:5),AMIPS1(0:5),AMIPS2(0:5),AMIPS3(0:5),AMIPS4(0:5),AMIPS5(0:5)
+
+INTEGER,SAVE:: do_ele_ips
+
 _REAL_,save::  CGSUM,CIJSUM,AIJSUM,VIREXIPS(3,3)
 
 
@@ -85,6 +89,8 @@ contains
 !    Calculate system energy and force in 3D periodic systems
 !
       use constants
+      use amoeba_mdin, only : iamoeba,ee_dsum_cut
+      use amoeba_multipoles, only : coulomb_const_kcal_per_mole,global_multipole
 
       implicit none
 
@@ -102,6 +108,7 @@ contains
       _REAL_  XI,YI,ZI,XIJ,YIJ,ZIJ,R2
       _REAL_  AIJ,CIJ,ANIJ
       _REAL_  CGIJSUM
+      _REAL_  fips0,fips1,fips2,fips3,fips4,fips5
 
         INTEGER,allocatable,dimension(:) :: NSUMIT
         _REAL_,allocatable,dimension(:) :: CISUM
@@ -118,51 +125,79 @@ contains
 
 !  IPS Radius:
 
-      RIPS2=cut
-      RIPS2R=one/cut
+      if(iamoeba==0)then
+        RIPS2=cut
+        RIPS=SQRT(RIPS2)
+      else
+        RIPS=ee_dsum_cut
+        RIPS2=RIPS*RIPS
+        do_ele_ips=0
+        IF(TEAIPS.OR.TEIPS)do_ele_ips=1
+!
+        AMIPS0(0) = -315.0d0/128.0d0
+        AMIPS0(1) =  105.0d0/32.0d0
+        AMIPS0(2) = -189.0d0/64.0d0
+        AMIPS0(3) =  45.0d0/32.0d0
+        AMIPS0(4) =  -35.0d0/128.0d0
+        AMIPS0(5) =  0.0d0
+        AMIPS1(0) =  2.0d0*AMIPS0(1)
+        AMIPS1(1) =  4.0d0*AMIPS0(2)
+        AMIPS1(2) =  6.0d0*AMIPS0(3)
+        AMIPS1(3) =  8.0d0*AMIPS0(4)
+        AMIPS1(4) =  10.0d0*AMIPS0(5)
+        AMIPS2(0) =  2.0d0*AMIPS1(1)
+        AMIPS2(1) =  4.0d0*AMIPS1(2)
+        AMIPS2(2) =  6.0d0*AMIPS1(3)
+        AMIPS2(3) =  8.0d0*AMIPS1(4)
+        AMIPS3(0) =  2.0d0*AMIPS2(1)
+        AMIPS3(1) =  4.0d0*AMIPS2(2)
+        AMIPS3(2) =  6.0d0*AMIPS2(3)
+        AMIPS4(0) =  2.0d0*AMIPS3(1)
+        AMIPS4(1) =  4.0d0*AMIPS3(2)
+        AMIPS5(0) =  2.0d0*AMIPS4(1)
+      endif
+      RIPS2R=one/RIPS2
       RIPS6R=RIPS2R*RIPS2R*RIPS2R
       RIPS12R=RIPS6R*RIPS6R
-      RIPS=SQRT(RIPS2)
       RIPSR=one/RIPS
 
 !  AIPS parameters
       IPSSIZ=0
 
 !  Ele IPS parameters:
-          AIPSE(0)=-35.0/16.0
-          AIPSE(1)=35.0/16.0
-          AIPSE(2)=-21.0/16.0D0
-          AIPSE(3)=5.0D0/16.0D0
+      AIPSE(0)=-35.0/16.0
+      AIPSE(1)=35.0/16.0
+      AIPSE(2)=-21.0/16.0D0
+      AIPSE(3)=5.0D0/16.0D0
 !          PIPSEC=ZERO
-        PIPSEC=ONE+AIPSE(0)+AIPSE(1)+AIPSE(2)+AIPSE(3)
-        PIPSE0=AIPSE(0)-PIPSEC
-        BIPSE(1)=TWO*AIPSE(1)
-        BIPSE(2)=FOUR*AIPSE(2)
-        BIPSE(3)=SIX*AIPSE(3)
+      PIPSEC=ONE+AIPSE(0)+AIPSE(1)+AIPSE(2)+AIPSE(3)
+      PIPSE0=AIPSE(0)-PIPSEC
+      BIPSE(1)=TWO*AIPSE(1)
+      BIPSE(2)=FOUR*AIPSE(2)
+      BIPSE(3)=SIX*AIPSE(3)
 
 !  Dispersion IPS parameters:
-          AIPSVC(0)=7.0D0/16.0D0
-          AIPSVC(1)=9.0D0/14.0D0
-          AIPSVC(2)=-3.0D0/28.0D0
-          AIPSVC(3)=6.0D0/7.0D0
+      AIPSVC(0)=7.0D0/16.0D0
+      AIPSVC(1)=9.0D0/14.0D0
+      AIPSVC(2)=-3.0D0/28.0D0
+      AIPSVC(3)=6.0D0/7.0D0
 !          PIPSVCC=67.0D0/28.0D0+7.0D0/16.0D0
-        PIPSVCC=ONE+AIPSVC(0)+AIPSVC(1)+AIPSVC(2)+AIPSVC(3)
-        PIPSVC0=AIPSVC(0)-PIPSVCC
-        BIPSVC(1)=TWO*AIPSVC(1)
-        BIPSVC(2)=FOUR*AIPSVC(2)
-        BIPSVC(3)=SIX*AIPSVC(3)
+      PIPSVCC=ONE+AIPSVC(0)+AIPSVC(1)+AIPSVC(2)+AIPSVC(3)
+      PIPSVC0=AIPSVC(0)-PIPSVCC
+      BIPSVC(1)=TWO*AIPSVC(1)
+      BIPSVC(2)=FOUR*AIPSVC(2)
+      BIPSVC(3)=SIX*AIPSVC(3)
 !  Repulsion IPS parameters:
-        AIPSVA(0)=5.0D0/787.0D0
-        AIPSVA(1)=9.0D0/26.0D0
-        AIPSVA(2)=-3.0D0/13.0D0
-        AIPSVA(3)=27.0D0/26.0D0
+      AIPSVA(0)=5.0D0/787.0D0
+      AIPSVA(1)=9.0D0/26.0D0
+      AIPSVA(2)=-3.0D0/13.0D0
+      AIPSVA(3)=27.0D0/26.0D0
 !        PIPSVAC=28.0D0/13.0D0+5.0D0/787.0D0
-        PIPSVAC=ONE+AIPSVA(0)+AIPSVA(1)+AIPSVA(2)+AIPSVA(3)
-        PIPSVA0=AIPSVA(0)-PIPSVAC
-        BIPSVA(1)=FOUR*AIPSVA(1)
-        BIPSVA(2)=EIGHT*AIPSVA(2)
-        BIPSVA(3)=TWO*SIX*AIPSVA(3)
-
+      PIPSVAC=ONE+AIPSVA(0)+AIPSVA(1)+AIPSVA(2)+AIPSVA(3)
+      PIPSVA0=AIPSVA(0)-PIPSVAC
+      BIPSVA(1)=FOUR*AIPSVA(1)
+      BIPSVA(2)=EIGHT*AIPSVA(2)
+      BIPSVA(3)=TWO*SIX*AIPSVA(3)
 !
       EIPSSNB=0.0D0
       EIPSSEL=0.0D0
@@ -311,6 +346,21 @@ contains
          ENDIF
          IF(TVIPS)THEN
             WRITE(6,'("   Using IPS for L-J energy")')
+         ENDIF
+         IF(iamoeba==1)THEN
+            WRITE(6,'("   AMOEBA EIPS Parameters: ")')
+            WRITE(6,'("AMIPS0: ",9F10.4)')(AMIPS0(I),I=0,5)
+            WRITE(6,'("AMIPS1: ",8F10.4)')(AMIPS1(I),I=0,4)
+            WRITE(6,'("AMIPS2: ",8F10.4)')(AMIPS2(I),I=0,3)
+            WRITE(6,'("AMIPS3: ",8F10.4)')(AMIPS3(I),I=0,2)
+            WRITE(6,'("AMIPS4: ",8F10.4)')(AMIPS4(I),I=0,1)
+            WRITE(6,'("AMIPS5: ",8F10.4)')(AMIPS5(I),I=0,0)
+            ! debug fips function
+            !DO I=1,100
+            !    xij=i*rips/100.0
+            !    call Fipsmdq(xij,1.0d0,fips0,fips1,fips2,fips3,fips4,fips5)
+            !    WRITE(6,'("FIPS: ",F8.4,X,10E14.6)')i*rips/100.0,fips0,fips1,fips2,fips3,fips4,fips5
+            !ENDDO
          ENDIF
          WRITE(6,'(" ----------------------------------")')
       else 
@@ -1800,6 +1850,35 @@ end subroutine aips_sumrc
    endif
    RETURN
    END SUBROUTINE AIPSCELL
+
+   SUBROUTINE FIPSMDQ(R,WEIGHT,FIPS0,FIPS1,FIPS2,FIPS3,FIPS4,FIPS5)
+   _REAL_ U,U2,U4,R,R2,R4,WEIGHT
+   _REAL_ FIPS0,FIPS1,FIPS2,FIPS3,FIPS4,FIPS5
+   R2=R*R
+   R4=R2*R2
+   U=R*RIPSR
+   U2=U*U
+   U4=U2*U2
+   FIPS0=(WEIGHT+U*(AMIPS0(0)+U2*(AMIPS0(1)+U2*(AMIPS0(2)      &
+         +U2*(AMIPS0(3)+U2*(AMIPS0(4)+U2*(AMIPS0(5))))))))/R
+   FIPS1=(-WEIGHT+U*U2*(AMIPS1(0)+U2*(AMIPS1(1)+U2*(AMIPS1(2)  &
+         +U2*(AMIPS1(3)+U2*(AMIPS1(4)))))))/R/R2
+   FIPS2=(3.0D0*WEIGHT+U*U4*(AMIPS2(0)+U2*(AMIPS2(1)+U2*(AMIPS2(2) &
+         +U2*(AMIPS2(3))))))/R/R4
+   FIPS3=(-15.0D0*WEIGHT+U*U2*U4*(AMIPS3(0)+U2*(AMIPS3(1)+U2*(AMIPS3(2) &
+         ))))/R/R2/R4
+   FIPS4=(105.0D0*WEIGHT+U*U4*U4*(AMIPS4(0)+U2*(AMIPS4(1))))/R/R4/R4
+   FIPS5=(-945.0D0*WEIGHT+U*U2*U4*U4*(AMIPS5(0)))/R/R2/R4/R4
+   RETURN
+   END SUBROUTINE FIPSMDQ
+
+   SUBROUTINE FIPSMDQ0(FIPS0,FIPS1,FIPS2)
+   _REAL_ FIPS0,FIPS1,FIPS2
+   FIPS0=AMIPS0(0)*RIPSR
+   FIPS1=AMIPS1(0)*RIPSR*RIPS2R
+   FIPS2=AMIPS2(0)*RIPSR*RIPS2R*RIPS2R
+   RETURN
+   END SUBROUTINE FIPSMDQ0
 
 
 end module nbips

@@ -1,59 +1,58 @@
 !<compile=optimized>
 
-!The 3D-RISM-KH software found here is copyright (c) 2010-2012 by Andriy Kovalenko,
-!Tyler Luchko and David A. Case.
-!
-!This program is free software: you can redistribute it and/or modify it
-!under the terms of the GNU General Public License as published by the Free
-!Software Foundation, either version 3 of the License, or (at your option)
-!any later version.
-!
-!This program is distributed in the hope that it will be useful, but
-!WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-!or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-!for more details.
-!
-!You should have received a copy of the GNU General Public License in the
-!../../LICENSE file.  If not, see <http://www.gnu.org/licenses/>.
-!
-!Users of the 3D-RISM capability found here are requested to acknowledge
-!use of the software in reports and publications.  Such acknowledgement
-!should include the following citations:
-!
-!1) A. Kovalenko and F. Hirata. J. Chem. Phys., 110:10095-10112  (1999); 
-!ibid. 112:10391-10417 (2000).   
-!
-!2) A. Kovalenko,  in:  Molecular  Theory  of  Solvation,  edited  by  
-!F. Hirata  (Kluwer Academic Publishers, Dordrecht, 2003), pp.169-275.  
-!
-!3) T. Luchko, S. Gusarov, D.R. Roe, C. Simmerling, D.A. Case, J. Tuszynski,
-!and  A. Kovalenko, J. Chem. Theory Comput., 6:607-624 (2010). 
+! The 3D-RISM-KH software found here is copyright (c) 2010-2012 by
+! Andriy Kovalenko, Tyler Luchko and David A. Case.
+! 
+! This program is free software: you can redistribute it and/or modify it
+! under the terms of the GNU General Public License as published by the Free
+! Software Foundation, either version 3 of the License, or (at your option)
+! any later version.
+! 
+! This program is distributed in the hope that it will be useful, but
+! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+! for more details.
+! 
+! You should have received a copy of the GNU General Public License in the
+! ../../LICENSE file.  If not, see <http://www.gnu.org/licenses/>.
+! 
+! Users of the 3D-RISM capability found here are requested to acknowledge
+! use of the software in reports and publications.  Such acknowledgement
+! should include the following citations:
+! 
+! 1) A. Kovalenko and F. Hirata. J. Chem. Phys., 110:10095-10112  (1999); 
+! ibid. 112:10391-10417 (2000).   
+! 
+! 2) A. Kovalenko,  in:  Molecular  Theory  of  Solvation,  edited  by  
+! F. Hirata  (Kluwer Academic Publishers, Dordrecht, 2003), pp.169-275.  
+! 
+! 3) T. Luchko, S. Gusarov, D.R. Roe, C. Simmerling, D.A. Case, J. Tuszynski,
+! and  A. Kovalenko, J. Chem. Theory Comput., 6:607-624 (2010). 
 
 #include "../include/dprec.fh"
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!Original MDIIS implementation by Andriy Kovalenko.
-!!Parallelization by Sergey Gusarov.
-!!Further modifications and objectification by Tyler Luchko.
-!!New memory model and BLASification Tyler Luchko December, 2009
-!!Memory swaps removed Tyler Luchko January, 2011
-!!
-!!To use this implementation, the user allocates two large chucks of
-!!contiguous memory; one for data and one for the residual that should
-!!be minimized. Regardless of the number of dimensions of the actual
-!!data, the each memory chuck should be (ndata,nvector) where nvector
-!!is the number of data sets from previous iterations.  On
-!!initialization, the first vector in each array is active and should
-!!be updated.  After subsequent mdiis_advance calls, the active vector
-!!will be updated and the vector number can be obtained from
-!!mdiis_getVectorNumber.
-!!
-!!The usage pattern allows MDIIS to avoid costly memory swaps.
-!!Ideally, the memory should be allocated in this module and a pointer
-!!to the active array returned to the user.  However, the user data
-!!may be of any dimension and pointer rank remapping is not available
-!!until Fortran 2003, which is not generally support (especially this
-!!feature).
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!> Original MDIIS implementation by Andriy Kovalenko.
+!! Parallelization by Sergey Gusarov.
+!! Further modifications and objectification by Tyler Luchko.
+!! New memory model and BLASification Tyler Luchko December, 2009
+!! Memory swaps removed Tyler Luchko January, 2011
+!! 
+!! To use this implementation, the user allocates two large chucks of
+!! contiguous memory; one for data and one for the residual that
+!! should be minimized. Regardless of the number of dimensions of the
+!! actual data, the each memory chuck should be (ndata,nvector) where
+!! nvector is the number of data sets from previous iterations.  On
+!! initialization, the first vector in each array is active and should
+!! be updated.  After subsequent mdiis_advance calls, the active
+!! vector will be updated and the vector number can be obtained from
+!! mdiis_getVectorNumber.
+!! 
+!! The usage pattern allows MDIIS to avoid costly memory swaps.
+!! Ideally, the memory should be allocated in this module and a
+!! pointer to the active array returned to the user.  However, the
+!! user data may be of any dimension and pointer rank remapping is not
+!! available until Fortran 2003, which is not generally support
+!! (especially this feature).
 module mdiis_blas2_c
   use rism_report_c
   use rism_timer_c
@@ -283,35 +282,35 @@ contains
 #endif /*MPI*/
 #include "def_time.h" 
     
-    type(mdiis_blas2),intent(inout) :: this
-    logical,intent(out) ::  conver
-    _REAL_,intent(out) ::  rms1
-    _REAL_,optional,intent(in) ::  tolerance_o
+    type(mdiis_blas2), intent(inout) :: this
+    logical, intent(out) ::  conver
+    _REAL_, intent(out) ::  rms1
+    _REAL_, optional, intent(in) ::  tolerance_o
 
     _REAL_ :: tolerance
 
-    !indx :: for LAPACK routines
+    ! indx :: for LAPACK routines
     integer ::  indx(0:this%nvec)
     _REAL_ :: toverlap(1:this%nvec)
 
-    !aij :: overlap matrix for LAPACK
-    !bi  :: linear coefficients from LAPACK
-    _REAL_ :: aij(0:this%nvec,0:this%nvec), bi(0:this%nvec,1)
+    ! aij :: overlap matrix for LAPACK
+    ! bi  :: linear coefficients from LAPACK
+    _REAL_ :: aij(0:this%nvec, 0:this%nvec), bi(0:this%nvec, 1)
 
-    !nvecWRK :: number of vectors with data
+    ! nvecWRK :: number of vectors with data
     integer :: nvecWRK
 
-    !counter variables
+    ! counter variables
     integer :: is2, ivec
-    integer :: err=0
+    integer :: err = 0
     tolerance = this%tol
-    if(present(tolerance_o)) tolerance = tolerance_o
+    if (present(tolerance_o)) tolerance = tolerance_o
 #ifdef RISM_DEBUG
-    write(0,*)"MDIIS start",this%delta,rms1,tolerance,this%np,this%nvec,conver
+    write(0, * )"MDIIS start", this%delta, rms1, tolerance, this%np, this%nvec, conver
 #endif
 
     !.................. initialize counters and switches ...................
-    nvecWRK = count(this%vecMap>0)
+    nvecWRK = count(this%vecMap > 0)
     !.................. increment step and MDIIS counters ..................
     this%istep = this%istep + 1
 
@@ -328,60 +327,60 @@ contains
     call rism_timer_start(this%overlapTimer)
     call timer_start(TIME_MDIIS_DATA)
 #if defined(MPI)      
-    call DGEMV ('T',this%np,nvecWRK,1d0,this%ri,this%np,&
-         this%ri(1,this%vecMap(1)),1,0d0,toverlap,1)
-    CALL MPI_AllREDUCE(toverlap(1:nvecWRK),this%overlap(this%vecMap(1),1:nvecWRK),nvecWRK,&
-         MPI_DOUBLE_PRECISION,MPI_SUM, this%mpicomm,err)
-    if(err /=0) call rism_report_error&
+    call DGEMV ('T', this%np, nvecWRK, 1d0, this%ri, this%np, &
+         this%ri(1, this%vecMap(1)), 1, 0d0, toverlap, 1)
+    CALL MPI_AllREDUCE(toverlap(1:nvecWRK), this%overlap(this%vecMap(1), 1:nvecWRK), nvecWRK, &
+         MPI_DOUBLE_PRECISION, MPI_SUM, this%mpicomm, err)
+    if (err /= 0) call rism_report_error &
          ("MDIIS_BLAS2_UPDATE: could not reduce OVERLAP")
 #else
-    call DGEMV ('T',this%np,nvecWRK,1d0,this%ri,this%np,&
-         this%ri(1,this%vecMap(1)),1,0d0,this%overlap(this%vecMap(1),1),this%nvec)
-#endif /*defined(MPI)*/
+    call DGEMV ('T', this%np, nvecWRK, 1d0, this%ri, this%np, &
+         this%ri(1, this%vecMap(1)), 1,0d0, this%overlap(this%vecMap(1), 1), this%nvec)
+#endif /* defined(MPI) */
 
 
     !Copy memory from the active row into the active column.
     !There is memory aliasing in this DCOPY call and it is not safe to use.  Instead
     !we give the compiler control.  The data transfer is so small that this should be insignificant
-!    call DCOPY(nvecWRK,this%overlap(this%vecMap(1),1),this%nvec,this%overlap(1,this%vecMap(1)),1)
-    this%overlap(:nvecWRK,this%vecmap(1)) = this%overlap(this%vecmap(1),:nvecWRK)
+!    call DCOPY(nvecWRK, this%overlap(this%vecMap(1), 1), this%nvec, this%overlap(1, this%vecMap(1)), 1)
+    this%overlap(:nvecWRK, this%vecmap(1)) = this%overlap(this%vecmap(1), :nvecWRK)
     call timer_stop(TIME_MDIIS_DATA)
     call rism_timer_stop(this%overlapTimer)
 
     !................ get mean square value of new residual ................
-    rms1 = sqrt( this%overlap(this%vecMap(1),this%vecMap(1))/(this%np*this%mpisize))
+    rms1 = sqrt( this%overlap(this%vecMap(1), this%vecMap(1)) / (this%np * this%mpisize))
     !.............. check mean square residual for tolerance ...............
     if (rms1 <= tolerance)  then
        conver = .true.
        return
     else
        conver = .false.
-    endif
+    end if
 
     call rism_timer_start(this%restartTimer)
-    call checkrestart(this,rms1,nvecWRK)
+    call checkrestart(this, rms1, nvecWRK)
     call rism_timer_stop(this%restartTimer)
 
-    !We now solve for the non-trivial coefficients that minimizes the
+    !We now solve for the non - trivial coefficients that minimizes the
     !linear combination of residuals.  I.e., we get the eigenvalues of
     !the aij matrix (that contains the overlap matrix as a submatrix).
     call rism_timer_start(this%lapackTimer)
     call timer_start(TIME_MDIIS_LAPACK)
     !......................... load DIIS matrices ..........................
-    aij(0,0) = 0d0
-    bi=0
-    bi(0,1) = -1d0
-    aij(1:nvecWRK,0) = -1d0 
-    aij(0,1:nvecWRK) = -1d0
-    do is2=1,nvecWRK
-       call DCOPY(nvecWRK,this%overlap(1:nvecWRK,is2),1,aij(1:nvecWRK,is2),1)
-    enddo
+    aij(0, 0) = 0d0
+    bi = 0
+    bi(0, 1) = -1d0
+    aij(1:nvecWRK, 0) = -1d0 
+    aij(0, 1:nvecWRK) = -1d0
+    do is2 = 1, nvecWRK
+       call DCOPY(nvecWRK, this%overlap(1:nvecWRK, is2), 1,aij(1:nvecWRK, is2), 1)
+    end do
 
-    call DGESV(nvecWRK+1,1,aij,this%nvec+1,indx,bi,this%nvec+1,err)
-    if(err < 0)then
-       err = err*(-1)
+    call DGESV(nvecWRK + 1, 1,aij, this%nvec + 1, indx, bi, this%nvec + 1, err)
+    if (err < 0) then
+       err = err * ( - 1)
        call rism_report_error("Linear equation solver failed.")
-    endif
+    end if
     call timer_stop(TIME_MDIIS_LAPACK)
     call rism_timer_stop(this%lapackTimer)
 
@@ -393,31 +392,31 @@ contains
     !the equivalent <where> statement gives an error in Valgrind for
     !the first instance but this works fine. Go figure.
     do ivec = 1, nvecWRK
-       if(this%vecMap(ivec) == this%nvec)&
+       if (this%vecMap(ivec) == this%nvec)&
             this%vecMap(ivec) = 0
     end do
-    this%vecMap(1:min(nvecWRK+1,this%nvec)) = this%vecMap(1:min(nvecWRK+1,this%nvec)) +1
-    nvecWRK = count(this%vecMap>0)
+    this%vecMap(1:min(nvecWRK + 1, this%nvec)) = this%vecMap(1:min(nvecWRK + 1, this%nvec)) +1
+    nvecWRK = count(this%vecMap > 0)
 
     !DIIS part.  New vector is a linear combition of all the previous
     !vectors.  This must be done in two parts (before and after
     !vecMap(1) vector) to avoid memory aliasing.
-    if(this%vecMap(1) == 1 )then
+    if (this%vecMap(1) == 1 ) then
        !if vecMap(1) == 1, DGEMV thinks there is no work to be done
        !and the scalar product is also skipped.
-       call DSCAL(this%np,bi(this%vecMap(1),1),this%xi(1,this%vecMap(1)),1)
+       call DSCAL(this%np, bi(this%vecMap(1), 1), this%xi(1, this%vecMap(1)), 1)
     else
-       call DGEMV ('N',this%np,this%vecMap(1)-1,1d0,this%xi,this%np,&
-            bi(1,1),1,bi(this%vecMap(1),1),this%xi(1,this%vecMap(1)),1)
+       call DGEMV ('N', this%np, this%vecMap(1) - 1, 1d0, this%xi, this%np, &
+            bi(1, 1), 1,bi(this%vecMap(1), 1), this%xi(1, this%vecMap(1)), 1)
     end if
-    if(nvecWRK-this%vecMap(1)>0)&
-         call DGEMV ('N',this%np,nvecWRK-this%vecMap(1),&
-         1d0,this%xi(1,this%vecMap(1)+1),this%np,&
-         bi(this%vecMap(1)+1,1),1,1d0,this%xi(1,this%vecMap(1)),1)
+    if (nvecWRK - this%vecMap(1) > 0)&
+         call DGEMV ('N', this%np, nvecWRK - this%vecMap(1), &
+         1d0, this%xi(1, this%vecMap(1) + 1), this%np, &
+         bi(this%vecMap(1) + 1, 1), 1,1d0, this%xi(1, this%vecMap(1)), 1)
 
     !Modified part.  Add the predicted residual to multiplied by the
     !step size to the DIIS result
-    call DGEMV ('N',this%np,nvecWRK,this%delta,this%ri,this%np,&
+    call DGEMV ('N', this%np, nvecWRK, this%delta, this%ri, this%np,&
          bi(1,1),1,1d0,this%xi(1,this%vecMap(1)),1)
     call rism_timer_stop(this%projectTimer)
   end subroutine mdiis_blas2_advance
@@ -432,42 +431,42 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   subroutine checkRestart (this,rms1,nvecWRK)
     implicit none
-    type(mdiis_blas2),intent(inout) :: this
-    _REAL_,intent(in) :: rms1
+    type(mdiis_blas2), intent(inout) :: this
+    _REAL_, intent(in) :: rms1
     integer, intent(inout) :: nvecWRK
 
-    _REAL_ ::  rmsmin,rmsmi2
-    integer :: isirst, isimin,isimi2, is
+    _REAL_ ::  rmsmin, rmsmi2
+    integer :: isirst, isimin, isimi2, is
 
     !............... get two residuals, minimal in DIIS set ................
-    rmsmin = this%overlap(1,1)
+    rmsmin = this%overlap(1, 1)
     isimin = 1
     rmsmi2 = rmsmin
     isimi2 = isimin
-    do is=2,nvecWRK
-       if (this%overlap(is,is) < rmsmin)  then
+    do is = 2, nvecWRK
+       if (this%overlap(is, is) < rmsmin)  then
           rmsmi2 = rmsmin
           isimi2 = isimin
-          rmsmin = this%overlap(is,is)
+          rmsmin = this%overlap(is, is)
           isimin = is
-       elseif (this%overlap(is,is) < rmsmi2)  then
-          rmsmi2 = this%overlap(is,is)
+       else if (this%overlap(is, is) < rmsmi2)  then
+          rmsmi2 = this%overlap(is, is)
           isimi2 = is
-       endif
-    enddo
-    rmsmin = sqrt( rmsmin/this%np/this%mpisize)
-    rmsmi2 = sqrt( rmsmi2/this%np/this%mpisize)
+       end if
+    end do
+    rmsmin = sqrt( rmsmin / this%np / this%mpisize)
+    rmsmi2 = sqrt( rmsmi2 / this%np / this%mpisize)
 
     !................ if convergence is poor, restart MDIIS ................
-    if (nvecWRK > 1 .AND. rms1 > this%restart*rmsmin)  then
+    if (nvecWRK > 1 .AND. rms1 > this%restart * rmsmin)  then
        !.......... choose restarting vector so as to prevent cycling .........
 
        !if nvecWRK = 1 then we have problems
        !if nvecWRK = 2 ditch the old vector and just use the new vector
        !otherwise we use the minimal residue vector
        
-       if(nvecWRK == 1)then
-       elseif(nvecWRK == 2)then
+       if (nvecWRK == 1) then
+       else if (nvecWRK == 2) then
           isirst = 1
        else
           isirst = isimin
@@ -476,17 +475,17 @@ contains
        !................... restore vector to restart from ...................
        if (isirst /= 1)  then
           call timer_start(TIME_MDIIS_DATA)
-          call DCOPY(this%np,this%ri(1:this%np,isirst),1,this%ri(1:this%np,1),1)
-          call DCOPY(this%np,this%xi(1:this%np,isirst),1,this%xi(1:this%np,1),1)
+          call DCOPY(this%np, this%ri(1:this%np, isirst), 1, this%ri(1:this%np, 1), 1)
+          call DCOPY(this%np, this%xi(1:this%np, isirst), 1, this%xi(1:this%np, 1), 1)
           call timer_stop(TIME_MDIIS_DATA)
-          this%overlap(1,1) = this%overlap(isirst,isirst)
-       endif
+          this%overlap(1, 1) = this%overlap(isirst, isirst)
+       end if
 
        !.................... reset MDIIS vectors counters .....................
        nvecWRK = 1
-       this%vecMap=0
-       this%vecMap(1)=1
+       this%vecMap = 0
+       this%vecMap(1) = 1
        this%istep = 1
-    endif
+    end if
   end subroutine checkRestart
 end module mdiis_blas2_c

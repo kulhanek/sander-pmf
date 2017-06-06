@@ -138,6 +138,7 @@ subroutine cshf(natom,x,f)
         rph2, rphi, s12p, sh_p, shav, shavp, shcut, shhm, shi, shift, &
         shp, shrang, signr, str, vp1, vp2, vp3, wt, x, x0, x1, x2, x3, &
         xrfac6, xrfact, y0, y1, y2, y3, z, z0, z1, z2, z3
+    character(len=4) :: prottype
 
 #  include "nmr.h"
 #  include "../include/md.h"
@@ -156,7 +157,7 @@ subroutine cshf(natom,x,f)
    dimension rn(3,mring),cent(3,mring),drn(3,9,mring),dshift(9)
    dimension natr(mring),iatr(16,mring),str(mring), &
          iprot(mshf),obs(mshf),wt(mshf),shhm(mshf),shrang(mshf), &
-         shp(mshf)
+         shp(mshf), prottype(mshf)
    dimension pp1(mxr),pp2(mxr),pp3(mxr)
    dimension ds12r(9)
    dimension r1(3),r2(3),ds12(9),dr1m3(3),dr2m3(3)
@@ -165,10 +166,10 @@ subroutine cshf(natom,x,f)
          maxllist(mxr),nresprot(mshf)
    save nring,natr,iatr,str,namr,nprot,iprot,obs,wt,shrang, &
          nc,no,nca,nhn,nnit,charge,nter,cter,ipear,numxloc, &
-         llist,const,maxllist,nresprot,first,shcut,details
+         llist,const,maxllist,nresprot,first,shcut,details,prottype
    dimension obsp(mshf),shavp(mshf)
    namelist/shf/ nring,natr,iatr,str,nprot,obs,wt,iprot,shcut,namr, &
-         shrang,nter,cter,details
+         shrang,nter,cter,details,prottype
    data first /.true./
    data shcut /0.3/
    data details/.false./
@@ -182,7 +183,7 @@ subroutine cshf(natom,x,f)
    fac = 0.d0
 
    if (first) then
-      
+
       ! (If restraint input has been redirected, open the appropriate file)
       
       iin = 5
@@ -193,10 +194,11 @@ subroutine cshf(natom,x,f)
          10 format(' Chemical shifts will be read from file: ',a)
       end if
       
-      !  --- zero out the intial shrang array:
+      !  --- zero out the intial shrang array and make all proton types protein
       
       do i=1,mshf
          shrang(i) = 0.0d0
+         prottype(i) = 'PROT'
       end do
       cter = 0
       nter = 1
@@ -298,21 +300,22 @@ subroutine cshf(natom,x,f)
          disthh=sqrt(disthh)
          if (disthh < 0.7 .or. disthh > 1.5)write(6,*) &
                'Error:  X-H distance is ',disthh,' protnum: ',iprot(i)
-#ifdef DNA_SHIFT
-         const(i) = 0.0d0
-#else
-         const(i)=constside
-         if (resat(ilochelp)(1:4) == 'CA  ') then
-            if (resat(ilochelp)(6:8) == 'GLY'  .or. &
-                  resat(ilochelp)(6:8) == 'PRO') then
-               const(i)=constcagp
-            else
-               const(i)=constca
+
+         if (prottype(i) == 'DRNA') then
+            const(i) = 0.0d0
+         else if (prottype(i) == 'PROT') then
+            const(i)=constside
+            if (resat(ilochelp)(1:4) == 'CA  ') then
+               if (resat(ilochelp)(6:8) == 'GLY'  .or. &
+                     resat(ilochelp)(6:8) == 'PRO') then
+                  const(i)=constcagp
+               else
+                  const(i)=constca
+               end if
             end if
+            !          if (nh_calc)const(i)=constNH
          end if
-         !          if (nh_calc)const(i)=constNH
-#endif
-         
+
          !   update the llist if proton of new residue
          
          if (nrescur == nrescursave) cycle
@@ -463,12 +466,12 @@ subroutine cshf(natom,x,f)
          !             in calculation of proximal histidine)
          
          if (resat(ip)(6:8) /= 'HEM') then
-#ifdef DNA_SHIFT
-            if(namr(j)(4:6) == resat(ip)(11:13) &
-                  .and. resat(ip)(3:3) /= '''') cycle
-#else
-            if(namr(j)(4:6) == resat(ip)(11:13)) cycle
-#endif
+            if (prottype(i) == 'DRNA') then
+               if(namr(j)(4:6) == resat(ip)(11:13) &
+                     .and. resat(ip)(3:3) /= '''') cycle
+            else
+               if(namr(j)(4:6) == resat(ip)(11:13)) cycle
+            end if
          else
             if(namr(j)(1:3) == 'HEM'  .and. &
                   namr(j)(8:8) == 'H') cycle
@@ -596,16 +599,16 @@ subroutine cshf(natom,x,f)
       
       !=====================================================================
       
-#ifdef DNA_SHIFT
-      gesum = 0.0d0
-#else
-      nnnxloc=numxloc(i)
-      nrescur = nresprot(i)
-      ncurlist=maxllist(nrescur)
-      call elstat(ip,nrescur,x,nnnxloc,charge,gesum,d, &
-            mxr,helst,llist,ncurlist)
-      if( details ) write(6,'(20x,a8,f8.3)') 'elec    ', gesum
-#endif
+      if (prottype(i) == 'DRNA') then
+         gesum = 0.0d0
+      else
+         nnnxloc=numxloc(i)
+         nrescur = nresprot(i)
+         ncurlist=maxllist(nrescur)
+         call elstat(ip,nrescur,x,nnnxloc,charge,gesum,d, &
+               mxr,helst,llist,ncurlist)
+         if( details ) write(6,'(20x,a8,f8.3)') 'elec    ', gesum
+      end if
       call timer_stop_start(TIME_ELECNOE,TIME_ANISO)
       
       !=====================================================================
@@ -615,156 +618,156 @@ subroutine cshf(natom,x,f)
       !=====================================================================
       
       gansum=0.0d0
-#ifndef DNA_SHIFT
-      if (i == 1) then
+      if (prottype(i) /= 'DRNA') then
+         if (i == 1) then
+            do jres=nter,cter-1
+               !         if (nh_calc) then
+               !           if (jres.eq.nrescur) goto 30
+               !         end if
+               inc=nc(jres)
+               ino=no(jres)
+               innit=nnit(jres)
+               pp1(jres)=0.5586d0*x(1,innit)+ &
+                     0.5955d0*x(1,ino)-0.1542d0*x(1,inc)
+               pp2(jres)=0.5586d0*x(2,innit)+ &
+                     0.5955d0*x(2,ino)-0.1542d0*x(2,inc)
+               pp3(jres)=0.5586d0*x(3,innit)+ &
+                     0.5955d0*x(3,ino)-0.1542d0*x(3,inc)
+            end do
+         end if
+         
+         !   --- get distance from this proton to peptide group of jres:
+         
+         !forcevector
          do jres=nter,cter-1
-            !         if (nh_calc) then
-            !           if (jres.eq.nrescur) goto 30
-            !         end if
-            inc=nc(jres)
-            ino=no(jres)
-            innit=nnit(jres)
-            pp1(jres)=0.5586d0*x(1,innit)+ &
-                  0.5955d0*x(1,ino)-0.1542d0*x(1,inc)
-            pp2(jres)=0.5586d0*x(2,innit)+ &
-                  0.5955d0*x(2,ino)-0.1542d0*x(2,inc)
-            pp3(jres)=0.5586d0*x(3,innit)+ &
-                  0.5955d0*x(3,ino)-0.1542d0*x(3,inc)
-         end do
-      end if
-      
-      !   --- get distance from this proton to peptide group of jres:
-      
-      !forcevector
-      do jres=nter,cter-1
-         ph1=x(1,ip)-pp1(jres)
-         ph2=x(2,ip)-pp2(jres)
-         ph3=x(3,ip)-pp3(jres)
-         rph2 = ph1*ph1 + ph2*ph2 + ph3*ph3
-         
-         
-         !   --- skip peptide groups more than NMRCUT away:
-         
-         if (rph2 > nmrcut2) cycle
-         
-         rphi = 1.0d0/sqrt(rph2)
-         r5ph = rphi/(rph2*rph2)
-         
-         !   calculate distance from the O,C,N plane
-         
-         i1=nc(jres)
-         i2=no(jres)
-         i3=nnit(jres)
-         x0 = x(1,ip)
-         y0 = x(2,ip)
-         z0 = x(3,ip)
-         x1 = x(1,i1)
-         y1 = x(2,i1)
-         z1 = x(3,i1)
-         x2 = x(1,i2)
-         y2 = x(2,i2)
-         z2 = x(3,i2)
-         x3 = x(1,i3)
-         y3 = x(2,i3)
-         z3 = x(3,i3)
-         
-         !       ----- coefficients of the equation for the plane of atoms 1-3
-         
-         bx1 = y2*z3 - y3*z2
-         bx2 = x3*z2 - x2*z3
-         bx3 = x2*y3 - x3*y2
-         bx4 = y3*z1 - y1*z3
-         bx5 = x1*z3 - x3*z1
-         bx6 = x3*y1 - x1*y3
-         bx7 = y1*z2 - y2*z1
-         bx8 = x2*z1 - x1*z2
-         bx9 = x1*y2 - x2*y1
+            ph1=x(1,ip)-pp1(jres)
+            ph2=x(2,ip)-pp2(jres)
+            ph3=x(3,ip)-pp3(jres)
+            rph2 = ph1*ph1 + ph2*ph2 + ph3*ph3
+            
+            
+            !   --- skip peptide groups more than NMRCUT away:
+            
+            if (rph2 > nmrcut2) cycle
+            
+            rphi = 1.0d0/sqrt(rph2)
+            r5ph = rphi/(rph2*rph2)
+            
+            !   calculate distance from the O,C,N plane
+            
+            i1=nc(jres)
+            i2=no(jres)
+            i3=nnit(jres)
+            x0 = x(1,ip)
+            y0 = x(2,ip)
+            z0 = x(3,ip)
+            x1 = x(1,i1)
+            y1 = x(2,i1)
+            z1 = x(3,i1)
+            x2 = x(1,i2)
+            y2 = x(2,i2)
+            z2 = x(3,i2)
+            x3 = x(1,i3)
+            y3 = x(2,i3)
+            z3 = x(3,i3)
+            
+            !       ----- coefficients of the equation for the plane of atoms 1-3
+            
+            bx1 = y2*z3 - y3*z2
+            bx2 = x3*z2 - x2*z3
+            bx3 = x2*y3 - x3*y2
+            bx4 = y3*z1 - y1*z3
+            bx5 = x1*z3 - x3*z1
+            bx6 = x3*y1 - x1*y3
+            bx7 = y1*z2 - y2*z1
+            bx8 = x2*z1 - x1*z2
+            bx9 = x1*y2 - x2*y1
 
-         ax = bx1 + bx4 + bx7
-         ay = bx2 + bx5 + bx8
-         az = bx3 + bx6 + bx9
-         b = x1*bx1 + x2*bx4 + x3*bx7
-         anorm = sqrt(ax*ax + ay*ay + az*az)
+            ax = bx1 + bx4 + bx7
+            ay = bx2 + bx5 + bx8
+            az = bx3 + bx6 + bx9
+            b = x1*bx1 + x2*bx4 + x3*bx7
+            anorm = sqrt(ax*ax + ay*ay + az*az)
+            
+            !       ----- normalize to standard form for plane equation (i.e. such
+            !       ----- that length of the vector "a" is unity
+            
+            ax = ax/anorm
+            ay = ay/anorm
+            az = az/anorm
+            b  =  b/anorm
+            
+            !       ----- delta is the desired rxn. coordinate
+            
+            delta = b - ax*x0 - ay*y0 - az*z0
+            
+            !       ----- first derivatives of ax,ay,ax w/resp. to coords. of atoms 1-3
+            !       ----- first index holds ax, ay or az;
+            !       ----- second index holds x1,y1...y3,z3
+            !       ----- (note: these are the derivatives of the "unnormalized" a vector)
+            anx1=ay*(z3 - z2) + az*(y2 - y3)
+            anx2=ax*(z2 - z3) + az*(x3 - x2)
+            anx3=ax*(y3 - y2) + ay*(x2 - x3)
+            anx4=ay*(z1 - z3) + az*(y3 - y1)
+            anx5=ax*(z3 - z1) + az*(x1 - x3)
+            anx6=ax*(y1 - y3) + ay*(x3 - x1)
+            anx7=ay*(z2 - z1) + az*(y1 - y2)
+            anx8=ax*(z1 - z2) + az*(x2 - x1)
+            anx9=ax*(y2 - y1) + ay*(x1 - x2)
+            
+            !       ----- first derivatives of delta w/resp. to cartesians
+            
+            deldx1 = - ax
+            deldx2 = - ay
+            deldx3 = - az
+            deldx4 = - delta*anx1 + bx1 &
+                  - y0 * (z3-z2) - z0 * (y2-y3)
+            deldx5 = - delta*anx2 + bx2 &
+                  - x0 * (z2 - z3) - z0 * (x3 - x2)
+            deldx6 = - delta*anx3 + bx3 &
+                  - x0 * (y3 - y2) - y0 * (x2 - x3)
+            deldx7 = - delta*anx4 + bx4 &
+                  - y0 * (z1 - z3) - z0 * (y3 - y1)
+            deldx8 = - delta*anx5 + bx5 &
+                  - x0 * (z3 - z1) - z0 * (x1 - x3)
+            deldx9 = - delta*anx6 + bx6 &
+                  - x0 * (y1 - y3) - y0 * (x3 - x1)
+            deldx10 = - delta*anx7 + bx7 &
+                  - y0 * (z2 - z1) - z0 * (y1 - y2)
+            deldx11 = - delta*anx8 + bx8 &
+                  - x0 * (z1 - z2) - z0 * (x2 - x1)
+            deldx12 = - delta*anx9 + bx9 &
+                  - x0 * (y2 - y1) - y0 * (x1 - x2)
+            
+            gansum=gansum+rphi/(3.0d0*rph2) - delta*delta*r5ph
+            
+            !   Calculate derivatives
+            
+            !      d gan/d x = d gan/d rph * d rph/d x + d gan/d delta * d delta/d x
+            !                       1.            2.          3.                4.
+            
+            drph = hflygare*(( -1.0d0/(rph2*rph2)) + &
+                  5.0d0*(delta*delta)/(rph2*rph2*rph2))
+            ddelta = -2.0d0*hflygare*delta*r5ph
+            d(1,ip)=d(1,ip) -drph*ph1*rphi - ddelta*deldx1
+            d(1,i1)=d(1,i1) +drph*ph1*(-0.1542d0)*rphi - ddelta*deldx4/anorm
+            d(1,i2)=d(1,i2) +drph*ph1*( 0.5955d0)*rphi - ddelta*deldx7/anorm
+            d(1,i3)=d(1,i3) +drph*ph1*( 0.5586d0)*rphi -ddelta*deldx10/anorm
+            d(2,ip)=d(2,ip) -drph*ph2*rphi - ddelta*deldx2
+            d(2,i1)=d(2,i1) +drph*ph2*(-0.1542d0)*rphi - ddelta*deldx5/anorm
+            d(2,i2)=d(2,i2) +drph*ph2*( 0.5955d0)*rphi - ddelta*deldx8/anorm
+            d(2,i3)=d(2,i3) +drph*ph2*( 0.5586d0)*rphi -ddelta*deldx11/anorm
+            d(3,ip)=d(3,ip) -drph*ph3*rphi - ddelta*deldx3
+            d(3,i1)=d(3,i1) +drph*ph3*(-0.1542d0)*rphi - ddelta*deldx6/anorm
+            d(3,i2)=d(3,i2) +drph*ph3*( 0.5955d0)*rphi - ddelta*deldx9/anorm
+            d(3,i3)=d(3,i3) +drph*ph3*( 0.5586d0)*rphi -ddelta*deldx12/anorm
+         end do
          
-         !       ----- normalize to standard form for plane equation (i.e. such
-         !       ----- that length of the vector "a" is unity
+         !   end of loop over peptide groups contributing to proton "i"
          
-         ax = ax/anorm
-         ay = ay/anorm
-         az = az/anorm
-         b  =  b/anorm
-         
-         !       ----- delta is the desired rxn. coordinate
-         
-         delta = b - ax*x0 - ay*y0 - az*z0
-         
-         !       ----- first derivatives of ax,ay,ax w/resp. to coords. of atoms 1-3
-         !       ----- first index holds ax, ay or az;
-         !       ----- second index holds x1,y1...y3,z3
-         !       ----- (note: these are the derivatives of the "unnormalized" a vector)
-         anx1=ay*(z3 - z2) + az*(y2 - y3)
-         anx2=ax*(z2 - z3) + az*(x3 - x2)
-         anx3=ax*(y3 - y2) + ay*(x2 - x3)
-         anx4=ay*(z1 - z3) + az*(y3 - y1)
-         anx5=ax*(z3 - z1) + az*(x1 - x3)
-         anx6=ax*(y1 - y3) + ay*(x3 - x1)
-         anx7=ay*(z2 - z1) + az*(y1 - y2)
-         anx8=ax*(z1 - z2) + az*(x2 - x1)
-         anx9=ax*(y2 - y1) + ay*(x1 - x2)
-         
-         !       ----- first derivatives of delta w/resp. to cartesians
-         
-         deldx1 = - ax
-         deldx2 = - ay
-         deldx3 = - az
-         deldx4 = - delta*anx1 + bx1 &
-               - y0 * (z3-z2) - z0 * (y2-y3)
-         deldx5 = - delta*anx2 + bx2 &
-               - x0 * (z2 - z3) - z0 * (x3 - x2)
-         deldx6 = - delta*anx3 + bx3 &
-               - x0 * (y3 - y2) - y0 * (x2 - x3)
-         deldx7 = - delta*anx4 + bx4 &
-               - y0 * (z1 - z3) - z0 * (y3 - y1)
-         deldx8 = - delta*anx5 + bx5 &
-               - x0 * (z3 - z1) - z0 * (x1 - x3)
-         deldx9 = - delta*anx6 + bx6 &
-               - x0 * (y1 - y3) - y0 * (x3 - x1)
-         deldx10 = - delta*anx7 + bx7 &
-               - y0 * (z2 - z1) - z0 * (y1 - y2)
-         deldx11 = - delta*anx8 + bx8 &
-               - x0 * (z1 - z2) - z0 * (x2 - x1)
-         deldx12 = - delta*anx9 + bx9 &
-               - x0 * (y2 - y1) - y0 * (x1 - x2)
-         
-         gansum=gansum+rphi/(3.0d0*rph2) - delta*delta*r5ph
-         
-         !   Calculate derivatives
-         
-         !      d gan/d x = d gan/d rph * d rph/d x + d gan/d delta * d delta/d x
-         !                       1.            2.          3.                4.
-         
-         drph = hflygare*(( -1.0d0/(rph2*rph2)) + &
-               5.0d0*(delta*delta)/(rph2*rph2*rph2))
-         ddelta = -2.0d0*hflygare*delta*r5ph
-         d(1,ip)=d(1,ip) -drph*ph1*rphi - ddelta*deldx1
-         d(1,i1)=d(1,i1) +drph*ph1*(-0.1542d0)*rphi - ddelta*deldx4/anorm
-         d(1,i2)=d(1,i2) +drph*ph1*( 0.5955d0)*rphi - ddelta*deldx7/anorm
-         d(1,i3)=d(1,i3) +drph*ph1*( 0.5586d0)*rphi -ddelta*deldx10/anorm
-         d(2,ip)=d(2,ip) -drph*ph2*rphi - ddelta*deldx2
-         d(2,i1)=d(2,i1) +drph*ph2*(-0.1542d0)*rphi - ddelta*deldx5/anorm
-         d(2,i2)=d(2,i2) +drph*ph2*( 0.5955d0)*rphi - ddelta*deldx8/anorm
-         d(2,i3)=d(2,i3) +drph*ph2*( 0.5586d0)*rphi -ddelta*deldx11/anorm
-         d(3,ip)=d(3,ip) -drph*ph3*rphi - ddelta*deldx3
-         d(3,i1)=d(3,i1) +drph*ph3*(-0.1542d0)*rphi - ddelta*deldx6/anorm
-         d(3,i2)=d(3,i2) +drph*ph3*( 0.5955d0)*rphi - ddelta*deldx9/anorm
-         d(3,i3)=d(3,i3) +drph*ph3*( 0.5586d0)*rphi -ddelta*deldx12/anorm
-      end do
-      
-      !   end of loop over peptide groups contributing to proton "i"
-      
-      gansum=gansum*hflygare
-      if( details ) write(6,'(20x,a8,f8.3)') 'peptide ', gansum
-#endif
+         gansum=gansum*hflygare
+         if( details ) write(6,'(20x,a8,f8.3)') 'peptide ', gansum
+      end if ! prottype(i) /= 'DRNA'
       call timer_stop(TIME_ANISO)
       
       !---------------------------------------------------------------------

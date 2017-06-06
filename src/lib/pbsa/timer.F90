@@ -81,6 +81,7 @@ subroutine pbtimer_init
    PBTIME_desc(PBTIME_PBEXMOL_PARTD)   = 'PB exmol part d'
    PBTIME_desc(PBTIME_PBEXMOL_PARTE)   = 'PB exmol part e'
    PBTIME_desc(PBTIME_PBEXMOL_PARTF)   = 'PB exmol part f'
+   PBTIME_desc(PBTIME_PBEXMOL_MEM)     = 'PB exmol membrane'
    PBTIME_desc(PBTIME_PBEPSBND)        = 'PB epsbnd'
    PBTIME_desc(PBTIME_PBEPSMAP)        = 'PB epsmap'
 

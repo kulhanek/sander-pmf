@@ -9,7 +9,7 @@
 !+ [Enter a one-line description of subroutine phidv1 here]
 subroutine phidv1(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, phx,phy,phz)
    implicit none
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  phidv1  find the  first  derivatives  of a  level set     *
@@ -20,7 +20,7 @@ subroutine phidv1(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, phx,phy,phz)
    !       *  function phi(x,y,z), but its values at each grid point    *
    !       *                                                            *
    !       **************************************************************
-   
+
    !Passed variables
    integer l,m,n,i,j,k
    _REAL_ h,hx,hy,hz,phx,phy,phz
@@ -58,7 +58,7 @@ subroutine phidv1(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, phx,phy,phz)
    end if
 
    return
-end subroutine phidv1 
+end subroutine phidv1
 
 
 
@@ -68,7 +68,7 @@ end subroutine phidv1
 subroutine phidv2(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, &
       phxx,phyy,phzz,phxy,phxz,phyz)
   implicit none
-   
+
    !       **************************************************************
    !       *                                                            *
    !       *  phidv2  find the second  derivatives  of a  level set     *
@@ -121,8 +121,8 @@ subroutine phidv2(l,m,n,h,hx,hy,hz,i,j,k,x,y,z,phi, &
    phyz = (phi(i,j+1,k+1)+phi(i,j-1,k-1)-phi(i,j+1,k-1) &
          -phi(i,j-1,k+1))/(4.0*hy*hz)
 
-   return 
- end subroutine phidv2 
+   return
+ end subroutine phidv2
 
 
 

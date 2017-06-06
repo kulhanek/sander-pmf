@@ -3,1194 +3,1313 @@
 #include "../include/dprec.fh"
 #include "../include/assert.fh"
 
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Emit coordinates or velocities, r(istart:n), to unit nf.
-subroutine corpac(r,istart,n,nf,loutfm)
-   use bintraj
+!------------------------------------------------------------------------------
+! corpac: Emit (write out) coordinates or velocities, r(istart:n), to unit nf.
+!
+! Arguments:
+!   r:      the coordinates or velocities to write out
+!   istart: the index of the data at which to start (i.e. "start at atom 6")
+!   n:      the length of the coordinate or velocity data
+!   nf:     the number of the output file unit
+!   loutfm: the logical translation of ioutfm as seen in mdin, describing the
+!           output file format.  In ioutfm, 0 = .crd and 1 = netcdf, but loutfm
+!           is set to .true. if ioutfm <= 0 (.true. for formatted writes) and
+!           false otherwise (binary writes).
+!------------------------------------------------------------------------------
+subroutine corpac(r, istart, n, nf, loutfm)
+  use bintraj
 
-   implicit none
-   integer, intent(in) :: istart,n,nf
-   _REAL_, intent(in) ::  r(n)
-   logical, intent(in) ::  loutfm  ! true for formatted output
+  implicit none
+  integer, intent(in) :: istart, n, nf
+  _REAL_, intent(in) ::  r(n)
+  logical, intent(in) ::  loutfm  ! true for formatted output
 
-   integer i,j
-   logical three_digit_fractional_part
-   _REAL_  rmax,rmin
-   parameter (rmax = 9999.99d0)
-   parameter (rmin = -999.99d0)
-   
-   if (istart > n) return
+  integer i,j
+  logical three_digit_fractional_part
+  _REAL_  rmax,rmin
+  parameter (rmax = 9999.99d0)
+  parameter (rmin = -999.99d0)
 
-   if (.not.loutfm) then
+  ! Bail out if the start position is beyond the length of the array   
+  if (istart > n) then
+    return
+  end if
 
-      ! Unformatted writes:
+  
+  if (.not. loutfm) then
 
-      call write_binary_traj(r, istart, n, nf)
-
-   else
+    ! Unformatted writes
+    call write_binary_traj(r, istart, n, nf)
+  else
       
-      ! Formatted writes:
-      
-      three_digit_fractional_part = .true.
-      do i = istart,n
-         if (r(i) > rmax .or. r(i) < rmin) then
-            three_digit_fractional_part = .false.
-            exit
-         end if
-      end do
-      
-      if (three_digit_fractional_part) then
-         write(nf,'(10f8.3)') (r(j),j=istart,n)
-      else
-         write(nf,'(10f8.2)') (r(j),j=istart,n)
+    ! Formatted writes
+    three_digit_fractional_part = .true.
+    do i = istart, n
+      if (r(i) > rmax .or. r(i) < rmin) then
+        three_digit_fractional_part = .false.
+        exit
       end if
-   end if
-   
-   return
+    end do
+      
+    if (three_digit_fractional_part) then
+      write(nf, '(10f8.3)') (r(j), j = istart, n)
+    else
+      write(nf, '(10f8.2)') (r(j), j = istart, n)
+    end if
+  end if
+  
+  return
 end subroutine corpac 
-!-----------------------------------------------------------------------
 
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Calculate various center of mass related terms.
-subroutine ekcmr(nspm,nsp,tma,ekcmt,xr,v,amass,istart,iend)
-   use constants, only : zero, one 
-   implicit none
+!------------------------------------------------------------------------------
+! ekcmr: Calculate various center of mass related terms.  This routine will
+!        compute the total kinetic energy of the center of mass of each
+!        sub-molecule and also the coordinates of each sub-molecule with
+!        respect to its center of mass.
+!
+! Arguments:
+!   nspm:     the number of sub molecules
+!   nsp:      the array of sub molecule atom counts
+!   
+!------------------------------------------------------------------------------
+subroutine ekcmr(nspm, nsp, tma, ekcmt, xr, v, amass, istart, iend)
+  use constants, only : zero, one 
+  implicit none
    
-   !     ----- ROUTINE TO CALCULATE THE TOTAL KINETIC ENERGY OF THE
-   !           CENTER OF MASS OF THE SUB-MOLECULES AND ALSO THE
-   !           COORDINATES OF THE MOLECULES RELATIVE TO THE CENTER OF
-   !           MASS -----
-   
-   integer nspm
-   integer nsp(*)
-   _REAL_  tma(*)
-   _REAL_  ekcmt(*)
-   _REAL_  xr(*)
-   _REAL_  v(*)
-   _REAL_  amass(*)
-   integer istart
-   integer iend
+  integer :: nspm
+  integer :: nsp(*)
+  _REAL_ :: tma(*)
+  _REAL_ :: ekcmt(*)
+  _REAL_ :: xr(*)
+  _REAL_ :: v(*)
+  _REAL_ :: amass(*)
+  integer :: istart
+  integer :: iend
 
 #  include "box.h"
    
-   _REAL_  aamass
-   integer i3
-   integer iat
-   integer j
-   integer j3
-   integer n
-   integer nn
-   _REAL_  tmn
-   _REAL_  vcm(3)
-   _REAL_  xcm(3)
+  integer i3, iat, j, j3, n, nn
+  _REAL_ aamass, tmn, vcm(3), xcm(3)
    
-   i3  = 0
-   iat = 0
-   ekcmt(1) = ZERO
-   ekcmt(2) = ZERO
-   ekcmt(3) = ZERO
+  i3 = 0
+  iat = 0
+  ekcmt(1) = ZERO
+  ekcmt(2) = ZERO
+  ekcmt(3) = ZERO
    
-   do n = 1,nspm
-      nn = nsp(n)
-      tmn = ONE/tma(n)
+  do n = 1, nspm
+    nn = nsp(n)
+    tmn = ONE / tma(n)
       
-      !       ----- CALCULATE THE CENTER OF MASS AND THEN MOVE EACH
-      !             SUB-MOLECULE TO ITS CENTER OF MASS -----
-      
-      j3 = i3
-      xcm(1) = ZERO
-      xcm(2) = ZERO
-      xcm(3) = ZERO
-      vcm(1) = ZERO
-      vcm(2) = ZERO
-      vcm(3) = ZERO
-      do j = 1,nn
-         aamass = amass(iat+j)
-         xcm(1) = xcm(1)+xr(j3+1)*aamass
-         xcm(2) = xcm(2)+xr(j3+2)*aamass
-         xcm(3) = xcm(3)+xr(j3+3)*aamass
+    ! Calculate the center of mass and then move each sub-molecule
+    ! to its center of mass.
+    j3 = i3
+    xcm(1) = ZERO
+    xcm(2) = ZERO
+    xcm(3) = ZERO
+    vcm(1) = ZERO
+    vcm(2) = ZERO
+    vcm(3) = ZERO
+    do j = 1, nn
+      aamass = amass(iat+j)
+      xcm(1) = xcm(1) + xr(j3+1)*aamass
+      xcm(2) = xcm(2) + xr(j3+2)*aamass
+      xcm(3) = xcm(3) + xr(j3+3)*aamass
 
-         ! each processor knows all coordinates, but only some velocities:
-         if (iat+j >= istart .and. iat+j <= iend) then
-            vcm(1) = vcm(1)+v(j3+1)*aamass
-            vcm(2) = vcm(2)+v(j3+2)*aamass
-            vcm(3) = vcm(3)+v(j3+3)*aamass
-         end if
+      ! Each processor knows all coordinates, but only some velocities:
+      if (iat+j >= istart .and. iat+j <= iend) then
+        vcm(1) = vcm(1)+v(j3+1)*aamass
+        vcm(2) = vcm(2)+v(j3+2)*aamass
+        vcm(3) = vcm(3)+v(j3+3)*aamass
+      end if
 
-         j3 = j3+3
-      end do
+      j3 = j3+3
+    end do
 
-      xcm(1) = xcm(1)*tmn
-      xcm(2) = xcm(2)*tmn
-      xcm(3) = xcm(3)*tmn
+    xcm(1) = xcm(1)*tmn
+    xcm(2) = xcm(2)*tmn
+    xcm(3) = xcm(3)*tmn
       
-      j3 = i3
-      do j = 1,nn
-         xr(j3+1) = xr(j3+1)-xcm(1)
-         xr(j3+2) = xr(j3+2)-xcm(2)
-         xr(j3+3) = xr(j3+3)-xcm(3)
-         j3 = j3+3
-      end do
-      
-      ekcmt(1) = ekcmt(1) + tmn*vcm(1)*vcm(1)
-      ekcmt(2) = ekcmt(2) + tmn*vcm(2)*vcm(2)
-      ekcmt(3) = ekcmt(3) + tmn*vcm(3)*vcm(3)
-      
-      !       ----- END OF CALCULATION FOR EACH SUB-MOLECULE -----
-      
-      i3 = j3
-      iat = iat+nn
-   end do
+    j3 = i3
+    do j = 1, nn
+      xr(j3+1) = xr(j3+1) - xcm(1)
+      xr(j3+2) = xr(j3+2) - xcm(2)
+      xr(j3+3) = xr(j3+3) - xcm(3)
+      j3 = j3 + 3
+    end do
+
+    ! Kinetic energy      
+    ekcmt(1) = ekcmt(1) + tmn*vcm(1)*vcm(1)
+    ekcmt(2) = ekcmt(2) + tmn*vcm(2)*vcm(2)
+    ekcmt(3) = ekcmt(3) + tmn*vcm(3)*vcm(3)
+
+    i3 = j3
+    iat = iat + nn
+  end do
+  ! End loop over calculations for each sub-molecule
    
-   return
+  return
 end subroutine ekcmr 
-!-----------------------------------------------------------------------
 
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Open the coordinate, velocity, energy and constant pH output files.
+!------------------------------------------------------------------------------
+! open_dummp_files: open the coordinate, velocity, energy and constant pH
+!                   output files.
+!------------------------------------------------------------------------------
 subroutine open_dump_files
-   use bintraj, only: open_binary_files
-   use file_io_dat
+  use bintraj, only: open_binary_files
+  use file_io_dat
 
-   implicit none   
+  implicit none   
 #  include "../include/md.h"
 #  include "extra.h"
    
-   !     subr amopen(lun,fname,fstat,fform,facc)
-
-   if ( master ) then
-      if (ioutfm <= 0) then
-         
-         !     ----- FORMATTED DUMPING -----
-         
-         if (ntwx > 0) then
-!              call amopen(MDCRD_UNIT,mdcrd,owrite,'F',facc)
-               call amopen(MDCRD_UNIT,mdcrd,'U','F',facc)
-               if(facc /= 'A') write(MDCRD_UNIT,1000) title
-         end if
-         if (ntwv > 0) then
-            call amopen(MDVEL_UNIT,mdvel,owrite,'F','W')
-            write(MDVEL_UNIT,1000) title
-         end if
-         if (ntwf > 0) then
-            call amopen(MDFRC_UNIT,mdfrc,owrite,'F','W')
-            if(facc /= 'A') write(MDFRC_UNIT,1000) title
-         end if
-      else
-         call open_binary_files
-      end if  ! (ioutfm <= 0)
-      if (icnstph /= 0) then
-         call amopen(CPOUT_UNIT, cpout, owrite, 'F', 'W')
+  ! Only the master process does file I/O
+  if (master) then
+    if (ioutfm <= 0) then
+        
+      ! Formatted dumping
+      if (ntwx > 0) then
+        call amopen(MDCRD_UNIT, mdcrd, 'U', 'F', facc)
+        if (facc /= 'A') then
+          write(MDCRD_UNIT, 1000) title
+        end if
       end if
-      if (ntwe > 0) then
-         call amopen(MDEN_UNIT,mden,owrite,'F','W')
+      if (ntwv > 0) then
+        call amopen(MDVEL_UNIT, mdvel, owrite, 'F', 'W')
+        write(MDVEL_UNIT, 1000) title
       end if
+      if (ntwf > 0) then
+        call amopen(MDFRC_UNIT,mdfrc,owrite,'F','W')
+        if (facc /= 'A') then
+          write(MDFRC_UNIT, 1000) title
+        end if
+      end if
+    else
+      call open_binary_files
+    end if  ! (ioutfm <= 0)
+    if (icnstph /= 0) then
+      call amopen(CPOUT_UNIT, cpout, owrite, 'F', 'W')
+    end if
+    if (ntwe > 0) then
+      call amopen(MDEN_UNIT, mden, owrite, 'F', 'W')
+    end if
+  end if
+  ! End contingency for work on the master process
 
-   end if  ! ( master )
-   1000 format(a80)
-   return
+  1000 format(a80)
+
+  return
 end subroutine open_dump_files 
-!-----------------------------------------------------------------------
 
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Close the coordinate, velocity, energy and constant pH output files.
+!------------------------------------------------------------------------------
+! close_dump_files: close the coordinate, velocity, energy and constant pH
+!                   output files.
+!------------------------------------------------------------------------------
 subroutine close_dump_files
-   use bintraj, only: close_binary_files
-   use file_io_dat
+  use bintraj, only: close_binary_files
+  use file_io_dat
    
-   implicit none
+  implicit none
 #  include "extra.h"
 #  include "../include/md.h"   
    
-   if ( master ) then
-      if (ioutfm > 0) then
-         call close_binary_files
-      else
-         if ( ntwx > 0 ) close( MDCRD_UNIT )
-         if ( ntwv > 0 ) close( MDVEL_UNIT )
-         if ( ntwf > 0 ) close( MDFRC_UNIT )
-      end if
-      if ( ntwe > 0 ) close( MDEN_UNIT )
-      if ( imin == 5 ) close( INPTRAJ_UNIT )
-      if ( ntpr > 0 ) close( 7 )
-      if ( icnstph /= 0 ) close ( CPOUT_UNIT )
+  if (master) then
+    if (ioutfm > 0) then
+      call close_binary_files
+    else
+      if (ntwx > 0) close(MDCRD_UNIT)
+      if (ntwv > 0) close(MDVEL_UNIT)
+      if (ntwf > 0) close(MDFRC_UNIT)
+    end if
+    if (ntwe > 0) close(MDEN_UNIT)
+    if (imin == 5) close(INPTRAJ_UNIT)
+    if (ntpr > 0) close(7)
+    if (icnstph /= 0) close (CPOUT_UNIT)
+  end if
 
-   end if
-   return
+  return
 end subroutine close_dump_files 
-!----------------------------------------------------------------------
 
 #ifndef PBSA
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-!+ Energy output for md, in human-readable form.
-subroutine prntmd(nstep,time,ener,onefac,iout7,rms)
-   use pimd_vars, only: ipimd,itimass
-   use neb_vars, only : ineb
-   use file_io_dat
+!------------------------------------------------------------------------------
+! prntmd: energy output for md, in human-readable form.
+!
+! Arguments:
+!   nstep:     the current time step 
+!   time:      the simulation time in ps
+!   ener:      struct storing various energy components (see state.F90)
+!   onefac:    the inverse of the degrees of freedom factors (a three-element
+!              array of _REAL_ numbers).  See runmd.F90 and amoebarunmd.F90
+!              to understand how each element is set.
+!   iout7:     the output file unit for mdinfo
+!   rms:       flag to have RMS statistics for each quantity printed (disabled
+!              in Locally Enhanced Sampling, LES)
+!------------------------------------------------------------------------------
+subroutine prntmd(nstep, time, ener, onefac, iout7, rms)
+  use pimd_vars, only: ipimd, itimass
+  use neb_vars, only: ineb
+  use file_io_dat
 
 #if defined( MPI )
-   use evb_parm, only: nevb, nbias, evb_dyn
-   use evb_data, only: evb_frc, evb_bias &
-                     , evb_nrg, evb_nrg_ave, evb_nrg_rms
-   ! DAN ROE: Added for printing replica information
-   use remd, only : rem, repnum, mdloop, stagid, &
-                    remd_dimension, group_num, replica_indexes
+  use evb_parm, only: nevb, nbias, evb_dyn
+  use evb_data, only: evb_frc, evb_bias, evb_nrg, evb_nrg_ave, evb_nrg_rms
+  use remd, only : rem, repnum, mdloop, stagid, &
+                   remd_dimension, group_num, replica_indexes
 #  ifdef LES
-   use evb_pimd, only: evb_vec0_bead, nbead_inv
+  use evb_pimd, only: evb_vec0_bead, nbead_inv
 #  else
-   use evb_data, only : evb_Hmat
+  use evb_data, only : evb_Hmat
 #  endif
 #endif /* MPI */
 #ifdef LES
-   use les_data, only : temp0les
+  use les_data, only : temp0les
 #endif
 #ifdef RISMSANDER
-   use sander_rism_interface, only: rismprm, RISM_NONE, RISM_FULL, RISM_INTERP,&
-        rism_calc_type, rism_thermo_print
+  use sander_rism_interface, only: rismprm, RISM_NONE, RISM_FULL, &
+                                   RISM_INTERP, rism_calc_type, &
+                                   rism_thermo_print
 #endif
 
-   use qmmm_module, only : qmmm_nml,qmmm_struct
-   use cns_xref
-   use xray_interface_module, only: xray_active, xray_write_md_state
-   use state
-   use charmm_mod, only : charmm_active
-   use crg_reloc, only : ifcr
-   use sgld, only : isgld,sgft,tempsg
-   use ff11_mod, only : cmap_active
-   use nbips, only : ips
-   use emap,only : temap
-   use sebomd_module, only : sebomd_obj
-   use amd_mod, only: iamd
+  use qmmm_module, only: qmmm_nml,qmmm_struct
+  use cns_xref
+  use xray_interface_module, only: xray_active, xray_write_md_state
+  use state
+  use charmm_mod, only: charmm_active
+  use crg_reloc, only: ifcr
+  use sgld, only: isgld,sgft,tempsg
+  use ff11_mod, only: cmap_active
+  use nbips, only: ips
+  use emap,only: temap
+  use sebomd_module, only: sebomd_obj
+  use amd_mod, only: iamd
+  use abfqmmm_module, only: abfqmmm_param
 
-   use abfqmmm_module, only: abfqmmm_param
+  implicit none
 
-   implicit none
-
-! Passed in
-   integer, intent(in) :: nstep, iout7
-   _REAL_,  intent(in) :: onefac(3),time
-   type(state_rec), intent(in) :: ener
-   logical, intent(in) :: rms ! true if this is a print of RMS fluctuations
+  ! Passed in
+  integer, intent(in) :: nstep, iout7
+  _REAL_,  intent(in) :: onefac(3), time
+  type(state_rec), intent(in) :: ener
+  logical, intent(in) :: rms ! true if this is a print of RMS fluctuations
   
-!Local
-   integer :: total_nstlim, total_nstep
-   _REAL_ :: enb14, edihed, eangle, ebond, ehbond, eel, enonb, epot, egb, epb
-   _REAL_ :: virx, viry, virz, virt, dipole_temp, dipiter, diprms, virvsene
-   _REAL_ :: dvdl, esurf, avetot, aveind, aveper, epol, econst, eel14, ekcmt
-   _REAL_ :: edisp, escf, ekcmx, ekcmy, ekcmz,enemap
-   _REAL_ :: press, presx, presy, presz, densit, volume, boxx, boxy, boxz
-   _REAL_ :: rms_pbs, eksolv, eksolt, ektot, etot
-#ifdef RISMSANDER
-   _REAL_ :: erism
-   _REAL_ :: pot_array(potential_energy_rec_len)
-#endif /*RISMSANDER*/
-   _REAL_ :: ect
-   _REAL_ :: amd_boost
-#ifdef MPI
-   integer :: n
+  ! Local
+  integer :: total_nstlim, total_nstep
+  _REAL_ :: enb14, edihed, eangle, ebond, ehbond, eel, enonb, epot, egb, epb
+  _REAL_ :: virx, viry, virz, virt, dipole_temp, dipiter, diprms, virvsene
+  _REAL_ :: dvdl, esurf, avetot, aveind, aveper, epol, econst, eel14, ekcmt
+  _REAL_ :: edisp, escf, ekcmx, ekcmy, ekcmz,enemap
+  _REAL_ :: press, presx, presy, presz, densit, volume, boxx, boxy, boxz
+  _REAL_ :: eksolv, eksolt, ektot, etot
+#ifndef LES
+  _REAL_ :: rms_pbs
 #endif
+#ifdef RISMSANDER
+  _REAL_ :: erism
+  _REAL_ :: pot_array(potential_energy_rec_len)
+#endif /* RISMSANDER */
+  _REAL_ :: ect
+  _REAL_ :: amd_boost
+#ifdef MPI
+  integer :: n
+#endif /* MPI */
 
 #  include "../include/md.h"
 #  include "ew_mpole.h"
 #  include "ew_cntrl.h"
 #  include "tgtmd.h"
 
-   !     ----- DEFINE VARIOUS TERMS -----
-   
-   etot   = ener%tot
-   ektot  = ener%kin%tot
-   if ( ipimd==3 ) then
-      temp   = ener%kin%tot*onefac(1)  !  for CMD, this is the centroid KE
-   else
-      temp   = ener%kin%tot*onefac(1)  !  for PIMD, this is mean classical KE of beads
-   endif
-   eksolt = ener%kin%solt*onefac(2)
+  ! The logical argument rms is always passed in, but only used
+  ! if LES is NOT defined (which is most of the builds).  However,
+  ! when LES is defined, this creates compiler warnings, which I
+  ! would rather silence so that it is easier to see if something
+  ! is truly wrong.  This code will make use of rms so that the
+  ! compiler will not complain.  etot will be immediately redefined
+  ! with the same value after this, so it has no effect.
+  if (rms) then
+    etot = ener%tot
+  end if
+
+  ! Define various terms
+  etot   = ener%tot
+  ektot  = ener%kin%tot
+  if (ipimd == 3) then
+
+    ! For Centroid MD, this is the centroid KE
+    temp = ener%kin%tot*onefac(1)
+  else
+
+    ! For Path Integral MD, this is mean classical KE of beads
+    temp = ener%kin%tot*onefac(1)
+  endif
+  eksolt = ener%kin%solt*onefac(2)
 #ifdef LES
    
-   ! modified for LES, ener(4) is LES KE now, not solvent
-   ! so it should be reported along with temperature for LES region
-   
-   if (temp0les < 0.d0) then
-      if(ntt == 5) then
-         eksolv = ener%kin%solv*onefac(3)
-      else
-         eksolv = 0.0d0
-      end if
-   else
+  ! Modified for Locally Enhanced Sampling, ener(4) is
+  ! LES KE now, not solvent KE, so it should be reported
+  ! along with temperature for LES region.   
+  if (temp0les < 0.d0) then
+    if (ntt == 5) then
       eksolv = ener%kin%solv*onefac(3)
-   end if
+    else
+      eksolv = 0.0d0
+    end if
+  else
+    eksolv = ener%kin%solv*onefac(3)
+  end if
 
-   if(ipimd>0) then
-      ektot = ener%kin%solv
-   end if
+  if (ipimd > 0) then
+    ektot = ener%kin%solv
+  end if
 #else
-   if(ntt == 5) then
-      eksolv = ener%kin%solv*onefac(3)
-   else
-      rms_pbs = ener%kin%solv
-   end if
+  if(ntt == 5) then
+     eksolv = ener%kin%solv*onefac(3)
+  else
+     rms_pbs = ener%kin%solv
+  end if
 #endif
    
-   boxx    = ener%box(1)
-   boxy    = ener%box(2)
-   boxz    = ener%box(3)
-   volume  = ener%volume
-   densit  = ener%density
+  boxx    = ener%box(1)
+  boxy    = ener%box(2)
+  boxz    = ener%box(3)
+  volume  = ener%volume
+  densit  = ener%density
 
-   presx   = ener%pres(1)
-   presy   = ener%pres(2)
-   presz   = ener%pres(3)
-   press   = ener%pres(4)
-   
-   ekcmx   = ener%cmt(1)
-   ekcmy   = ener%cmt(2)
-   ekcmz   = ener%cmt(3)
-   ekcmt   = ener%cmt(4)
-   
-   virx    = ener%vir(1)
-   viry    = ener%vir(2)
-   virz    = ener%vir(3)
-   virt    = ener%vir(4)
+  presx   = ener%pres(1)
+  presy   = ener%pres(2)
+  presz   = ener%pres(3)
+  press   = ener%pres(4)
+  
+  ekcmx   = ener%cmt(1)
+  ekcmy   = ener%cmt(2)
+  ekcmz   = ener%cmt(3)
+  ekcmt   = ener%cmt(4)
+  
+  virx    = ener%vir(1)
+  viry    = ener%vir(2)
+  virz    = ener%vir(3)
+  virt    = ener%vir(4)
 
-   epot    = ener%pot%tot
-   enonb   = ener%pot%vdw
-   eel     = ener%pot%elec
-   ehbond  = ener%pot%hbond
-   egb     = ener%pot%gb
-   epb     = ener%pot%pb
-   ebond   = ener%pot%bond
-   eangle  = ener%pot%angle
-   edihed  = ener%pot%dihedral
-   enb14   = ener%pot%vdw_14
-   eel14   = ener%pot%elec_14
-   econst  = ener%pot%constraint
-   epol    = ener%pot%polar
-   virvsene= ener%virvsene
-   aveper  = ener%aveper
-   aveind  = ener%aveind
-   avetot  = ener%avetot
-   esurf   = ener%pot%surf
-   dvdl    = ener%pot%dvdl
-   diprms  = ener%diprms
-   dipiter = ener%dipiter
-   dipole_temp = ener%dipole_temp
-   escf    = ener%pot%scf
-   edisp   = ener%pot%disp
-   enemap   = ener%pot%emap
-   amd_boost = ener%pot%amd_boost
+  epot    = ener%pot%tot
+  enonb   = ener%pot%vdw
+  eel     = ener%pot%elec
+  ehbond  = ener%pot%hbond
+  egb     = ener%pot%gb
+  epb     = ener%pot%pb
+  ebond   = ener%pot%bond
+  eangle  = ener%pot%angle
+  edihed  = ener%pot%dihedral
+  enb14   = ener%pot%vdw_14
+  eel14   = ener%pot%elec_14
+  econst  = ener%pot%constraint
+  epol    = ener%pot%polar
+  virvsene= ener%virvsene
+  aveper  = ener%aveper
+  aveind  = ener%aveind
+  avetot  = ener%avetot
+  esurf   = ener%pot%surf
+  dvdl    = ener%pot%dvdl
+  diprms  = ener%diprms
+  dipiter = ener%dipiter
+  dipole_temp = ener%dipole_temp
+  escf    = ener%pot%scf
+  edisp   = ener%pot%disp
+  enemap   = ener%pot%emap
+  amd_boost = ener%pot%amd_boost
 #ifdef RISMSANDER
-   erism   = ener%pot%rism
+  erism   = ener%pot%rism
 #endif /*RISMSANDER*/
-   ect     = ener%pot%ct
+  ect     = ener%pot%ct
 
-   if(abfqmmm_param%abfqmmm == 1) then
-      write(6,*) "--------------------------------------------------------&
-                 &----------------------"
-      if(abfqmmm_param%system == 1) then
-         write(6,'(1x,a33,i4,5x,a12,i2)') &
-               'System = Extended    N(QM atoms) = ', qmmm_struct%nquant, &
-               'QM Charge = ', qmmm_nml%qmcharge
-         write(6,'(1x,a10,i4,7x,a8,i4,6x,a12,i4)') &
-               'N(core) = ', abfqmmm_param%n_core, &
-               'N(qm) = ', abfqmmm_param%n_qm-abfqmmm_param%n_core, &
-               'N(buffer) = ', abfqmmm_param%n_buffer
+  if (abfqmmm_param%abfqmmm == 1) then
+    write(6,*) "--------------------------------------------------------&
+               &----------------------"
+    if (abfqmmm_param%system == 1) then
+      write(6,'(1x,a33,i4,5x,a12,i2)') 'System = Extended    N(QM atoms) = ', &
+                                       qmmm_struct%nquant, 'QM Charge = ', &
+                                       qmmm_nml%qmcharge
+      write(6,'(1x,a10,i4,7x,a8,i4,6x,a12,i4)') 'N(core) = ', &
+            abfqmmm_param%n_core, 'N(qm) = ', &
+            abfqmmm_param%n_qm - abfqmmm_param%n_core, &
+            'N(buffer) = ', abfqmmm_param%n_buffer
+    end if
+    if (abfqmmm_param%system == 2) then
+      if (.not. qmmm_nml%ifqnt) then
+        qmmm_struct%nquant = 0
+        qmmm_nml%qmcharge = 0
       end if
-      if(abfqmmm_param%system == 2) then
-         if(.not. qmmm_nml%ifqnt) then
-            qmmm_struct%nquant = 0
-            qmmm_nml%qmcharge = 0
-         end if
-         write(6,'(1x,a33,i4,5x,a12,i2)') &
-               'System = Reduced     N(QM atoms) = ', qmmm_struct%nquant, &
-               'QM Charge = ', qmmm_nml%qmcharge
-      end if
-   end if
+      write(6,'(1x,a33,i4,5x,a12,i2)') 'System = Reduced     N(QM atoms) = ', &
+            qmmm_struct%nquant, 'QM Charge = ', qmmm_nml%qmcharge
+    end if
+  end if
 
-   write(6,9018) nstep,time,temp,press
-   write(6,9028) etot,ektot,epot
-   write(6,9038) ebond,eangle,edihed
-! CHARMM SPECIFIC ENERGY TERMS
-   if (charmm_active) write(6,9039) ener%pot%angle_ub, &
-                                    ener%pot%imp,      &
-                                    ener%pot%cmap
-
-
-   write(6,9048) enb14,eel14,enonb
+  write(6, 9018) nstep,time,temp,press
+  write(6, 9028) etot,ektot,epot
+  write(6, 9038) ebond,eangle,edihed
+  if (charmm_active) then
+    write(6, 9039) ener%pot%angle_ub, ener%pot%imp, ener%pot%cmap
+  end if
+  write(6, 9048) enb14, eel14, enonb
 
 #ifdef RISMSANDER
-   if( igb == 0 .and. ipb == 0 .and. rismprm%irism == 0) then
+  if (igb == 0 .and. ipb == 0 .and. rismprm%rism == 0) then
 #else
-   if( igb == 0 .and. ipb == 0 ) then
-#endif
-      write(6,9058) eel,ehbond,econst
-   else if ( igb == 10 .or. ipb /= 0 ) then
-      write(6,9060) eel,epb,econst
+  if (igb == 0 .and. ipb == 0) then
+#endif /* RISMSANDER */
+    write(6, 9058) eel, ehbond, econst
+  else if (igb == 10 .or. ipb /= 0) then
+    write(6, 9060) eel, epb, econst
 #ifdef APBS
-   else if (igb == 6 .and. mdin_apbs ) then
-      write(6,9060) eel,epb,econst
+  else if (igb == 6 .and. mdin_apbs) then
+    write(6, 9060) eel, epb, econst
 #endif /* APBS */
 #ifdef RISMSANDER
-   else if(rismprm%irism == 1 )then
-         write(6,9061) eel,erism,econst
-#endif
-
-   else
-      write(6,9059) eel,egb,econst
-   end if
-
-   if ( ifcr /= 0 ) write(6,9099) ect
+  else if (rismprm%rism == 1) then
+    write(6, 9061) eel, erism, econst
+#endif /* RISMSANDER */
+  else
+    write(6, 9059) eel, egb, econst
+  end if
+  if (ifcr /= 0) then
+    write(6, 9099) ect
+  end if
 
 #ifdef MPI
-   if( ievb /= 0 ) then
-      write(6,'(A)') 
-      write(6,'(A)') ' EVB:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-      if( evb_frc%evb_ave ) then
-         write(6,888) evb_nrg_ave(1), evb_nrg_ave(2), evb_nrg_ave(3)
-         evb_frc%evb_ave = .false.
-      else if( evb_frc%evb_rms ) then
-         write(6,888) evb_nrg_rms(1), evb_nrg_rms(2), evb_nrg_rms(3)
-         evb_frc%evb_rms = .false.
+  if (ievb /= 0) then
+    write(6,'(A)') 
+    write(6,'(A)') ' EVB:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    if (evb_frc%evb_ave) then
+      write(6, 888) evb_nrg_ave(1), evb_nrg_ave(2), evb_nrg_ave(3)
+      evb_frc%evb_ave = .false.
+    else if( evb_frc%evb_rms ) then
+      write(6, 888) evb_nrg_rms(1), evb_nrg_rms(2), evb_nrg_rms(3)
+      evb_frc%evb_rms = .false.
+    else
+      if (trim(adjustl(evb_dyn)) == "evb_map") then
+        write(6, 777) evb_nrg(1), evb_nrg(2), evb_nrg(3)
       else
-         if( trim( adjustl( evb_dyn) ) == "evb_map" ) then
-            write(6,777) evb_nrg(1), evb_nrg(2), evb_nrg(3)
-         else
-            write(6,888) evb_nrg(1), evb_nrg(2), evb_nrg(3)
-         endif
-#ifdef LES
-         write(6,999) 'C_0^2  = ', ( sum(evb_vec0_bead(n,:)**2)*nbead_inv, n = 1, nevb )
-#else
-         write(6,999) 'C_0^2  = ', ( evb_Hmat%evb_vec0(n)**2, n = 1, nevb )
-#endif
-         if( nbias > 0 ) write(6,999) 'EVB RC = ', ( evb_bias%RC(n), n = 1, nbias )
-         if( nbias > 1 ) write(6,999) 'Vumb_i = ', ( evb_bias%nrg_bias(n), n = 1, nbias )
+        write(6, 888) evb_nrg(1), evb_nrg(2), evb_nrg(3)
       endif
-   endif
+#ifdef LES
+      write(6, 999) 'C_0^2  = ', &
+                    (sum(evb_vec0_bead(n,:)**2)*nbead_inv, n = 1, nevb)
+#else
+      write(6, 999) 'C_0^2  = ', (evb_Hmat%evb_vec0(n)**2, n = 1, nevb)
+#endif
+      if (nbias > 0) then
+        write(6, 999) 'EVB RC = ', (evb_bias%RC(n), n = 1, nbias)
+      end if
+      if (nbias > 1) then
+        write(6, 999) 'Vumb_i = ', (evb_bias%nrg_bias(n), n = 1, nbias)
+      end if
+    end if
+  end if
 #endif /* MPI */
 
-   if ( iamd .gt. 0 ) write(6,9180) amd_boost
+  if (iamd .gt. 0) then
+    write(6, 9180) amd_boost
+  end if
+  if (qmmm_nml%ifqnt) then
 
-   if ( qmmm_nml%ifqnt) then
-     !write the SCF energy
-     if (qmmm_nml%qmtheory%PM3) then
-        if (qmmm_nml%qmmm_int == 3) then
-           write(6,9090) escf ! PM3-MM*
-        else if (qmmm_nml%qmmm_int == 4) then
-           write(6,9096) escf ! PM3/MMX2
-        else
-           write(6,9080) escf
-        end if
-     else if (qmmm_nml%qmtheory%AM1) then
-        write(6,9081) escf
-     else if (qmmm_nml%qmtheory%AM1D) then
-        write(6,9981) escf
-     else if (qmmm_nml%qmtheory%MNDO) then
-        write(6,9082) escf
-     else if (qmmm_nml%qmtheory%MNDOD) then
-        write(6,9982) escf
-     else if (qmmm_nml%qmtheory%PDDGPM3) then
-        write(6,9083) escf
-     else if (qmmm_nml%qmtheory%PDDGMNDO) then
-        write(6,9084) escf
-     else if (qmmm_nml%qmtheory%PM3CARB1) then
-        write(6,9085) escf
-     else if (qmmm_nml%qmtheory%DFTB) then
-        write(6,9086) escf
-     else if (qmmm_nml%qmtheory%RM1) then
-        write(6,9087) escf
-     else if (qmmm_nml%qmtheory%PDDGPM3_08) then
-        write(6,9088) escf
-     else if (qmmm_nml%qmtheory%PM6) then
-        write(6,9089) escf
-     else if (qmmm_nml%qmtheory%PM3ZNB) then
-        write(6,9091) escf
-     else if (qmmm_nml%qmtheory%EXTERN) then
-        write(6,9092) escf
-     else if (qmmm_nml%qmtheory%PM3MAIS) then
-        write(6,9093) escf
-     else
-        write(6,'(" ERROR - UNKNOWN QM THEORY")')
-     end if
-   end if
+    ! Write the SCF energy
+    if (qmmm_nml%qmtheory%PM3) then
+      if (qmmm_nml%qmmm_int == 3) then
 
-   if (sebomd_obj%do_sebomd) then
-     write(6,9200) sebomd_obj%esebomd
-   end if
+        ! PM3-MM*
+        write(6, 9090) escf
+      else if (qmmm_nml%qmmm_int == 4) then
+
+        ! PM3/MMX2
+        write(6, 9096) escf
+      else
+        write(6, 9080) escf
+      end if
+    else if (qmmm_nml%qmtheory%AM1) then
+      write(6, 9081) escf
+    else if (qmmm_nml%qmtheory%AM1D) then
+      write(6,9981) escf
+    else if (qmmm_nml%qmtheory%MNDO) then
+      write(6,9082) escf
+    else if (qmmm_nml%qmtheory%MNDOD) then
+      write(6,9982) escf
+    else if (qmmm_nml%qmtheory%PDDGPM3) then
+      write(6,9083) escf
+    else if (qmmm_nml%qmtheory%PDDGMNDO) then
+      write(6,9084) escf
+    else if (qmmm_nml%qmtheory%PM3CARB1) then
+      write(6,9085) escf
+    else if (qmmm_nml%qmtheory%DFTB) then
+      write(6,9086) escf
+    else if (qmmm_nml%qmtheory%RM1) then
+      write(6,9087) escf
+    else if (qmmm_nml%qmtheory%PDDGPM3_08) then
+      write(6,9088) escf
+    else if (qmmm_nml%qmtheory%PM6) then
+      write(6,9089) escf
+    else if (qmmm_nml%qmtheory%PM3ZNB) then
+      write(6,9091) escf
+    else if (qmmm_nml%qmtheory%EXTERN) then
+      write(6,9092) escf
+    else if (qmmm_nml%qmtheory%PM3MAIS) then
+      write(6,9093) escf
+    else
+      write(6,'(" ERROR - UNKNOWN QM THEORY")')
+    end if
+  end if
+
+  if (sebomd_obj%do_sebomd) then
+    write(6,9200) sebomd_obj%esebomd
+  end if
 #ifdef PUPIL_SUPPORT
-!jtc ========================= PUPIL INTERFACE =========================
-      write(6,9900) escf
-!jtc ========================= PUPIL INTERFACE =========================
-#endif /*  !PUPIL_SUPPORT */
-   if (gbsa > 0) write(6,9077) esurf
-   if (igb == 10 .or. ipb /= 0) write(6,9074) esurf,edisp
+  ! PUPIL interface
+  write(6, 9900) escf
+#endif /* PUPIL_SUPPORT */
+  if (gbsa > 0) then
+    write(6, 9077) esurf
+  end if
+  if (igb == 10 .or. ipb /= 0) then
+    write(6, 9074) esurf, edisp
+  end if
 #ifdef APBS
-   if (igb == 6 .and. mdin_apbs ) write(6,9097) esurf
+  if (igb == 6 .and. mdin_apbs ) then
+    write(6, 9097) esurf
+  end if
 #endif /* APBS */
-   if (econst /= 0.0) write(6,9076) epot-econst
-   if (( icfe > 0 ) .OR. ( itimass > 0 )) write(6,9100) dvdl
-   if ( ineb>0 ) call pimd_neb_energy_report(6)
+  if (econst /= 0.0) then
+    write(6, 9076) epot-econst
+  end if
+  if ((icfe > 0) .or. (itimass > 0)) then
+    write(6, 9100) dvdl
+  end if
+  if (ineb > 0) then
+    call pimd_neb_energy_report(6)
+  end if
 
 #ifndef LES
-   if (rms .and. ntt==0 ) write(6,9075) rms_pbs
-#endif
-   if (ntp > 0.0 .or. volume /= 0.0) write(6,9078) ekcmt,virt,volume
+  if (rms .and. ntt == 0) then
+    write(6, 9075) rms_pbs
+  end if
+#endif /* LES is not defined */
+  if (ntp > 0.0 .or. volume /= 0.0) then
+    write(6, 9078) ekcmt, virt, volume
+  end if
 #ifdef LES
    
-   ! if LES T bath is used, write TEMPERATURE for LES and non-LES
-   
-   if (temp0les >= 0.d0) then
-      write(6,9067) eksolt,eksolv
-   end if
-#endif
+  ! If LES T bath is used, write temperature for LES and non-LES 
+  if (temp0les >= 0.d0) then
+    write(6, 9067) eksolt, eksolv
+  end if
+#endif /* LES */
 
-   if (csurften > 0) &
-      write(6, 9072) ener%surface_ten
+  if (csurften > 0) then
+    write(6, 9072) ener%surface_ten
+  end if
+  if (cmap_active .and. epol /= 0.0) then
+    write(6, 9068) epol, ener%pot%cmap
+  else
+    if (cmap_active) then
+      write(6, 9069) ener%pot%cmap
+    end if
+    if (epol /= 0.0) then
+      write(6, 9070) epol
+    end if
+  end if
 
-   if (cmap_active .and. epol /= 0.0) then
-      write(6,9068) epol, ener%pot%cmap
-   else
-      if (cmap_active) write(6,9069) ener%pot%cmap
-      if (epol /= 0.0 ) write(6,9070) epol
-   endif
-   !     if (induced.gt.0) WRITE(6,9288) aveper,aveIND,avetot
-   if (induced > 0.and.indmeth < 3) write(6,9190)diprms,dipiter
-   if (induced > 0.and.indmeth == 3) write(6,9191)diprms, &
-         dipole_temp
-   if (ntp > 0.0 .or. volume /= 0.0) write(6,9079) densit
+  if (induced > 0 .and. indmeth < 3) then
+    write(6, 9190) diprms, dipiter
+  end if
+  if (induced > 0 .and. indmeth == 3) then
+    write(6, 9191) diprms, dipole_temp
+  end if
+  if (ntp > 0.0 .or. volume /= 0.0) then
+    write(6, 9079) densit
+  end if
 #ifndef noVIRIAL
-   if ( igb == 0 .and. ipb == 0 .and. iyammp == 0 .and. induced == 0 &
-         .and. use_pme == 1 ) write(6,9188) virvsene
+  if (igb == 0 .and. ipb == 0 .and. iyammp == 0 .and. induced == 0 .and. &
+      use_pme == 1) then
+    write(6,9188) virvsene
+  end if
 #endif
 
-   if (itgtmd == 1) then
-      write (6,'(a,f8.3)') "Current RMSD from reference: ", &
-            rmsdvalue
-      write (6,'(a,f8.3)') "Current target RMSD:         ", &
-            tgtrmsd
-   end if
-!  Printout SGLD guiding information
-   if (isgld > 0) then
-     write(6,1005)ener%sgld%sgft,ener%sgld%tempsg,ener%sgld%templf,ener%sgld%treflf, &
-                   ener%sgld%frclf,ener%sgld%epotlf,ener%sgld%sgwt
-     write(6,1006)ener%sgld%sgff,ener%sgld%sgscal,ener%sgld%temphf,ener%sgld%trefhf, &
-                   ener%sgld%frchf,ener%sgld%epothf,ener%sgld%virsg
-   endif
+  if (itgtmd == 1) then
+    write (6,'(a,f8.3)') "Current RMSD from reference: ", rmsdvalue
+    write (6,'(a,f8.3)') "Current target RMSD:         ", tgtrmsd
+  end if
 
-   call write_cns_xref_md_energies( ener )
-
-   if (xray_active) call xray_write_md_state(6)
+  ! Printout SGLD guiding information
+  if (isgld > 0) then
+    write(6, 1005) ener%sgld%sgft, ener%sgld%tempsg, ener%sgld%templf, &
+                   ener%sgld%treflf, ener%sgld%frclf, ener%sgld%epotlf, &
+                   ener%sgld%sgwt
+    write(6, 1006) ener%sgld%sgff, ener%sgld%sgscal, ener%sgld%temphf, &
+                   ener%sgld%trefhf, ener%sgld%frchf, ener%sgld%epothf, &
+                   ener%sgld%virsg
+  endif
+  call write_cns_xref_md_energies(ener)
+  if (xray_active) then
+    call xray_write_md_state(6)
+  end if
 
 #ifdef MPI
-! DAN ROE: Print current REMD info (replica#, temp0, excgh#) only for iout7>0
-!  (Not for average/rms)
-   if (rem /= 0 .and. rem /= 4 .and. rem /= -1 .and. iout7 > 0) then
-      if (isgld > 0) then
-        write (6,9064) temp0,sgft,tempsg,stagid,repnum,mdloop
-      else
-        write (6,9065) temp0,repnum,mdloop
-      endif
-   else if (rem == 4 .and. iout7 > 0) then
-      write (6,9066) solvph, repnum, mdloop
-   else if (rem == -1 .and. iout7 > 0) then
-      write(6,967) remd_dimension, mdloop
-      write(6,968) (group_num(n), n=1, remd_dimension)
-      write(6,969) (replica_indexes(n), n=1, remd_dimension)
-   endif
+  ! Print current REMD info (replica#, temp0, excgh#) only for iout7 > 0
+  ! (Not for average/rms)
+  if (rem /= 0 .and. rem /= 4 .and. rem /= -1 .and. iout7 > 0) then
+    if (isgld > 0) then
+      write (6, 9064) temp0, sgft, tempsg, stagid, repnum, mdloop
+    else
+      write (6, 9065) temp0, repnum, mdloop
+    endif
+  else if (rem == 4 .and. iout7 > 0) then
+    write (6, 9066) solvph, repnum, mdloop
+  else if (rem == -1 .and. iout7 > 0) then
+    write(6, 967) remd_dimension, mdloop
+    write(6, 968) (group_num(n), n=1, remd_dimension)
+    write(6, 969) (replica_indexes(n), n=1, remd_dimension)
+  endif
 #endif
-!  wxw: EMAP energy
-   if (temap ) then
-      write (6,9062) enemap
-   endif
+  ! wxw: EMAP energy
+  if (temap ) then
+    write (6, 9062) enemap
+  endif
+  write(6, 8088)
 
-   write(6,8088)
-
-   !     --- flush i/o buffer ---
+  ! Flush i/o buffer
+  call amflsh(6)
+  if (iout7 == 0) return
    
-   call amflsh(6)
-   if (iout7 == 0) return
-   
-   !       ----- OUTPUT THE INFO FILE if requested -----
-   
-   if(abfqmmm_param%abfqmmm == 1) then
-      if(abfqmmm_param%system == 1) then
-         write(7,'(1x,a33,i4,5x,a12,i2)') &
-               'System = Extended    N(QM atoms) = ', qmmm_struct%nquant, &
-               'QM Charge = ', qmmm_nml%qmcharge
-         write(7,'(1x,a10,i4,7x,a8,i4,6x,a12,i4)') &
-               'N(core) = ', abfqmmm_param%n_core, &
-               'N(qm) = ', abfqmmm_param%n_qm-abfqmmm_param%n_core, &
-               'N(buffer) = ', abfqmmm_param%n_buffer
+  ! Output the info file if requested
+  if (abfqmmm_param%abfqmmm == 1) then
+    if (abfqmmm_param%system == 1) then
+      write(7, '(1x,a33,i4,5x,a12,i2)') &
+            'System = Extended    N(QM atoms) = ', qmmm_struct%nquant, &
+            'QM Charge = ', qmmm_nml%qmcharge
+      write(7,'(1x,a10,i4,7x,a8,i4,6x,a12,i4)') 'N(core) = ', &
+            abfqmmm_param%n_core, 'N(qm) = ', &
+            abfqmmm_param%n_qm - abfqmmm_param%n_core, &
+            'N(buffer) = ', abfqmmm_param%n_buffer
+    end if
+    if (abfqmmm_param%system == 2) then
+      if (.not. qmmm_nml%ifqnt) then
+        qmmm_struct%nquant = 0
+        qmmm_nml%qmcharge = 0
       end if
-      if(abfqmmm_param%system == 2) then
-         if(.not. qmmm_nml%ifqnt) then
-            qmmm_struct%nquant = 0
-            qmmm_nml%qmcharge = 0
-         end if
-         write(7,'(1x,a33,i4,5x,a12,i2)') &
-               'System = Reduced     N(QM atoms) = ', qmmm_struct%nquant, &
-               'QM Charge = ', qmmm_nml%qmcharge
-      end if
-   end if
-   write(7,9018) nstep,time,temp,press
-   write(7,9028) etot,ektot,epot
-   write(7,9038) ebond,eangle,edihed
-! CHARMM SPECIFIC ENERGY TERMS
-   if (charmm_active) &
-      write(7,9039) ener%pot%angle_ub, ener%pot%imp, ener%pot%cmap
+      write(7,'(1x,a33,i4,5x,a12,i2)') 'System = Reduced     N(QM atoms) = ', &
+            qmmm_struct%nquant, 'QM Charge = ', qmmm_nml%qmcharge
+    end if
+  end if
+  write(7, 9018) nstep, time, temp, press
+  write(7, 9028) etot, ektot, epot
+  write(7, 9038) ebond, eangle, edihed
+  ! CHARMM specific energy terms
+  if (charmm_active) then
+    write(7, 9039) ener%pot%angle_ub, ener%pot%imp, ener%pot%cmap
+  end if
 
-
-   write(7,9048) enb14,eel14,enonb
+  write(7, 9048) enb14, eel14, enonb
 #ifdef RISMSANDER
-   if( igb == 0 .and. ipb == 0 .and. rismprm%irism == 0) then
+  if (igb == 0 .and. ipb == 0 .and. rismprm%rism == 0) then
 #else
-   if( igb == 0 .and. ipb == 0 ) then
+  if (igb == 0 .and. ipb == 0) then
 #endif
-      write(7,9058) eel,ehbond,econst
-   else if ( igb == 10 .or. ipb /= 0 ) then
-      write(7,9060) eel,epb,econst
+    write(7, 9058) eel, ehbond, econst
+  else if ( igb == 10 .or. ipb /= 0) then
+    write(7, 9060) eel, epb, econst
 #ifdef APBS
-   else if (igb == 6 .and. mdin_apbs ) then
-      write(7,9060) eel,epb,econst
+  else if (igb == 6 .and. mdin_apbs) then
+    write(7, 9060) eel, epb, econst
 #endif /* APBS */
 #ifdef RISMSANDER
-   else if(rismprm%irism == 1 )then
-      write(7,9061) eel,erism,econst
+  else if (rismprm%rism == 1) then
+    write(7, 9061) eel, erism, econst
 #endif
-   else
-      write(7,9059) eel,egb,econst
-   end if
+  else
+    write(7, 9059) eel, egb, econst
+  end if
 
-   if ( iamd .gt. 0 ) write(7,9180) amd_boost
+  if (iamd .gt. 0) then
+    write(7, 9180) amd_boost
+  end if
 #ifdef MPI
-   if( ievb /= 0 ) then
-      write(7,'(A)')
-      write(7,'(A)') ' EVB:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-      if( evb_frc%evb_ave ) then
-         write(7,888) evb_nrg_ave(1), evb_nrg_ave(2), evb_nrg_ave(3)
-         evb_frc%evb_ave = .false.
-      else if( evb_frc%evb_rms ) then
-         write(7,888) evb_nrg_rms(1), evb_nrg_rms(2), evb_nrg_rms(3)
-         evb_frc%evb_rms = .false.
+  if (ievb /= 0) then
+    write(7,'(A)')
+    write(7,'(A)') ' EVB:~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+    if (evb_frc%evb_ave) then
+      write(7, 888) evb_nrg_ave(1), evb_nrg_ave(2), evb_nrg_ave(3)
+      evb_frc%evb_ave = .false.
+    else if( evb_frc%evb_rms ) then
+      write(7, 888) evb_nrg_rms(1), evb_nrg_rms(2), evb_nrg_rms(3)
+      evb_frc%evb_rms = .false.
+    else
+      if (trim(adjustl(evb_dyn)) == "evb_map") then
+        write(7, 777) evb_nrg(1), evb_nrg(2), evb_nrg(3)
       else
-         if( trim( adjustl( evb_dyn) ) == "evb_map" ) then
-            write(7,777) evb_nrg(1), evb_nrg(2), evb_nrg(3)
-         else
-            write(7,888) evb_nrg(1), evb_nrg(2), evb_nrg(3)
-         endif
+        write(7, 888) evb_nrg(1), evb_nrg(2), evb_nrg(3)
+      endif
 #ifdef LES
-         write(7,999) 'C_0^2  = ', ( sum(evb_vec0_bead(n,:)**2)*nbead_inv, n = 1, nevb )
+      write(7, 999) 'C_0^2  = ', &
+                    (sum(evb_vec0_bead(n,:)**2)*nbead_inv, n = 1, nevb)
 #else
-         write(7,999) 'C_0^2  = ', ( evb_Hmat%evb_vec0(n)**2, n = 1, nevb )
+      write(7, 999) 'C_0^2  = ', (evb_Hmat%evb_vec0(n)**2, n = 1, nevb)
 #endif
-         if( nbias > 0 ) write(7,999) 'EVB RC = ', ( evb_bias%RC(n), n = 1, nbias )
-         if( nbias > 1 ) write(7,999) 'Vumb_i = ', ( evb_bias%nrg_bias(n), n = 1, nbias )
-      endif
-   endif
+      if (nbias > 0) then
+        write(7, 999) 'EVB RC = ', (evb_bias%RC(n), n = 1, nbias)
+      end if
+      if (nbias > 1) then
+        write(7, 999) 'Vumb_i = ', (evb_bias%nrg_bias(n), n = 1, nbias)
+      end if
+    end if
+  end if
 
-! DAN ROE: Print current REMD info (replica#, temp0, excgh#) only for iout7>0
-!  (Not for average/rms)
-   if (rem /= 0 .and. rem /= 4 .and. rem /= -1 .and. iout7 > 0) then
-      if (isgld > 0) then
-        write(7,9064) temp0,sgft,tempsg,stagid,repnum,mdloop
-      else
-        write(7,9065) temp0,repnum,mdloop
-      endif
-   else if (rem == 4) then
-      write (7,9066) solvph, repnum, mdloop
-   else if (rem == -1 .and. iout7 > 0) then
-      write(7,967) remd_dimension, mdloop
-      write(7,968) (group_num(n), n=1, remd_dimension)
-      write(7,969) (replica_indexes(n), n=1, remd_dimension)
-   endif
+  ! Print current REMD info (replica#, temp0, excgh#) only for iout7 > 0
+  ! (Not for average/rms)
+  if (rem /= 0 .and. rem /= 4 .and. rem /= -1 .and. iout7 > 0) then
+    if (isgld > 0) then
+      write(7, 9064) temp0, sgft, tempsg, stagid, repnum, mdloop
+    else
+      write(7, 9065) temp0, repnum, mdloop
+    endif
+  else if (rem == 4) then
+    write (7, 9066) solvph, repnum, mdloop
+  else if (rem == -1 .and. iout7 > 0) then
+    write(7, 967) remd_dimension, mdloop
+    write(7, 968) (group_num(n), n=1, remd_dimension)
+    write(7, 969) (replica_indexes(n), n=1, remd_dimension)
+  endif
 #endif /* MPI */
-!  wxw: EMAP energy
-   if (temap .and.iout7>0) then
-      write (7,9062) enemap
-   endif
+  ! wxw: EMAP energy
+  if (temap .and. iout7 > 0) then
+    write (7, 9062) enemap
+  endif
+  if (qmmm_nml%ifqnt) then
 
-   if (qmmm_nml%ifqnt) then
-     !write the SCF energy
-     if (qmmm_nml%qmtheory%PM3) then
-        if (qmmm_nml%qmmm_int == 3) then
-           write(7,9090) escf ! PM3-MM*
-        else if (qmmm_nml%qmmm_int == 4) then
-           write(7,9096) escf ! PM3/MMX2
-        else
-           write(7,9080) escf
-        end if
-     else if (qmmm_nml%qmtheory%AM1) then
-        write(7,9081) escf
-     else if (qmmm_nml%qmtheory%AM1D) then
-        write(7,9981) escf
-     else if (qmmm_nml%qmtheory%MNDO) then
-        write(7,9082) escf
-     else if (qmmm_nml%qmtheory%MNDOD) then
-        write(7,9982) escf
-     else if (qmmm_nml%qmtheory%PDDGPM3) then
-        write(7,9083) escf
-     else if (qmmm_nml%qmtheory%PDDGMNDO) then
-        write(7,9084) escf
-     else if (qmmm_nml%qmtheory%PM3CARB1) then
-        write(7,9085) escf
-     else if (qmmm_nml%qmtheory%DFTB) then
-        write(7,9086) escf
-     else if (qmmm_nml%qmtheory%RM1) then
-        write(7,9087) escf
-     else if (qmmm_nml%qmtheory%PDDGPM3_08) then
-        write(7,9088) escf
-     else if (qmmm_nml%qmtheory%PM6) then
-        write(7,9089) escf
-     else if (qmmm_nml%qmtheory%PM3ZNB) then
-        write(7,9091) escf
-     else if (qmmm_nml%qmtheory%EXTERN) then
-        write(7,9092) escf
-     else if (qmmm_nml%qmtheory%PM3MAIS) then
-        write(7,9093) escf
-     else
-        write(7,'(" ERROR - UNKNOWN QM THEORY")')
-     end if
-   end if
+    ! Write the SCF energy
+    if (qmmm_nml%qmtheory%PM3) then
+      if (qmmm_nml%qmmm_int == 3) then
 
-   if (sebomd_obj%do_sebomd) then
-     write(7,9200) sebomd_obj%esebomd
-   end if
+        ! PM3-MM*
+        write(7, 9090) escf
+      else if (qmmm_nml%qmmm_int == 4) then
+
+        ! PM3/MMX2
+        write(7, 9096) escf
+      else
+        write(7,9080) escf
+      end if
+    else if (qmmm_nml%qmtheory%AM1) then
+      write(7, 9081) escf
+    else if (qmmm_nml%qmtheory%AM1D) then
+      write(7, 9981) escf
+    else if (qmmm_nml%qmtheory%MNDO) then
+      write(7, 9082) escf
+    else if (qmmm_nml%qmtheory%MNDOD) then
+      write(7, 9982) escf
+    else if (qmmm_nml%qmtheory%PDDGPM3) then
+      write(7, 9083) escf
+    else if (qmmm_nml%qmtheory%PDDGMNDO) then
+      write(7, 9084) escf
+    else if (qmmm_nml%qmtheory%PM3CARB1) then
+      write(7, 9085) escf
+    else if (qmmm_nml%qmtheory%DFTB) then
+      write(7, 9086) escf
+    else if (qmmm_nml%qmtheory%RM1) then
+      write(7, 9087) escf
+    else if (qmmm_nml%qmtheory%PDDGPM3_08) then
+      write(7, 9088) escf
+    else if (qmmm_nml%qmtheory%PM6) then
+      write(7, 9089) escf
+    else if (qmmm_nml%qmtheory%PM3ZNB) then
+      write(7, 9091) escf
+    else if (qmmm_nml%qmtheory%EXTERN) then
+      write(7, 9092) escf
+    else if (qmmm_nml%qmtheory%PM3MAIS) then
+      write(7, 9093) escf
+    else
+      write(7,'(" ERROR - UNKNOWN QM THEORY")')
+    end if
+  end if
+
+  if (sebomd_obj%do_sebomd) then
+    write(7, 9200) sebomd_obj%esebomd
+  end if
 #ifdef PUPIL_SUPPORT
-!jtc ========================= PUPIL INTERFACE =========================
-      write(7,9900) escf
-!jtc ========================= PUPIL INTERFACE =========================
-#endif /*  !PUPIL_SUPPORT */
-   if (gbsa > 0) write(7,9077) esurf
-   if (igb == 10 .or. ipb /= 0 ) write(7,9074) esurf,edisp
+  ! PUPIL interface
+  write(7, 9900) escf
+#endif /* PUPIL_SUPPORT */
+   if (gbsa > 0) then
+     write(7, 9077) esurf
+   end if
+   if (igb == 10 .or. ipb /= 0) then
+     write(7, 9074) esurf, edisp
+   end if
 #ifdef APBS
-   if (igb == 6 .and. mdin_apbs ) write(7,9097) esurf
+   if (igb == 6 .and. mdin_apbs) then
+     write(7, 9097) esurf
+   end if
 #endif /* APBS */
-   if (econst /= 0.0) write(7,9076) epot-econst
-   if (( icfe > 0 ) .OR. ( itimass > 0 )) write(7,9100) dvdl
+   if (econst /= 0.0) then
+     write(7, 9076) epot-econst
+   end if
+   if ((icfe > 0) .or. (itimass > 0)) then
+     write(7, 9100) dvdl
+   end if
 #ifndef LES
-   if (rms .and. ntt==0 ) write(6,9075) rms_pbs
+   if (rms .and. ntt == 0) then
+     write(6, 9075) rms_pbs
+   end if
 #endif
-   if (ntp > 0.0 .or. volume /= 0.0) write(7,9078) ekcmt,virt,volume
+   if (ntp > 0.0 .or. volume /= 0.0) then
+     write(7, 9078) ekcmt, virt, volume
+   end if
 #ifdef LES
    
-   ! if LES T bath is used, write TEMPERATURE for LES and non-LES
-   
-   if (temp0les >= 0.d0) then
-      write(7,9067) eksolt,eksolv
-   end if
+  ! If LES T bath is used, write temperature for LES and non-LES
+  if (temp0les >= 0.d0) then
+    write(7, 9067) eksolt, eksolv
+  end if
 #endif
 
-   if (csurften .gt. 0) &
-      write(7, 9072) ener%surface_ten
-
-   if (cmap_active .and. epol /= 0.0) then
-      write(7,9068) epol, ener%pot%cmap
-   else
-      if (cmap_active) write(7,9069) ener%pot%cmap
-      if (epol /= 0.0 ) write(7,9070) epol
-   endif
-   !     if (induced.gt.0) WRITE(7,9088) aveper,aveIND,avetot
-   if (induced > 0.and.indmeth < 3) write(7,9190)diprms,dipiter
-   if (induced > 0.and.indmeth == 3) write(7,9191)diprms, &
-         dipole_temp
-   if (ntp > 0.0 .or. volume /= 0.0) write(7,9079) densit
+  if (csurften .gt. 0) then
+    write(7, 9072) ener%surface_ten
+  end if
+  if (cmap_active .and. epol /= 0.0) then
+    write(7,9068) epol, ener%pot%cmap
+  else
+    if (cmap_active) then
+      write(7, 9069) ener%pot%cmap
+    end if
+    if (epol /= 0.0) then
+      write(7,9070) epol
+    end if
+  endif
+  if (induced > 0 .and. indmeth < 3) then
+    write(7, 9190) diprms, dipiter
+  end if
+  if (induced > 0 .and. indmeth == 3) then
+    write(7, 9191) diprms, dipole_temp
+  end if
+  if (ntp > 0.0 .or. volume /= 0.0) then
+    write(7, 9079) densit
+  end if
 #ifndef noVIRIAL
-   if ( igb == 0 .and. ipb == 0 .and. iyammp == 0 .and. induced == 0 &
-        .and. ips == 0 .and. use_pme == 1 ) write(7,9188) virvsene
+  if (igb == 0 .and. ipb == 0 .and. iyammp == 0 .and. induced == 0 .and. &
+      ips == 0 .and. use_pme == 1) then
+    write(7, 9188) virvsene
+  end if
 #endif
-!  Printout SGLD guiding information
-   if (isgld > 0) then
-     write(7,1005)ener%sgld%sgft,ener%sgld%tempsg,ener%sgld%templf,ener%sgld%treflf, &
-                   ener%sgld%frclf,ener%sgld%epotlf,ener%sgld%sgwt
-     write(7,1006)ener%sgld%sgff,ener%sgld%sgscal,ener%sgld%temphf,ener%sgld%trefhf, &
-                   ener%sgld%frchf,ener%sgld%epothf,ener%sgld%virsg
-   endif
-   call nmrptx(7)
+
+  ! Printout SGLD guiding information
+  if (isgld > 0) then
+    write(7, 1005) ener%sgld%sgft, ener%sgld%tempsg, ener%sgld%templf, &
+                   ener%sgld%treflf, ener%sgld%frclf, ener%sgld%epotlf, &
+                   ener%sgld%sgwt
+    write(7, 1006) ener%sgld%sgff, ener%sgld%sgscal, ener%sgld%temphf, &
+                   ener%sgld%trefhf, ener%sgld%frchf, ener%sgld%epothf, &
+                   ener%sgld%virsg
+  endif
+  call nmrptx(7)
 
 #ifdef RISMSANDER
-   if(rismprm%irism==1 .and. rismprm%write_thermo==1)then 
-      if(rism_calc_type(nstep) == RISM_FULL)&
-           call rism_thermo_print(.false.,transfer(ener%pot,pot_array))
-   end if
-#endif /*RISM*/
+  if (rismprm%rism == 1 .and. rismprm%write_thermo == 1) then 
+    if (rism_calc_type(nstep) == RISM_FULL) then
+      call rism_thermo_print(.false., transfer(ener%pot, pot_array))
+    end if
+  end if
+#endif /* RISMSANDER */
 
 #ifndef NO_DETAILED_TIMINGS
-   !Print Timing estimates to mdinfo.
+  !Print Timing estimates to mdinfo.
 #  ifdef MPI
-   if (rem .ne. 0) then
-      total_nstlim = nstlim * numexchg
-      total_nstep = nstlim * (mdloop-1) + nstep
-   else
-      total_nstlim = nstlim
-      total_nstep = nstep
-   end if
+  if (rem .ne. 0) then
+    total_nstlim = nstlim * numexchg
+    total_nstep = nstlim * (mdloop-1) + nstep
+  else
+    total_nstlim = nstlim
+    total_nstep = nstep
+  end if
 #  else
-   total_nstlim = nstlim
-   total_nstep = nstep
+  total_nstlim = nstlim
+  total_nstep = nstep
 #  endif
 #  ifndef API
-   if (total_nstep /= 0) &
-      call print_ongoing_time_summary(total_nstlim,nstep,dt,7)
+  if (total_nstep /= 0) then
+    call print_ongoing_time_summary(total_nstlim, nstep, dt, 7)
+  end if
 #  endif
 #endif
 
-   8088 format(t2,78('-'),/)
-   9018 format(/1x, 'NSTEP =',i9,3x,'TIME(PS) =',f12.3,2x, &
+  8088 format(t2,78('-'),/)
+  9018 format(/1x, 'NSTEP =',i9,3x,'TIME(PS) =',f12.3,2x, &
          'TEMP(K) =',f9.2,2x,'PRESS =',f8.1)
-   9028 format (1x,'Etot   = ',f14.4,2x,'EKtot   = ',f14.4,2x, &
+  9028 format (1x,'Etot   = ',f14.4,2x,'EKtot   = ',f14.4,2x, &
          'EPtot      = ',f14.4)
-   9038 format (1x,'BOND   = ',f14.4,2x,'ANGLE   = ',f14.4,2x, &
+  9038 format (1x,'BOND   = ',f14.4,2x,'ANGLE   = ',f14.4,2x, &
          'DIHED      = ',f14.4)
-   9039 format(1x, 'UB     = ', f14.4, 2x, 'IMP     = ', f14.4, 2x, &
-            'CMAP       = ', f14.4)
-   9048 format (1x,'1-4 NB = ',f14.4,2x,'1-4 EEL = ',f14.4,2x, &
+  9039 format(1x, 'UB     = ', f14.4, 2x, 'IMP     = ', f14.4, 2x, &
+         'CMAP       = ', f14.4)
+  9048 format (1x,'1-4 NB = ',f14.4,2x,'1-4 EEL = ',f14.4,2x, &
          'VDWAALS    = ',f14.4)
-   9058 format (1x,'EELEC  = ',f14.4,2x,'EHBOND  = ',f14.4,2x, &
+  9058 format (1x,'EELEC  = ',f14.4,2x,'EHBOND  = ',f14.4,2x, &
          'RESTRAINT  = ',f14.4)
-   9059 format (1x,'EELEC  = ',f14.4,2x,'EGB     = ',f14.4,2x, &
+  9059 format (1x,'EELEC  = ',f14.4,2x,'EGB     = ',f14.4,2x, &
          'RESTRAINT  = ',f14.4)
-   9060 format (1x,'EELEC  = ',f14.4,2x,'EPB     = ',f14.4,2x, &
+  9060 format (1x,'EELEC  = ',f14.4,2x,'EPB     = ',f14.4,2x, &
          'RESTRAINT  = ',f14.4)
 #ifdef RISMSANDER
-   9061 format (1x,'EELEC  = ',f14.4,2x,'ERISM   = ',f14.4,2x, &
+  9061 format (1x,'EELEC  = ',f14.4,2x,'ERISM   = ',f14.4,2x, &
          'RESTRAINT  = ',f14.4)
 #endif
-   9062 format (1x,'EMAP   = ',f14.4)
-   9180 format (1x, 'EAMD_BOOST  = ', f14.4)
+  9062 format (1x,'EMAP   = ',f14.4)
+  9180 format (1x, 'EAMD_BOOST  = ', f14.4)
 #ifdef MPI
-! EVB formats
-    777 format( 1x, 'V_TOT  = ', f14.4, 2x, 'V_EVB   = ', f14.4, 2x &
+  ! EVB formats
+   777 format( 1x, 'V_TOT  = ', f14.4, 2x, 'V_EVB   = ', f14.4, 2x &
               , 'V_MAP      = ', f14.4 )
-    888 format( 1x, 'V_TOT  = ', f14.4, 2x, 'V_EVB   = ', f14.4, 2x &
+   888 format( 1x, 'V_TOT  = ', f14.4, 2x, 'V_EVB   = ', f14.4, 2x &
               , 'V_UMB      = ', f14.4 )
-    999 format( 1x, A, (4(2x,f14.4)) )
-! DAN ROE: Added Temp, Rep, Exchange
-! Xiongwu: add sgft, tempsg for RXSGLD
-   9064 format (1x,'TEMP0= ',f6.1,1x,'SGFT= ',f4.2,1x,'TEMPSG= ',f6.1,1x,&
-        'STAGE= ',i3,1x,'REPNUM= ',i3,1x,'EXCHANGE=',i6)
-   9065 format (1x,'TEMP0  = ',f14.4,2x,'REPNUM  = ',i14,2x, &
+   999 format( 1x, A, (4(2x,f14.4)) )
+  ! DAN ROE: Added Temp, Rep, Exchange
+  ! Xiongwu: add sgft, tempsg for RXSGLD
+  9064 format (1x,'TEMP0= ',f6.1,1x,'SGFT= ',f4.2,1x,'TEMPSG= ',f6.1,1x,&
+         'STAGE= ',i3,1x,'REPNUM= ',i3,1x,'EXCHANGE=',i6)
+  9065 format (1x,'TEMP0  = ',f14.4,2x,'REPNUM  = ',i14,2x, &
          'EXCHANGE#  = ',i14)
-   9066 format (1x,'SOLVPH = ',f14.4,2x,'REPNUM  = ',i14,2x, &
+  9066 format (1x,'SOLVPH = ',f14.4,2x,'REPNUM  = ',i14,2x, &
          'EXCHANGE#  = ',i14)
-    967 format(1x,'REMD_DIMENSION = ',i14,2x,'EXCHANGE#  = ',i14)
-    968 format(1x,'MULTI-D REMD. GROUP INDEXES:   ',12i5)
-    969 format(1x,'MULTI-D REMD. REPLICA INDEXES: ', 12i5)
+   967 format(1x,'REMD_DIMENSION = ',i14,2x,'EXCHANGE#  = ',i14)
+   968 format(1x,'MULTI-D REMD. GROUP INDEXES:   ',12i5)
+   969 format(1x,'MULTI-D REMD. REPLICA INDEXES: ', 12i5)
 #endif
-   9072 format(52x, 'SURFTEN    = ', f14.4)
-   9074 format (1x,'ECAVITY= ',f14.4,2x,'EDISPER = ',f14.4)
-   9075 format ('|E(PBS) = ',f14.4)
-   9076 format (1x,'EAMBER (non-restraint)  = ',f14.4)
-   9077 format (1x,'ESURF= ',f14.4)
-   9078 format (1x,'EKCMT  = ',f14.4,2x,'VIRIAL  = ',f14.4,2x, &
+  9072 format(52x, 'SURFTEN    = ', f14.4)
+  9074 format (1x,'ECAVITY= ',f14.4,2x,'EDISPER = ',f14.4)
+#ifndef LES
+  9075 format ('|E(PBS) = ',f14.4)
+#endif /* LES not defined */
+  9076 format (1x,'EAMBER (non-restraint)  = ',f14.4)
+  9077 format (1x,'ESURF= ',f14.4)
+  9078 format (1x,'EKCMT  = ',f14.4,2x,'VIRIAL  = ',f14.4,2x, &
          'VOLUME     = ',f14.4)
-   9079 format (52x,'Density    = ',f14.4)
-   9080 format (1x,'PM3ESCF= ',f14.4)
-   9081 format (1x,'AM1ESCF= ',f14.4)
-   9981 format (1x,'AM1DESCF= ',f14.4)
-   9082 format (1x,'MNDOESCF= ',f13.4)
-   9982 format (1x,'MNDODESCF= ',f13.4)
-   9083 format (1x,'PDDGPM3-ESCF= ',f12.4)
-   9084 format (1x,'PDDGMNDO-ESCF= ',f11.4)
-   9085 format (1x,'PM3CARB1-ESCF= ',f11.4)
-   9086 format (1x,'DFTBESCF= ',f13.4)
-   9087 format (1x,'RM1ESCF= ',f14.4)
-   9088 format (1x,'PDDGPM3_08-ESCF= ',f12.4)
-   9089 format (1x,'PM6ESCF= ',f14.4)
-   9090 format (1x,'PM3MMXESCF= ',f14.4)
-   9091 format (1x,'PM3ZNBESCF= ',f14.4)
-   9092 format (1x,'EXTERNESCF= ',f14.4)
-   9093 format (1x,'PM3MAISESCF= ',f14.4)
-   9096 format (1x,'PM3MMX2ESCF= ',f14.4)
+  9079 format (52x,'Density    = ',f14.4)
+  9080 format (1x,'PM3ESCF= ',f14.4)
+  9081 format (1x,'AM1ESCF= ',f14.4)
+  9981 format (1x,'AM1DESCF= ',f14.4)
+  9082 format (1x,'MNDOESCF= ',f13.4)
+  9982 format (1x,'MNDODESCF= ',f13.4)
+  9083 format (1x,'PDDGPM3-ESCF= ',f12.4)
+  9084 format (1x,'PDDGMNDO-ESCF= ',f11.4)
+  9085 format (1x,'PM3CARB1-ESCF= ',f11.4)
+  9086 format (1x,'DFTBESCF= ',f13.4)
+  9087 format (1x,'RM1ESCF= ',f14.4)
+  9088 format (1x,'PDDGPM3_08-ESCF= ',f12.4)
+  9089 format (1x,'PM6ESCF= ',f14.4)
+  9090 format (1x,'PM3MMXESCF= ',f14.4)
+  9091 format (1x,'PM3ZNBESCF= ',f14.4)
+  9092 format (1x,'EXTERNESCF= ',f14.4)
+  9093 format (1x,'PM3MAISESCF= ',f14.4)
+  9096 format (1x,'PM3MMX2ESCF= ',f14.4)
 #ifdef APBS
-   9097 format (1x,'ENPOLAR= ',f14.4)
+  9097 format (1x,'ENPOLAR= ',f14.4)
 #endif
-   9099 format (1x,'ECRG   = ',f14.4) 
+  9099 format (1x,'ECRG   = ',f14.4) 
    
 #ifdef LES
-   ! LES and non-LES temperatures (no solvent/solute)
-   9067 format (1x,'T_non-LES =',f10.4,2x, 'T_LES     = ',f10.4)
+  ! LES and non-LES temperatures (no solvent/solute)
+  9067 format (1x,'T_non-LES =',f10.4,2x, 'T_LES     = ',f10.4)
 #endif
-   9068 format(1x, 'EPOLZ  = ',f14.4,2x,'CMAP    = ',f14.4)
-   9069 format(1x, 'CMAP   = ',f14.4)
-   9070 format (1x,'EPOLZ  = ',f14.4)
-   
-!  9288 format (1x,'DIPOLE MOMENTS/RESIDUE:',/ &
-!        ,1x,'PERMEN = ',f8.3,2x,'INDUCED = ',f8.3, &
-!        2x,'VECTOR SUM =',f8.3)
-   9190 format(1x,'Dipole convergence: rms = ',e10.3,' iters = ',f6.2)
-   9191 format(1x,'Dipole convergence: rms = ',e10.3, &
+  9068 format(1x, 'EPOLZ  = ',f14.4,2x,'CMAP    = ',f14.4)
+  9069 format(1x, 'CMAP   = ',f14.4)
+  9070 format (1x,'EPOLZ  = ',f14.4)
+  9190 format(1x,'Dipole convergence: rms = ',e10.3,' iters = ',f6.2)
+  9191 format(1x,'Dipole convergence: rms = ',e10.3, &
          ' temperature = ',f6.2)
-   9100 format (1x,'DV/DL  = ',f14.4)
-   9188 format (1x,'Ewald error estimate: ', e12.4)
-   9200 format (1x,'ESEBOMD =',f14.4)
-   1005 format(" SGLF = ",F8.4,X,F8.2,X,F9.4,X,F9.4,X,F7.4,X,F14.4,X,F10.4)
-   1006 format(" SGHF = ",F8.4,X,F8.4,X,F9.4,X,F9.4,X,F7.4,X,F14.4,X,F10.4)
+  9100 format (1x,'DV/DL  = ',f14.4)
+  9188 format (1x,'Ewald error estimate: ', e12.4)
+  9200 format (1x,'ESEBOMD =',f14.4)
+  1005 format(" SGLF = ",F8.4,X,F8.2,X,F9.4,X,F9.4,X,F7.4,X,F14.4,X,F10.4)
+  1006 format(" SGHF = ",F8.4,X,F8.4,X,F9.4,X,F9.4,X,F7.4,X,F14.4,X,F10.4)
 #ifdef PUPIL_SUPPORT
-!jtc ========================= PUPIL INTERFACE =========================
-   9900 format (1x,'PUPESCF= ',f14.4)
-!jtc ========================= PUPIL INTERFACE =========================
-#endif /* !PUPIL_SUPPORT  */
-   return
+  ! PUPIL interface
+  9900 format (1x,'PUPESCF= ',f14.4)
+#endif /* PUPIL_SUPPORT  */
+
+  return
 end subroutine prntmd 
 #endif /*ifndef PBSA*/
-!-----------------------------------------------------------------------
 
-subroutine pimd_report(nstep,time,ounit,ener,onefac)
-    use state
-    use pimd_vars,   only : nbead,ipimd,itimass
-    use neb_vars,   only : ineb
-    use qmmm_module, only : qmmm_nml
-    use charmm_mod, only : charmm_active
-    use file_io_dat
-    use sebomd_module, only : sebomd_obj
+!------------------------------------------------------------------------------
+! pimd_report: 
+!------------------------------------------------------------------------------
+subroutine pimd_report(nstep, time, ounit, ener, onefac)
+  use state
+  use pimd_vars, only: nbead,ipimd,itimass
+  use neb_vars, only: ineb
+  use qmmm_module, only: qmmm_nml
+  use charmm_mod, only: charmm_active
+  use file_io_dat
+  use sebomd_module, only: sebomd_obj
 
-   implicit none
+  implicit none
 
 #  include "../include/md.h"
 #  include "ew_mpole.h"
 #  include "ew_cntrl.h"
 #  include "tgtmd.h"
-   integer ounit,nstep
-   type(state_rec) :: ener
-   _REAL_ time,onefac(*)
-   _REAL_ etot, ektot, eksolt
-   _REAL_ boxx,boxy,boxz,volume,densit,presx,presy,presz,press
-   _REAL_ ekcmx,ekcmy,ekcmz,ekcmt,virx,viry,virz,virt
-   _REAL_ epot,enonb,eel,ehbond,ebond,eangle,edihed,enb14,eel14,econst
-   _REAL_ epol,aveper,aveind,avetot,esurf,dvdl,virvsene,diprms,dipiter,egb,epb
-   _REAL_ dipole_temp,escf,edisp
+  integer ounit,nstep
+  type(state_rec) :: ener
+  _REAL_ time, onefac(*)
+  _REAL_ etot, ektot, eksolt
+  _REAL_ boxx, boxy, boxz, volume, densit, presx, presy, presz, press
+  _REAL_ ekcmx, ekcmy, ekcmz, ekcmt, virx, viry, virz, virt
+  _REAL_ epot, enonb, eel, ehbond, ebond, eangle, edihed, enb14, eel14, econst
+  _REAL_ epol, aveper, aveind, avetot, esurf, dvdl, virvsene, diprms
+  _REAL_ dipiter, egb, epb, dipole_temp, escf, edisp
 
-   etot   = ener%tot
-   ektot  = ener%kin%solv ! for PIMD, this is "virial" expression
-   if (ipimd==3 .or. neb>0) then
-      temp = ener%kin%tot*onefac(1) ! this is for CMD
-   else
-      temp = ener%kin%tot*onefac(1)/nbead  !  for PIMD, this is mean classical KE of beads
-   end if
+  etot = ener%tot
+  ektot = ener%kin%solv ! for PIMD, this is "virial" expression
+  if (ipimd == 3 .or. neb > 0) then
 
-   eksolt  = ener%kin%solt*onefac(2)
-   boxx    = ener%box(1)
-   boxy    = ener%box(2)
-   boxz    = ener%box(3)
-   volume  = ener%volume
-   densit  = ener%density
+    ! This is for CMD
+    temp = ener%kin%tot * onefac(1)
+  else
 
-   presx   = ener%pres(1)
-   presy   = ener%pres(2)
-   presz   = ener%pres(3)
-   press   = ener%pres(4)
+    ! For PIMD, this is mean classical KE of beads
+    temp = ener%kin%tot * onefac(1) / nbead
+  end if
 
-   ekcmx   = ener%cmt(1)
-   ekcmy   = ener%cmt(2)
-   ekcmz   = ener%cmt(3)
-   ekcmt   = ener%cmt(4)
+  boxx = ener%box(1)
+  boxy = ener%box(2)
+  boxz = ener%box(3)
+  eksolt = ener%kin%solt*onefac(2)
+  volume = ener%volume
+  densit = ener%density
 
-   virx    = ener%vir(1)
-   viry    = ener%vir(2)
-   virz    = ener%vir(3)
-   virt    = ener%vir(4)
+  presx = ener%pres(1)
+  presy = ener%pres(2)
+  presz = ener%pres(3)
+  press = ener%pres(4)
 
-   epot    = ener%pot%tot
-   enonb   = ener%pot%vdw
-   eel     = ener%pot%elec
-   ehbond  = ener%pot%hbond
-   egb     = ener%pot%gb
-   epb     = ener%pot%pb
-   ebond   = ener%pot%bond
-   eangle  = ener%pot%angle
-   edihed  = ener%pot%dihedral
-   enb14   = ener%pot%vdw_14
-   eel14   = ener%pot%elec_14
-   econst  = ener%pot%constraint
-   epol    = ener%pot%polar
-   virvsene= ener%virvsene
-   aveper  = ener%aveper
-   aveind  = ener%aveind
-   avetot  = ener%avetot
-   esurf   = ener%pot%surf
-   dvdl    = ener%pot%dvdl
-   diprms  = ener%diprms
-   dipiter = ener%dipiter
-   dipole_temp = ener%dipole_temp
-   escf    = ener%pot%scf
-   edisp   = ener%pot%disp
+  ekcmx = ener%cmt(1)
+  ekcmy = ener%cmt(2)
+  ekcmz = ener%cmt(3)
+  ekcmt = ener%cmt(4)
 
+  virx = ener%vir(1)
+  viry = ener%vir(2)
+  virz = ener%vir(3)
+  virt = ener%vir(4)
 
+  epot = ener%pot%tot
+  enonb = ener%pot%vdw
+  eel = ener%pot%elec
+  ehbond = ener%pot%hbond
+  egb = ener%pot%gb
+  epb = ener%pot%pb
+  ebond = ener%pot%bond
+  eangle = ener%pot%angle
+  edihed = ener%pot%dihedral
+  enb14 = ener%pot%vdw_14
+  eel14 = ener%pot%elec_14
+  econst = ener%pot%constraint
+  epol = ener%pot%polar
+  virvsene = ener%virvsene
+  aveper = ener%aveper
+  aveind = ener%aveind
+  avetot = ener%avetot
+  esurf = ener%pot%surf
+  dvdl = ener%pot%dvdl
+  diprms = ener%diprms
+  dipiter = ener%dipiter
+  dipole_temp = ener%dipole_temp
+  escf = ener%pot%scf
+  edisp = ener%pot%disp
 
-   write(ounit,8088)
-   write(ounit,9018) nstep,time,temp,press
-   write(ounit,9028) etot,ektot,epot
-   write(ounit,9038) ebond,eangle,edihed
-! CHARMM SPECIFIC ENERGY TERMS
-   if (charmm_active) write(6,9039) ener%pot%angle_ub, &
-                                    ener%pot%imp,      &
-                                    ener%pot%cmap
+  write(ounit, 8088)
+  write(ounit, 9018) nstep, time, temp, press
+  write(ounit, 9028) etot, ektot, epot
+  write(ounit, 9038) ebond, eangle, edihed
 
+  ! CHARMM specific energy terms
+  if (charmm_active) then
+    write(6, 9039) ener%pot%angle_ub, ener%pot%imp, ener%pot%cmap
+  end if
 
-   write(ounit,9048) enb14,eel14,enonb
-   if( igb == 0 .and. ipb == 0 ) then
-      write(ounit,9058) eel,ehbond,econst
-   else if ( igb == 10 .or. ipb /= 0 ) then
-      write(ounit,9060) eel,epb,econst
-   else
-      write(ounit,9059) eel,egb,econst
-   end if
-   ! For PIMD/NMPIMD/CMD/RPMD output
-   if (ntp > 0.0 .or. volume /= 0.0) write(ounit,9078) ekcmt,virt,volume
+  write(ounit, 9048) enb14, eel14, enonb
+  if (igb == 0 .and. ipb == 0) then
+    write(ounit, 9058) eel, ehbond, econst
+  else if (igb == 10 .or. ipb /= 0) then
+    write(ounit, 9060) eel, epb, econst
+  else
+    write(ounit, 9059) eel, egb, econst
+  end if
 
-   if (ntp > 0.0 .or. volume /= 0.0) write(ounit,9079) densit
-   ! Report of dV/dl for TI w.r.t. mass
-   if (itimass > 0) write(ounit,9100) dvdl
+  ! For PIMD/NMPIMD/CMD/RPMD output
+  if (ntp > 0.0 .or. volume /= 0.0) then
+    write(ounit, 9078) ekcmt, virt, volume
+  end if
+  if (ntp > 0.0 .or. volume /= 0.0) then
+    write(ounit, 9079) densit
+  end if
 
-   if (qmmm_nml%ifqnt) then
-     !write the SCF energy
-     if (qmmm_nml%qmtheory%PM3) then
-        write(ounit,9080) escf
-     else if (qmmm_nml%qmtheory%AM1) then
-        write(ounit,9081) escf
-     else if (qmmm_nml%qmtheory%AM1D) then
-        write(ounit,9981) escf
-     else if (qmmm_nml%qmtheory%MNDO) then
-        write(ounit,9082) escf
-     else if (qmmm_nml%qmtheory%MNDOD) then
-        write(ounit,9982) escf
-     else if (qmmm_nml%qmtheory%PDDGPM3) then
-        write(ounit,9083) escf
-     else if (qmmm_nml%qmtheory%PDDGMNDO) then
-        write(ounit,9084) escf
-     else if (qmmm_nml%qmtheory%PM3CARB1) then
-        write(ounit,9085) escf
-     else if (qmmm_nml%qmtheory%DFTB) then
-        write(ounit,9086) escf
-     else if (qmmm_nml%qmtheory%RM1) then
-        write(ounit,9087) escf
-     else if (qmmm_nml%qmtheory%PDDGPM3_08) then
-        write(ounit,9088) escf
-     else if (qmmm_nml%qmtheory%PM6) then
-        write(ounit,9089) escf
-     else if (qmmm_nml%qmtheory%PM3ZNB) then
-        write(ounit,9091) escf
-     else if (qmmm_nml%qmtheory%EXTERN) then
-        write(ounit,9092) escf
-     else if (qmmm_nml%qmtheory%PM3MAIS) then
-        write(ounit,9093) escf
-     else
-        write(7,'(" ERROR - UNKNOWN QM THEORY")')
-     end if
-   end if
-   if (sebomd_obj%do_sebomd) then
-     write(6,9200) sebomd_obj%esebomd
-   end if
-   if (gbsa > 0) write(7,9077) esurf
-   if (igb == 10 .or. ipb /= 0 ) write(7,9074) esurf,edisp
-   if (econst /= 0.0) write(7,9076) epot-econst
-   if(ineb>0) call pimd_neb_energy_report(ounit)
+  ! Report of dV/dl for TI w.r.t. mass
+  if (itimass > 0) then
+    write(ounit, 9100) dvdl
+  end if
 
-   ! For PIMD/NMPIMD/CMD/RPMD output
-   8088 format(t2,78('-'),/)
-   9018 format(/1x, 'NSTEP =',i9,3x,'TIME(PS) =',f12.5,2x, &
+  if (qmmm_nml%ifqnt) then
+
+    ! Write the SCF energy
+    if (qmmm_nml%qmtheory%PM3) then
+      write(ounit, 9080) escf
+    else if (qmmm_nml%qmtheory%AM1) then
+      write(ounit, 9081) escf
+    else if (qmmm_nml%qmtheory%AM1D) then
+      write(ounit, 9981) escf
+    else if (qmmm_nml%qmtheory%MNDO) then
+      write(ounit, 9082) escf
+    else if (qmmm_nml%qmtheory%MNDOD) then
+      write(ounit, 9982) escf
+    else if (qmmm_nml%qmtheory%PDDGPM3) then
+      write(ounit, 9083) escf
+    else if (qmmm_nml%qmtheory%PDDGMNDO) then
+      write(ounit, 9084) escf
+    else if (qmmm_nml%qmtheory%PM3CARB1) then
+      write(ounit, 9085) escf
+    else if (qmmm_nml%qmtheory%DFTB) then
+      write(ounit, 9086) escf
+    else if (qmmm_nml%qmtheory%RM1) then
+      write(ounit, 9087) escf
+    else if (qmmm_nml%qmtheory%PDDGPM3_08) then
+      write(ounit, 9088) escf
+    else if (qmmm_nml%qmtheory%PM6) then
+      write(ounit, 9089) escf
+    else if (qmmm_nml%qmtheory%PM3ZNB) then
+      write(ounit, 9091) escf
+    else if (qmmm_nml%qmtheory%EXTERN) then
+      write(ounit, 9092) escf
+    else if (qmmm_nml%qmtheory%PM3MAIS) then
+      write(ounit, 9093) escf
+    else
+      write(7,'(" ERROR - UNKNOWN QM THEORY")')
+    end if
+  end if
+  if (sebomd_obj%do_sebomd) then
+    write(6, 9200) sebomd_obj%esebomd
+  end if
+  if (gbsa > 0) then
+    write(7, 9077) esurf
+  end if
+  if (igb == 10 .or. ipb /= 0) then
+    write(7, 9074) esurf, edisp
+  end if
+  if (econst /= 0.0) then
+    write(7, 9076) epot-econst
+  end if
+  if (ineb > 0) then
+    call pimd_neb_energy_report(ounit)
+  end if
+
+  ! For PIMD/NMPIMD/CMD/RPMD output
+  8088 format(t2,78('-'),/)
+  9018 format(/1x, 'NSTEP =',i9,3x,'TIME(PS) =',f12.5,2x, &
          'TEMP(K) =',f9.2,2x,'PRESS =',f8.1)
-   9028 format (1x,'Etot   = ',f14.4,2x,'EKtot   = ',f14.4,2x, &
+  9028 format (1x,'Etot   = ',f14.4,2x,'EKtot   = ',f14.4,2x, &
          'EPtot      = ',f14.4)
-   9038 format (1x,'BOND   = ',f14.4,2x,'ANGLE   = ',f14.4,2x, &
+  9038 format (1x,'BOND   = ',f14.4,2x,'ANGLE   = ',f14.4,2x, &
          'DIHED      = ',f14.4)
-   9039 format(1x, 'UB     = ', f14.4, 2x, 'IMP     = ', f14.4, 2x, &
-            'CMAP       = ', f14.4)
+  9039 format(1x, 'UB     = ', f14.4, 2x, 'IMP     = ', f14.4, 2x, &
+         'CMAP       = ', f14.4)
 
-   9048 format (1x,'1-4 NB = ',f14.4,2x,'1-4 EEL = ',f14.4,2x, &
+  9048 format (1x,'1-4 NB = ',f14.4,2x,'1-4 EEL = ',f14.4,2x, &
          'VDWAALS    = ',f14.4)
-   9058 format (1x,'EELEC  = ',f14.4,2x,'EHBOND  = ',f14.4,2x, &
+  9058 format (1x,'EELEC  = ',f14.4,2x,'EHBOND  = ',f14.4,2x, &
          'RESTRAINT  = ',f14.4)
-   9059 format (1x,'EELEC  = ',f14.4,2x,'EGB     = ',f14.4,2x, &
+  9059 format (1x,'EELEC  = ',f14.4,2x,'EGB     = ',f14.4,2x, &
          'RESTRAINT  = ',f14.4)
-   9060 format (1x,'EELEC  = ',f14.4,2x,'EPB     = ',f14.4,2x, &
+  9060 format (1x,'EELEC  = ',f14.4,2x,'EPB     = ',f14.4,2x, &
          'RESTRAINT  = ',f14.4)
-   9074 format (1x,'ECAVITY= ',f14.4,2x,'EDISPER = ',f14.4)
-   9076 format (1x,'EAMBER (non-restraint)  = ',f14.4)
-   9077 format (1x,'ESURF= ',f14.4)
-   9078 format (1x,'EKCMT  = ',f14.4,2x,'VIRIAL  = ',f14.4,2x, &
+  9074 format (1x,'ECAVITY= ',f14.4,2x,'EDISPER = ',f14.4)
+  9076 format (1x,'EAMBER (non-restraint)  = ',f14.4)
+  9077 format (1x,'ESURF= ',f14.4)
+  9078 format (1x,'EKCMT  = ',f14.4,2x,'VIRIAL  = ',f14.4,2x, &
          'VOLUME     = ',f14.4)
-   9079 format (52x,'Density    = ',f14.4)
-   9080 format (1x,'PM3ESCF= ',f14.4)
-   9081 format (1x,'AM1ESCF= ',f14.4)
-   9981 format (1x,'AM1DESCF= ',f14.4)
-   9082 format (1x,'MNDOESCF= ',f13.4)
-   9982 format (1x,'MNDODESCF= ',f13.4)
-   9083 format (1x,'PDDGPM3-ESCF= ',f12.4)
-   9084 format (1x,'PDDGMNDO-ESCF= ',f11.4)
-   9085 format (1x,'PM3CARB1-ESCF= ',f11.4)
-   9086 format (1x,'DFTBESCF= ',f13.4)
-   9087 format (1x,'RM1ESCF= ',f14.4)
-   9088 format (1x,'PDDGPM3_08-ESCF= ',f12.4)
-   9089 format (1x,'PM6ESCF= ',f14.4)
-   9091 format (1x,'PM3ZNBESCF= ',f14.4)
-   9092 format (1x,'EXTERNESCF= ',f14.4)
-   9093 format (1x,'PM3MAISESCF= ',f14.4)
-   9100 format (1x,'DV/DL  = ',f14.4)
-   9200 format (1x,'ESEBOMD =',f14.4)
+  9079 format (52x,'Density    = ',f14.4)
+  9080 format (1x,'PM3ESCF= ',f14.4)
+  9081 format (1x,'AM1ESCF= ',f14.4)
+  9981 format (1x,'AM1DESCF= ',f14.4)
+  9082 format (1x,'MNDOESCF= ',f13.4)
+  9982 format (1x,'MNDODESCF= ',f13.4)
+  9083 format (1x,'PDDGPM3-ESCF= ',f12.4)
+  9084 format (1x,'PDDGMNDO-ESCF= ',f11.4)
+  9085 format (1x,'PM3CARB1-ESCF= ',f11.4)
+  9086 format (1x,'DFTBESCF= ',f13.4)
+  9087 format (1x,'RM1ESCF= ',f14.4)
+  9088 format (1x,'PDDGPM3_08-ESCF= ',f12.4)
+  9089 format (1x,'PM6ESCF= ',f14.4)
+  9091 format (1x,'PM3ZNBESCF= ',f14.4)
+  9092 format (1x,'EXTERNESCF= ',f14.4)
+  9093 format (1x,'PM3MAISESCF= ',f14.4)
+  9100 format (1x,'DV/DL  = ',f14.4)
+  9200 format (1x,'ESEBOMD =',f14.4)
 end subroutine pimd_report
  
-!+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-! Assign velocities from a Maxwellian distribution.
-subroutine setvel(nr,v,winv,tempi,iscale,scalm)
-   use amoeba_mdin, only : iamoeba,beeman_integrator
+!------------------------------------------------------------------------------
+! setvel: assign velocities from a Maxwellian distribution for initialization
+!         or Andersen thermocoupling.
+!
+! Arguments:
+!   nr:      number of atoms
+!   v:       velocity array
+!   winv:    inverse mass array
+!   tempi:   temperature to randomize velocities to
+!   iscale:  nmr restraint-related variable
+!   scalm:   nmr restraint-related variable
+!------------------------------------------------------------------------------
+subroutine setvel(nr, v, winv, tempi, iscale, scalm)
+   use amoeba_mdin, only: iamoeba, beeman_integrator
    use random, only: gauss
    implicit none
 #  include "../include/memory.h"
 
-! Variable descriptions
-!
-! Passed variables
-!  nr    : number of atoms
-!  v     : velocity array
-!  winv  : inverse mass array
-!  tempi : temperature to randomize velocities to
-!  iscale: nmr restraint-related variable
-!  scalm : nmr restraint-related variable
-!
-! Local variables
-!  i, j  : loop indices
-!  nr3   : nr * 3
-!  boltz : boltzmann's constant in appropriate units
-!  sd    : maxwell-boltzmann factor from which to derive temperature
+  ! Passed variables
+  _REAL_, intent(out) :: v(*) 
+  _REAL_, intent(in) :: winv(*), tempi, scalm
+  integer, intent(in) :: nr, iscale
 
-   ! Passed variables
-   _REAL_, intent(out) :: v(*) 
-   _REAL_, intent(in)  :: winv(*), tempi, scalm
-   integer, intent(in) :: nr, iscale
+  ! Local variables
+  !  boltz : boltzmann's constant in appropriate units
+  !  sd    : Maxwell-Boltzmann factor from which to derive temperature
+  integer :: i, j, nr3
+  _REAL_ :: boltz, sd
+   
+  nr3 = 3 * nr
+   
+  ! Assign velocities from a Maxwellian distribution
+  if (tempi < 1.d-6) then
+    v(1:nr3+iscale) = 0.d0
+    return
+  end if
+  boltz = (8.31441d-3) * tempi/4.184d0
+  i = 0
+  do j = 1, nr
+    sd = sqrt(boltz*winv(j))
+    call gauss(0.d0, sd, v(i+1))
+    call gauss(0.d0, sd, v(i+2))
+    call gauss(0.d0, sd, v(i+3))
+    i = i+3
+  end do
+  if (iscale > 0) then
+    sd = sqrt(boltz/scalm)
+    do j = 1, iscale
+      call gauss(0.d0, sd, v(i+j))
+    end do
+  end if
 
-   ! Local variables
-   integer             :: i,j,nr3
-   _REAL_              :: boltz,sd
-   
-   nr3 = 3*nr
-   
-   !     ----- Assign velocities from a Maxwellian distribution
-   
-   if (tempi < 1.d-6) then
-      v(1:nr3+iscale) = 0.d0
-      return
-   end if
-   
-   boltz = 8.31441d-3*tempi/4.184d0
-   i = 0
-   do j=1,nr
-      sd =  sqrt(boltz*winv(j))
-      call gauss(0.d0,sd,v(i+1))
-      call gauss(0.d0,sd,v(i+2))
-      call gauss(0.d0,sd,v(i+3))
-      i = i+3
-   end do
-   if (iscale > 0) then
-      sd =  sqrt(boltz/scalm)
-      do j=1,iscale
-         call gauss(0.d0,sd,v(i+j))
-      end do
-   end if
-   if ( iamoeba == 1 .and. beeman_integrator == 1 )then
-      do j=1,nr3
-         v(j) = 20.455d0*v(j) ! beeman uses time in ps units
-      enddo
-   endif
-   return
+  ! The Beeman integrator uses time in ps units
+  if (iamoeba == 1 .and. beeman_integrator == 1) then
+    do j = 1, nr3
+      v(j) = 20.455d0*v(j)
+    end do
+  end if
+
+  return
 end subroutine setvel 
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

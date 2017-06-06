@@ -25,6 +25,8 @@ module sebomd_module
     integer :: idcflag
     integer :: iflagch
     integer :: iflagch_old
+    integer :: iflagbo
+    integer :: iflagbo_old
     integer :: pdmx
     integer :: nhessian
     integer :: diverror
@@ -38,14 +40,17 @@ module sebomd_module
     _REAL_ :: dbuff1
     _REAL_ :: dbuff2
     character(256) :: charge_out
+    character(256) :: bond_order_out
     _REAL_ :: lambda
     _REAL_ :: peptk   ! peptidic constant
     _REAL_ :: dpmax   ! density matrix convergence criteria
+    _REAL_ :: bocut   ! bond order cut-off for printing
     integer :: method
     integer :: charge
     integer :: longrange
     integer :: fullscf
     integer :: ntwc
+    integer :: ntwb
     integer :: chtype
     integer :: chewald
     integer :: screen
@@ -89,6 +94,7 @@ contains
     sebomd_obj%iprec = 4
     sebomd_obj%fullscf = 0
     sebomd_obj%ntwc = 0
+    sebomd_obj%ntwb = 0
     sebomd_obj%chtype = 0
     sebomd_obj%chewald = 0
     sebomd_obj%screen = 0
@@ -101,10 +107,12 @@ contains
     sebomd_obj%peptcorr = 0
     sebomd_obj%peptk = 0.0d0
     sebomd_obj%charge_out = "sebomd.chg"
+    sebomd_obj%bond_order_out = "sebomd.bnd"
     sebomd_obj%debugmsg = 0
     sebomd_obj%debugforces = 0
     sebomd_obj%diag_routine = 2
     sebomd_obj%dpmax = 1e-7
+    sebomd_obj%bocut = 0.01d0
     ! } namelist default
     return
   end subroutine  sebomd_namelist_default
@@ -119,6 +127,7 @@ contains
                       dbuff1, &
                       dbuff2, &
                       charge_out, &
+                      bond_order_out, &
                       lambda, &
                       peptk, &
                       method, &
@@ -126,6 +135,7 @@ contains
                       longrange, &
                       fullscf, &
                       ntwc, &
+                      ntwb, &
                       chtype, &
                       chewald, &
                       screen, &
@@ -139,7 +149,8 @@ contains
                       debugmsg, &
                       debugforces, &
                       diag_routine, &
-                      dpmax
+                      dpmax, &
+                      bocut
    
     character(10) :: hamiltonian
     character(10) :: modif
@@ -148,13 +159,16 @@ contains
     _REAL_ :: dbuff1
     _REAL_ :: dbuff2
     character(256) :: charge_out
+    character(256) :: bond_order_out
     _REAL_ :: lambda
     _REAL_ :: peptk
     _REAL_ :: dpmax
+    _REAL_ :: bocut
     integer :: charge
     integer :: longrange
     integer :: fullscf
     integer :: ntwc
+    integer :: ntwb
     integer :: chtype
     integer :: chewald
     integer :: screen
@@ -180,6 +194,7 @@ contains
     iprec =   sebomd_obj%iprec
     fullscf =   sebomd_obj%fullscf
     ntwc =   sebomd_obj%ntwc
+    ntwb =   sebomd_obj%ntwb
     chtype =   sebomd_obj%chtype
     chewald =   sebomd_obj%chewald
     screen =   sebomd_obj%screen
@@ -192,10 +207,12 @@ contains
     peptcorr =   sebomd_obj%peptcorr
     peptk =   sebomd_obj%peptk
     charge_out = sebomd_obj%charge_out
+    bond_order_out = sebomd_obj%bond_order_out
     debugmsg = sebomd_obj%debugmsg
     debugforces = sebomd_obj%debugforces
     diag_routine = sebomd_obj%diag_routine
     dpmax = sebomd_obj%dpmax
+    bocut = sebomd_obj%bocut
 
 
     read(unit=5, nml=sebomd, iostat = stat)
@@ -215,6 +232,7 @@ contains
     sebomd_obj%iprec =   iprec
     sebomd_obj%fullscf =   fullscf
     sebomd_obj%ntwc =   ntwc
+    sebomd_obj%ntwb =   ntwb
     sebomd_obj%chtype =   chtype
     sebomd_obj%chewald =   chewald
     sebomd_obj%screen =   screen
@@ -227,10 +245,12 @@ contains
     sebomd_obj%peptk =   peptk
     sebomd_obj%peptcorr =   peptcorr
     sebomd_obj%charge_out = charge_out
+    sebomd_obj%bond_order_out = bond_order_out
     sebomd_obj%debugmsg = debugmsg
     sebomd_obj%debugforces = debugforces
     sebomd_obj%diag_routine = diag_routine
     sebomd_obj%dpmax = dpmax
+    sebomd_obj%bocut = bocut
     return
   end subroutine read_sebomd_namelist
 !------------------------------------------------------------------------------
@@ -310,6 +330,9 @@ contains
        write(6,'(5x,3(a,i10))') 'ntwc        =',sebomd_obj%ntwc, ',  screen      =', sebomd_obj%screen, &
         ',  ntwh        =', sebomd_obj%ntwh
     endif
+    write(6,'(5x,a,i10,a,f8.4,a,a)') 'ntwb        =',sebomd_obj%ntwb, &
+                                     ',  bocut        =', sebomd_obj%bocut, &
+                                     ',  bond_order_out =', sebomd_obj%bond_order_out(1:len_trim(sebomd_obj%bond_order_out))
     write(6,'(5x,a,i10,a,f10.4)') 'peptcorr    =',sebomd_obj%peptcorr, ', peptk =', sebomd_obj%peptk
     write(6,*)
 9800 format(/80('-')/,'   SEBOMD  DATA  FOR  THE  RUN',/80('-')/)
@@ -326,6 +349,8 @@ contains
     call mpi_bcast(sebomd_obj%idcflag    ,  1, MPI_INTEGER, 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%iflagch    ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%iflagch_old,  1, MPI_INTEGER , 0, commsander, ierr)
+    call mpi_bcast(sebomd_obj%iflagbo    ,  1, MPI_INTEGER , 0, commsander, ierr)
+    call mpi_bcast(sebomd_obj%iflagbo_old,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%pdmx       ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%nhessian   ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%diverror   ,  1, MPI_INTEGER , 0, commsander, ierr)
@@ -337,14 +362,17 @@ contains
     call mpi_bcast(sebomd_obj%dbuff1     , 1, MPI_DOUBLE_PRECISION, 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%dbuff2     , 1, MPI_DOUBLE_PRECISION, 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%charge_out ,256, MPI_CHARACTER, 0, commsander, ierr)
+    call mpi_bcast(sebomd_obj%bond_order_out ,256, MPI_CHARACTER, 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%lambda     ,  1, MPI_DOUBLE_PRECISION , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%peptk      ,  1, MPI_DOUBLE_PRECISION , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%dpmax      ,  1, MPI_DOUBLE_PRECISION , 0, commsander, ierr)
+    call mpi_bcast(sebomd_obj%bocut      ,  1, MPI_DOUBLE_PRECISION , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%method     ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%charge     ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%longrange  ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%fullscf    ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%ntwc       ,  1, MPI_INTEGER , 0, commsander, ierr)
+    call mpi_bcast(sebomd_obj%ntwb       ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%chtype     ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%chewald    ,  1, MPI_INTEGER , 0, commsander, ierr)
     call mpi_bcast(sebomd_obj%screen     ,  1, MPI_INTEGER , 0, commsander, ierr)
@@ -517,16 +545,22 @@ contains
   end subroutine sebomd_gradient_write
 !------------------------------------------------------------------------------
   subroutine sebomd_open_files
-    use file_io_dat, only : sechgunit
+    use file_io_dat, only : sechgunit, sebounit
     if (sebomd_obj%ntwc.ne.0) then
       call amopen(sechgunit, sebomd_obj%charge_out,'U','F','W')
+    end if
+    if (sebomd_obj%ntwb.ne.0) then
+      call amopen(sebounit, sebomd_obj%bond_order_out,'U','F','W')
     end if
   end subroutine sebomd_open_files
 !------------------------------------------------------------------------------
   subroutine sebomd_close_files
-    use file_io_dat, only : sechgunit
+    use file_io_dat, only : sechgunit, sebounit
     if (sebomd_obj%ntwc.ne.0) then
        close(sechgunit)
+    end if
+    if (sebomd_obj%ntwb.ne.0) then
+       close(sebounit)
     end if
   end subroutine
 !------------------------------------------------------------------------------

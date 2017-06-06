@@ -14,7 +14,7 @@ subroutine mdread1()
    !
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   
+
    use memory_module
 
    implicit none
@@ -29,7 +29,7 @@ subroutine mdread1()
    character(len=8) date
    character(len=10) time
    _REAL_ rnum
-   
+
    namelist /cntrl/ ntx,    ipb,    inp,   igb,            &
                     imin,   ntf,    ntb,   dielc,  cut,    & !compatibility
                     nsnb,   maxcyc, ntmin,                 & !compatibility
@@ -48,22 +48,22 @@ subroutine mdread1()
         date(1:4), ' at ', time(1:2), ':', time(3:4), ':', time(5:6)
 
    if (owrite /= 'N') write(6, '(2x,a)') '[-O]verwriting output'
-   
+
    ! Echo the file assignments to the user:
-   
+
    write(6,9700) 'MDIN'   ,mdin(1:70)  , 'MDOUT' ,mdout(1:70) , &
                  'INPCRD' ,inpcrd(1:70), 'PARM'  ,parm(1:70)
-   
+
    ! Echo the input file to the user:
-   
+
    call myechoin(5,6)
-   
+
    !     ----- READ DATA CHARACTERIZING THE MD-RUN -----
-   
+
    read(5,'(20a4)') title
-   
+
    ! read input in namelist format, first setting up defaults
-   
+
    imin = 1
    ntx = 1
    ipb = 2
@@ -103,7 +103,7 @@ subroutine mdread1()
    ntr = 0
    ntrx = 1
    fcap = 1.5d0
-   
+
    isftrp = 0
    rwell = ONE
    dx0 = 0.01d0
@@ -142,9 +142,9 @@ subroutine mdread1()
    icnstph = 0
    solvph = SEVEN
    ntcnstph = 10
-   
+
    ! check what namelists are defined
-   
+
    mdin_cntrl=.false.
    mdin_pb=.false.
    call mynmlsrc('cntrl',5,ifind)
@@ -182,9 +182,9 @@ subroutine mdread1()
       call wallclock(rnum)
       ig = nint(rnum)
    end if
- 
+
    ! read pb namelist
- 
+
    if (ipb <= 0) then
       write(6,'(a)') "Error: ipb can only be > 0 in PBSA"
       call mexit(6,1)
@@ -195,15 +195,14 @@ subroutine mdread1()
    write(6,9309)
 
    call printflags()
-  
 
    9308 format(/10x,55('-'),/10x, &
-         'PBSA VERSION 2009                       UC Irvine', &
+         'PBSA VERSION 2016                       UC Irvine', &
          /10x,55('-')/)
    9309 format(/80('-')/'   1.  RESOURCE   USE: ',/80('-')/)
    9700 format(/,'File Assignments:',/,12('|',a6,': ',a,/))
 
-end subroutine mdread1 
+end subroutine mdread1
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Initialize to defaults and print the inputable variables.
@@ -227,17 +226,17 @@ subroutine mdread2(x,ix,ih)
 #  include "box.h"
 #  include "../include/md.h"
 #  include "pb_md.h"
-   
+
    close(unit=8)
-   
+
    !     ----- SET THE DEFAULT VALUES FOR SOME VARIABLES -----
-   
+
    nrp = natom
-   
+
    if (ifbox == 1) write(6, '(/5x,''BOX TYPE: RECTILINEAR'')')
    if (ifbox == 2) write(6, '(/5x,''BOX TYPE: TRUNCATED OCTAHEDRON'')')
    if (ifbox == 3) write(6, '(/5x,''BOX TYPE: GENERAL'')')
-   
+
    nsolut =  nrp
    if ( nscm > 0 .and. ntb == 0 ) then
       ndfmin = 6   ! both translation and rotation com motion removed
@@ -263,13 +262,13 @@ subroutine mdread2(x,ix,ih)
    if (dielc <= ZERO ) dielc = ONE
    if (tautp <= ZERO ) tautp = 0.2d0
    if (taup <= ZERO ) taup = 0.2d0
-   
+
    ! RESET THE CAP IF NEEDED
-   
+
    if(ivcap == 2) ifcap = 0
-   
+
    ! PRINT DATA CHARACTERIZING THE RUN
-   
+
    nmropt = 0
    iesp = 0
    ipol = 0
@@ -298,10 +297,10 @@ subroutine mdread2(x,ix,ih)
          ', iesp    =',iesp
    write(6,'(5x,3(a,f10.5))') 'dielc   =',dielc, &
          ', cut     =',cut,', intdiel =',intdiel
-   
+
    !write(6,'(5x,3(a,f10.5))') 'scnb    =',scnb, &
    !      ', scee    =',scee
-   
+
    write(6,'(/a)') 'Frozen or restrained atoms:'
    write(6,'(5x,4(a,i8))') 'ibelly  =',ibelly,', ntr     =',ntr
 
@@ -332,9 +331,9 @@ subroutine mdread2(x,ix,ih)
 
    cut = cut*cut
    cut_inner = cut_inner*cut_inner
-   
+
    ! If user has requested Poisson-Boltzmann electrostatics, set up variables
-    
+
    call pb_init(ifcap,natom,nres,ntypes,nbonh,nbona,ix(i02),ix(i04),ix(i06),ix(i08),ix(i10),&
                 ix(iibh),ix(ijbh),ix(iiba),ix(ijba),ix(ibellygp),ih(m02),ih(m04),ih(m06),x(l15),x(l97))
 
@@ -347,7 +346,7 @@ subroutine mdread2(x,ix,ih)
    end if
 #endif /*ndef SANDER or LIBPBSA*/
 
-   ntmp = 0; ngrp = 0 
+   ntmp = 0; ngrp = 0
    if(idecomp > 0) then
       write(6,9428)
       call rgroup(natom,ntmp,nres,ngrp,ix(i02),ih(m02), &
@@ -357,7 +356,7 @@ subroutine mdread2(x,ix,ih)
    end if
 
    ! checks on not supported options
- 
+
    if( ifcap /= 0 ) then
       write(6, '(a,i3)') ' ERROR: cap water not supported.', ifcap
       call mexit(6, 1)
@@ -369,9 +368,9 @@ subroutine mdread2(x,ix,ih)
    end if
 
    ! checks on bogus data ---
-   
+
    inerr = 0
-   
+
    if (imin /= 0 .and. imin /= 1 .and. imin /= 6) then
       write(6,'(/2x,a,i3,a)') 'IMIN (',imin,') must be 0 or 1 or 6.'
       inerr = 1
@@ -380,9 +379,9 @@ subroutine mdread2(x,ix,ih)
       write(6,'(/2x,a,i3,a)') 'NTX (',ntx,') must be in 1..7'
       inerr = 1
    end if
-   
+
    ! WARNINGS:
-   
+
    if (inerr == 1) then
       write(6, '(/,a)') ' *** input error(s)'
       call mexit(6,1)
@@ -391,15 +390,15 @@ subroutine mdread2(x,ix,ih)
    !  DEBUG input; force checking
 
    call load_debug(5)
-   
+
    ! Standard format statements:
-   
+
    9328 format(/80('-')/,'   2.  CONTROL  DATA  FOR  THE  RUN',/80('-')/)
    9428 format(/4x,'LOADING THE DECOMP ATOMS AS GROUPS',/)
    9008 format(a80)
 
 
-end subroutine mdread2 
+end subroutine mdread2
 #endif /* LIBPBSA */
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -412,21 +411,16 @@ subroutine printflags()
 
    character(len=max_line_length) line  ! output string of active flags
    integer n                            ! len(line)
-   
+
    line = '| Flags:'
    n = 8
-   
+
 #ifdef ISTAR2
    call printflags2(' ISTAR2',7,n,line,.false.)
 #endif
 #ifdef SGIFFT
    call printflags2(' SGIFFT',7,n,line,.false.)
 #endif
-#ifndef LIBPBSA
-#ifdef MPI
-   call printflags2(' MPI',4,n,line,.false.)
-#endif /* MPI */
-#endif /*ndef LIBPBSA*/
 #ifdef noBTREE
    call printflags2(' noBTREE',8,n,line,.false.)
 #endif
@@ -451,10 +445,10 @@ subroutine printflags()
 #ifdef NO_EWGRPS
    call printflags2(' NO_EWGRPS',10,n,line,.false.)
 #endif
-   
+
    call printflags2(' ',1,n,line,.true.)
    return
-end subroutine printflags 
+end subroutine printflags
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Primitive pre-Fortran90 implementation of printflags.
@@ -480,7 +474,7 @@ subroutine printflags2(flag,flag_len,line_len,line,last)
    line_len=line_len+flag_len
    if(last)write( 6,'(a)') line
    return
-end subroutine printflags2 
+end subroutine printflags2
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Check the range of a float; abort on illegal values.
@@ -503,7 +497,7 @@ subroutine float_legal_range(string,param,lo,hi)
    62 format(1x,'Lower limit: ',e12.5,' Upper limit: ',e12.5)
    63 format(1x,'Check ew_legal.h')
    return
-end subroutine float_legal_range 
+end subroutine float_legal_range
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Check the range of an integer; abort on illegal values.
@@ -526,7 +520,7 @@ subroutine int_legal_range(string,param,lo,hi)
    62 format(1x,'Lower limit: ',i8,' Upper limit: ',i8)
    63 format(1x,'The limits may be adjustable; search in the .h files ')
    return
-end subroutine int_legal_range 
+end subroutine int_legal_range
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 !+ Check the range of an integer option; abort on illegal values.
@@ -549,7 +543,7 @@ subroutine opt_legal_range(string,param,lo,hi)
    62 format(1x,'Lower limit: ',i5,' Upper limit: ',i5)
    63 format(1x,'Check the manual')
    return
-end subroutine opt_legal_range 
+end subroutine opt_legal_range
 #endif /*ifndef SANDER*/
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -561,7 +555,7 @@ subroutine pb_read(smoothopt_, radiopt_, npbopt_, solvopt_, maxitn_,   &
    npopt_, &
    decompopt_, use_rmin_, use_sav_, maxsph_, maxarc_, ndofd_, ndosas_, &
    mpopt_, lmax_, maxarcdot_, pbprint_,                                &
-   epsin_, epsout_, epsmemb_, istrng_, pbtemp_, dprob_, iprob_,         &
+   epsin_, epsout_, epsmem_, istrng_, pbtemp_, dprob_, iprob_,         &
    accept_, fillratio_, space_, arcres_, cutres_, cutfd_, cutnb_,      &
    sprob_, vprob_, rhow_effect_, cavity_surften_, cavity_offset_,      &
    cutsa_, fmiccg_, ivalence_, laccept_, wsor_, lwsor_, radinc_,       &
@@ -569,10 +563,10 @@ subroutine pb_read(smoothopt_, radiopt_, npbopt_, solvopt_, maxitn_,   &
 #else
 subroutine pb_read
 #endif
-   
+
    ! Module variables
-   
-   use poisson_boltzmann, only : epsin, epsout, epsmemb, smoothopt,   &
+
+   use poisson_boltzmann, only : epsin, epsout, epsmem, smoothopt,   &
          istrng, pbtemp, npbopt, solvopt, accept, maxitn,    &
          fillratio, nbuffer, nfocus, fscale, dbfopt, bcopt,  &
          buffer, xmin, xmax, ymin, ymax, zmin, zmax,         &
@@ -580,36 +574,35 @@ subroutine pb_read
          cutsa, fmiccg, ivalence, laccept, wsor, lwsor,      &
          pbkappa, offx, offy, offz, sepbuf, mpopt, lmax,     &
          saopt, intopt, ligand, ligandmask, outphi, scalerf, &
-         srsas, level, savxm, savym, savzm, savxmym,         &
-         savxmymzm, savh, savbcopt, lastp, pbgamma_int,      &
-         pbgamma_ext, eps0, fioni, pbkb, isurfchg,           &
-         ngrdblkx, ngrdblky, ngrdblkz, xmblk, ymblk, zmblk,  &
-         multiblock, saltout, outsalt, stern, sasopt,        &
+         srsas, level, lastp, savxm, savym, savzm, savxmym,  &
+         savxmymzm, savh, savbcopt, savgox, savgoy, savgoz,  &
+         pbgamma_int, pbgamma_ext, eps0, fioni,pbkb,isurfchg,&
+         sasopt,        &
          membraneopt, mthick, mctrdz, outlvlset, outmlvlset, &
-         poretype,poreradius,augtoltype, augctf, augtol,     &
-         fmiccg2, fold16  
-         
+         poretype,poreradi,augtoltype, augctf, augtol,     &
+         fmiccg2, fold16, rxm, rym, rzm, rgox, rgoy, rgoz, epsmemb
+
    use dispersion_cavity
    use solvent_accessibility
 #ifdef SANDER
    use file_io_dat
 #endif
    implicit none
-   
+
    ! Common variables
-   
+
 #  include "pb_def.h"
 #  include "../include/md.h"
 #  include "pb_md.h"
 #ifndef SANDER
 #  include "files.h"
 #endif
-     
+
    ! Local variables
-       
+
    integer npbverb, l, phiout, scalec
    _REAL_ space
-    
+
    ! Passed variables if it is used as a C library and it is read by the namelist
    ! if it is standalone or as a F library
    ! WMBS: Need to add lvlset writting, membrane, and aug IIM options. See below
@@ -623,7 +616,7 @@ subroutine pb_read
            use_sav_, maxsph_, maxarc_, ndofd_, ndosas_, mpopt_,  &
            lmax_, maxarcdot_
    logical pbprint_
-   _REAL_  epsin_, epsout_, epsmemb_, istrng_, pbtemp_, dprob_, iprob_,    &
+   _REAL_  epsin_, epsout_, epsmem_, istrng_, pbtemp_, dprob_, iprob_,    &
            accept_, fillratio_, space_, arcres_, cutres_, cutfd_,&
            cutnb_, sprob_, vprob_, rhow_effect_, cavity_surften_,&
            cavity_offset_, cutsa_, fmiccg_, ivalence_, laccept_, &
@@ -632,8 +625,8 @@ subroutine pb_read
 
 #else
 
-   namelist /pb/ epsin, epsout, epsmemb, smoothopt, istrng, pbtemp,     &
-      radiopt, dprob, iprob, npbopt, solvopt, accept, maxitn,  &
+   namelist /pb/ epsin, epsout, epsmem, smoothopt, istrng, pbtemp,     &
+      radiopt, dprob, mprob, iprob, npbopt, solvopt, accept, maxitn,  &
       fillratio, space, nbuffer, nfocus, fscale, npbgrid,      &
       arcres,dbfopt,bcopt,scalec,eneopt,frcopt,       cutfd,   &
       cutnb,        nsnba,phiout, phiform, npbverb, npopt,     &
@@ -643,71 +636,64 @@ subroutine pb_read
       lwsor, pbkappa, radinc, expthresh, offx, offy, offz,     &
       sepbuf, mpopt, lmax, saopt, intopt, ligandmask, buffer,  &
       xmin, ymin, zmin, xmax, ymax, zmax, isurfchg,            &
-      ngrdblkx, ngrdblky, ngrdblkz, saltout, stern,            &
-      xmblk, ymblk, zmblk, triopt, sasopt, maxtri, maxarcdot,  &
+      triopt, sasopt, maxtri, maxarcdot,  &
       membraneopt, mthick, mctrdz, outlvlset, outmlvlset,      &
-      poretype, poreradius, augtoltype, augtol, augctf,        &
-      fmiccg2, fold16
+      poretype, poreradi, augtoltype, augtol, augctf,        &
+      fmiccg2, fold16, rxm, rym, rzm, rgox, rgoy, rgoz, epsmemb
 #endif
 
    ! initialize with default values
-   
+
    ! output options
 
    outphi = .false.
    outlvlset = .false.
    outmlvlset = .false.
-   outsalt = .false. ! this is only useful for debugging salt map
    phiout = 0
    phiform = 0
    isurfchg = 0
-   saltout = 0
- 
-   ! WMBS: membrane options
-   ! will need to add membrane and Aug IIM option
-   ! defaults here when they get incorporated into
-   ! LIBPBSA
 
-#ifdef LIBPBSA
-#else
+   ! WMBS: membrane options
+   ! this needs to be updated for LIBPBSA
+
    membraneopt = 0
-   mthick = 20.0d0
+   mthick = 40.0d0
    mctrdz = 0.0d0
-   poretype = 0
-   poreradius = 4.0
+   poretype = 1
+   poreradi = 6.0
 
    ! WMBS: Augmented IIM options
 
    augtoltype = 1
    augctf = 0.0d0
    augtol = 1.0d-5
-#endif
 
    ! physical constants
 
    epsin = 1.0d0
    epsout = 80.0d0
-   epsmemb= 1.0d0
+   epsmem= 0.0d0
+   epsmemb= 0.0d0
    istrng = 0.0d0
    ivalence = 1.0d0
    pbtemp = 300.0d0
-   stern = 0.0d0 ! this is never used
-    
+
    scalec = 0
    scalerf = .false.
-   
+
    ! molecular surface options
 
    sasopt = 0
    triopt = 1
    srsas = .true.
-   dprob = 1.40d0
-   iprob = 2.00d0
+   dprob = 1.4d0
+   mprob = 2.7d0 ! optimized basd on membrane channel visualization
+   iprob = 2.0d0
    smoothopt = 1
    radiopt = 1
    radiscale = 1.0d0
-   radinc = 0.8d0 ! optimized radinc = dprob*0.57. fixed to be backward compatible
-   expthresh = 0.2d0
+   radinc = 0.798d0 ! optimized radinc = dprob*0.57
+   expthresh = 0.08d0 ! optimized expthresh = 0.08
    arcres = 0.25d0
    maxsph  = 400
    maxarcdot= 1500
@@ -715,8 +701,9 @@ subroutine pb_read
    maxtri = 10
 
    ! molecular surface area calculation options
+   ! this needs to be updated for LIBPBSA
 
-   saopt = 0 ! this needs to be updated for NAB
+   saopt = 0
 
    ! nonpolar solvent model options
 
@@ -739,6 +726,12 @@ subroutine pb_read
    level = 1
    bcopt = 5
    space = 0.5d0
+   rxm = 0
+   rym = 0
+   rzm = 0
+   rgox = 0.0d0
+   rgoy = 0.0d0
+   rgoz = 0.0d0
    savxm(1) = 0
    savym(1) = 0
    savzm(1) = 0
@@ -757,7 +750,7 @@ subroutine pb_read
    zmin = 0.0d0
    zmax = 0.0d0
    buffer = 16*0.5 ! this needs to be updated for NAB
-  
+
    ! linear system solver options
 
    npbopt = 0
@@ -769,11 +762,11 @@ subroutine pb_read
    wsor = 1.9d0
    lwsor = 1.95d0
    maxitn = 100
- 
+
    ! i/o and md options
 
-   pbverbose = .false. 
-   pbprint = .true. 
+   pbverbose = .false.
+   pbprint = .true.
    pbgrid = .true.
    pbinit = .true.
    npbverb = 0
@@ -787,7 +780,7 @@ subroutine pb_read
    nsnba = 1
    ntnbr = 1
    ntnba = 1
-   cutres = 99.0d0
+   cutres = 99.9d0
    cutfd = 5.0d0
    cutnb = 0.0d0
    cutsa = 9.0d0
@@ -808,17 +801,11 @@ subroutine pb_read
    frcopt = 0
    intopt = 1 ! this needs to be updated for NAB
 
-   ! ligand and multi-block focusing options
+   ! ligand focusing option
 
    ligandmask=''
-   ngrdblkx = 0
-   ngrdblky = 0
-   ngrdblkz = 0
-   xmblk = 0
-   ymblk = 0
-   zmblk = 0
 
-   ! default options for sander    
+   ! default options for sander
 
 #ifdef SANDER
    if ( imin == 0 .or. maxcyc > 1 ) then
@@ -835,7 +822,7 @@ subroutine pb_read
 #endif
 
    ! reading parameters
-     
+
 #ifdef LIBPBSA
    smoothopt=smoothopt_
    radiopt=radiopt_
@@ -870,7 +857,7 @@ subroutine pb_read
    pbprint=pbprint_
    epsin=epsin_
    epsout=epsout_
-   epsmemb=epsmemb_
+   epsmem=epsmem_
    istrng=istrng_
    pbtemp=pbtemp_
    dprob=dprob_
@@ -902,44 +889,56 @@ subroutine pb_read
 #else
    if ( mdin_pb ) then
       rewind 5
-      read(5, nml=pb) 
+      read(5, nml=pb)
    end if
 #endif
-     
+
    ! option checking and post processing of options
-     
+
    ! WMBS: membrane options compatibility
 
    if ( membraneopt > 0 ) then
-      if ( membraneopt == 1 ) then
-         if ( .not.(bcopt==10) ) then
-            write(6,'(a)') ' PB Warning(): membrane setup only suggested for use with bcopt=10 (periodic)'
-         end if
-         if (.not. (sasopt==2)) then
-            write(6,'(a)') ' PB Info in pb_read(): membrane only compatible with sasopt=2, sasopt set to 2'
-            sasopt=2
-         end if
-         if ( (.not. (solvopt==7)) .and. (.not. (solvopt==1 .or. solvopt==3))  ) then
-            write(6,'(a)') ' PB Info in pb_read(): membrane requires periodic solver -',&
-                       ' solvopt 3 (pcg) or solvopt 7 (fft IIM), using default (piccg) solvopt=1'
-            solvopt=1
-            if (.not. (ipb==2)) then
-               write(6,'(a)') ' PB Warning in pb_read(): PCG solver only suggested for use with ipb==2'
-            end if
-         else if (solvopt == 7) then
-            if (.not. (ipb==5)) then
-               write(6,'(a)') ' PB Info in pb_read(): FFT solver requires Augmented Variable IIM to function for non-vacuum systems'
-               ipb=5
-            end if
-         else
-            if (.not. (ipb==2)) then
-               write(6,'(a)') ' PB Warning in pb_read(): PCG solver not suggested for use except with ipb==2'
-            end if
-         end if
-      else
-         write(6,'(a)') ' PB Bomb in pb_read(): unrecognized membrane option'
+      if ( epsmem == 0.0d0 .and. epsmemb /= 0.0d0 ) epsmem = epsmemb
+      if ( epsmem == 0.0d0 .and. epsmemb == 0.0d0 ) epsmem = 1.0d0
+      if ( epsmem == 0.0d0 .and. epsmemb == 0.0d0 ) then
+         epsmem = 1.0d0
+         epsmemb = 1.0d0
+      end if
+      if ( epsmem < 1.0d0 .or. epsmem > epsout ) then
+         write(6,'(a)') ' PB Bomb in pb_read(): membrane eps is currently limited to values between 1.0 and epsout'
          call mexit(6,1)
       end if
+      if ( ipb > 2 ) then
+         write(6,'(a)') ' PB Bomb in pb_read(): membrane setup is only compatible with ipb=1 or 2'
+         call mexit(6,1)
+      end if
+      if ( sasopt < 2 .and. ipb == 2 ) then
+         write(6,'(a)') ' PB Bomb in pb_read(): membrane SAS and SES are only compatible with ipb=1'
+         call mexit(6,1)
+      end if
+      if ( nfocus /= 1 ) then
+         write(6,'(a)') ' PB Bomb in pb_read(): membrane setup is only compatible with nonfocussing FDPB'
+         call mexit(6,1)
+      end if
+      if ( bcopt /=10 ) then
+         write(6,'(a)') ' PB Bomb in pb_read(): membrane setup is only compatible with the periodic boundary'
+         call mexit(6,1)
+      end if
+      if ( solvopt < 1 .or. solvopt > 4 ) then
+         write(6,'(a)') ' PB Info in pb_read(): membrane setup requires a periodic solver'
+         solvopt=1
+      end if
+      if ( eneopt > 1 .or. frcopt > 0 ) then
+         write(6,'(a)') ' PB Info in pb_read(): membrane setup is only compatible with eneopt=1 and frcopt=0'
+         eneopt = 1; frcopt = 0
+      end if
+      if ( cutfd <= 12.0*space ) then
+         write(6,'(a)') ' PB Info in pb_read(): membrane setup requires a normal cutfd, cutnb'
+         cutfd = 14.0*space; cutnb = 99.0
+      end if
+   else
+      epsmem = 1.0d0
+      epsmemb = 1.0d0
    end if
 
    ! surface options
@@ -948,32 +947,40 @@ subroutine pb_read
       write(6,'(a)') ' PB Bomb in pb_read(): the smooth Gaussian surface must be built with a level set funtion (ipb > 1)'
       call mexit(6, 1)
    end if
-    
+
    ! set up solvent accessible arc resolutions and limits
    ! Mengjuei: if maxarcdot is default, automatically set it up.
 
    if ( arcres > space * 0.5d0 ) then
       arcres = space * 0.5d0
-      write(6,'(a,f12.4)') ' PB Warning in pb_read(): arcres is too big and is reset to', arcres
+      write(6,'(a,f12.4)') ' PBSA Warning in pb_read(): arcres is too big and is reset to', arcres
    end if
    if ( maxarcdot == 1500 ) maxarcdot = 1500*nint(0.5d0/arcres)
 
    ! solvent and ion probes
 
+   if ( dprob > mprob ) then
+      write(6,'(a)') ' PBSA Warning in pb_read(): membrane probe is smaller than solvent probe'
+   end if
    if ( dprob > iprob ) then
       if ( sasopt == 1 ) then
          write(6,'(a)') ' PB Bomb in pb_read(): ion probe cannot be smaller than solvent prob when the SAS is used (sasopt = 1)'
          call mexit(6, 1)
       else
-         write(6,'(a)') ' PB Warning in pb_read(): ion probe is smaller than solvent prob'
+         write(6,'(a)') ' PBSA Warning in pb_read(): ion probe is smaller than solvent prob'
       end if
    end if
    if ( dprob <= space .and. ipb == 1 ) then
-      write(6,'(a)') ' PB Warning in pb_read(): setting grid spacing larger than solvent probe'
+      write(6,'(a)') ' PBSA Warning in pb_read(): setting grid spacing larger than solvent probe'
       write(6,'(a)') 'may cause numerical instability if ipb=1'
    end if
    if ( dprob <= space .and. ipb == 2 ) then
       write(6,'(a)') ' PB Bomb in pb_read(): solvent probe cannot be smaller than grid spacing if ipb=2'
+      call mexit(6, 1)
+   end if
+   if ( dprob < 0.1d0 .and. (sasopt == 0 .or. sasopt == 2) ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): solvent probe cannot be too small '
+      write(6,'(a,f9.3)') '   for solvent excluded surface or density surface', dprob
       call mexit(6, 1)
    end if
 
@@ -997,13 +1004,12 @@ subroutine pb_read
          nfocus = 1
          write(6,'(a)') ' PB Info in pb_read(): nfocus has been reset to 1 with ipb=4'
       end if
-!     if ( frcopt == 1 ) then 
-!        write(6,'(a)') ' PB Info in pb_read(): frcopt=1 conflicts with ipb=4' 
-!        call mexit(6, 1)
-!     end if
       if ( istrng /= 0 ) then
-         write(6,'(a)') ' PB Info in pb_read(): ipb=4 cannot deal with salt solution' 
+         write(6,'(a)') ' PB Info in pb_read(): ipb=4 cannot deal with salt solution'
          call mexit(6, 1)
+      end if
+      if ( ligand ) then
+         write(6,'(a)') "IIM/AUG doesn't work with ligandmask."; call mexit(6,1)
       end if
    end if
 
@@ -1014,10 +1020,6 @@ subroutine pb_read
       write(6,'(a)') ' PB Info in pb_read(): nfocus reset to 1 due small fscale.'
       nfocus = 1
    end if
-!   if ( nfocus > 2 ) then
-!      write(6,'(a)') ' PB Bomb in pb_read(): Focusing with more than two levels is not implemented'
-!      call mexit(6,1)
-!   end if
 
    ! nonpolar options
 
@@ -1036,44 +1038,44 @@ subroutine pb_read
    end if
    if ( inp == 1 .and. nint(10000 * sprob) == nint( 10000 * 0.557d0 ) ) then
       write(6, '(a)') &
-         ' PB Warning in pb_read(): sprob=0.557 is optimized for inp=2 and &
+         ' PBSA Warning in pb_read(): sprob=0.557 is optimized for inp=2 and &
          & should not be used with inp=1. It has been reset to 1.4.'
       sprob = 1.4d0
    end if
    if ( inp == 1 .and. nint(10000 * cavity_surften) == nint(10000 * 0.0378d0) ) then
       write(6, '(a)') &
-         ' PB Warning in pb_read(): cavity_surften=0.0378 is optimized for inp=2 &
+         ' PBSA Warning in pb_read(): cavity_surften=0.0378 is optimized for inp=2 &
          & and should not be used with inp=1. It has been reset to 0.005000.'
       cavity_surften =  0.005000
    end if
    if ( inp == 1 .and. nint(10000 * cavity_offset) == nint(-0.56920d0 * 10000) ) then
       write(6, '(a)') &
-         ' PB Warning in pb_read(): cavity_offset=-0.5692 is optimized for inp=2 &
+         ' PBSA Warning in pb_read(): cavity_offset=-0.5692 is optimized for inp=2 &
          & and should not be used with inp=1. It has been reset to 0.000.'
       cavity_offset =  0.000d0
    end if
    if ( inp == 1 .and. radiopt /= 0) then
-      write(6,'(a)') ' PB Warning in pb_read(): radiopt should be set to 0 when inp = 1.'
+      write(6,'(a)') ' PBSA Warning in pb_read(): radiopt should be set to 0 when inp = 1.'
       !radiopt = 0
    end if
    if ( inp == 1 ) then
       donpsa = .false.
    end if
-  
+
    ! check force options
 
    if ( pqropt /= 0 .and. frcopt /= 0 ) then
       write(6, '(a)') &
-         ' PB Warning in pb_read(): PQR files do not support force calculation'
+         ' PBSA Warning in pb_read(): PQR files do not support force calculation'
       frcopt = 0
    end if
-   if ( pqropt /= 0 .and. eneopt == 3 ) then
+   if ( pqropt /= 0 .and. eneopt > 2 ) then
       write(6, '(a)') &
-         ' PB Warning in pb_read(): PQR files do not support P3M energy calculation'
+         ' PBSA Warning in pb_read(): PQR files do not support P3M energy calculation'
       eneopt = 1
    end if
    if ( eneopt == -1 ) then
-      if ( dbfopt == 0 ) then 
+      if ( dbfopt == 0 ) then
          eneopt = 1
       else if ( dbfopt == 1 .or. dbfopt == -1 ) then
          eneopt = 2
@@ -1082,39 +1084,46 @@ subroutine pb_read
          write(6,'(a)') ' PB Info in pb_read(): dbfopt is replaced by eneopt'
          call mexit(6, 1)
       end if
-   else
-      if ( dbfopt == 0 .and. eneopt == 1 ) then 
-!        write(6,'(a)') ' PB Info in pb_read(): dbfopt has been overwritten by eneopt'
-      else if ( dbfopt == 1 .and. eneopt == 2 ) then 
-!        write(6,'(a)') ' PB Info in pb_read(): dbfopt has been overwritten by eneopt'
-      else if ( dbfopt /= -1 ) then
-         write(6,'(a)') ' PB Info in pb_read(): dbfopt is ignored when eneopt is set'
-      end if
    end if
-   if ( eneopt < 1 .or. eneopt > 3 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): only eneopt= 1-3 are supported'
+   if ( dbfopt /= -1 ) then
+      write(6,'(a)') ' PB Info in pb_read(): dbfopt is ignored when eneopt is set'
+   end if
+   if ( eneopt < 1 .or. eneopt > 4 ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): only eneopt= 1-4 are supported'
       call mexit(6, 1)
    end if
-   if ( frcopt < 0 .or. frcopt > 4 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): only frcopt= 0-4 are supported'
+   if ( frcopt < 0 .or. frcopt > 5 ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): only frcopt= 0-5 are supported'
       call mexit(6, 1)
    end if
-   if ( eneopt == 1 .and. ( frcopt >= 2 ) ) then
-      write(6,'(a,2i6)') ' PB Bomb in pb_read(): combination of eneopt and frcopt is not supported', eneopt, frcopt
+   if ( eneopt == 1 .and. frcopt > 1 ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): combination of eneopt and frcopt is unsupported'
       call mexit(6, 1)
    end if
-   if ( eneopt == 2 .and. frcopt == 1 ) then
-!     write(6,'(a)') ' PB Bomb in pb_read(): combination of eneopt and frcopt is not supported', eneopt, frcopt
-!     call mexit(6, 1)
+   if ( eneopt == 2 .and. (frcopt == 1 .or. frcopt == 5) ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): combination of eneopt and frcopt is unsupported'
+      call mexit(6, 1)
    end if
-   if ( ( frcopt >= 2 .and. frcopt <= 4 ) .and. bcopt == 5 ) then
+   if ( eneopt == 3 .and. frcopt /= 0 .and. frcopt /= 2 ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): combination of eneopt and frcopt is unsupported'
+      call mexit(6, 1)
+   end if
+   if ( eneopt == 4 .and. frcopt /= 0 .and. frcopt /= 5 ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): combination of eneopt and frcopt is unsupported'
+      call mexit(6, 1)
+   end if
+   if ( (frcopt >= 2 .and. frcopt <= 4) .and. bcopt /= 6 ) then
       bcopt = 6
       write(6,'(a)') ' PB Info in pb_read(): bcopt has been reset from 5 to 6 for frcopt= 2 - 4'
    end if
-   if ( frcopt > 0 .and. smoothopt == 0 ) then
+   if ( ( frcopt == 1 .and. eneopt == 1 ) .and. bcopt /= 5 ) then
+      bcopt = 5
+      write(6,'(a)') ' PB Info in pb_read(): bcopt has been reset to 5 for eneopt/frcopt= 1'
+   end if
+!   if ( frcopt > 0 .and. smoothopt == 0 ) then
 !     smoothopt = 1
 !     write(6,'(a)') ' PB Info in pb_read(): smoothopt has been reset to 1 for force compuation'
-   end if
+!   end if
 
    if ( ivcap /= 0 .and. (eneopt /= 1 .or. frcopt /= 0) ) then
 !     write(6,'(a)') "cap water should only be run with eneopt=1 and frcopt=0"
@@ -1127,11 +1136,12 @@ subroutine pb_read
       saopt = 0
       write(6,'(a)') ' PB Info in pb_read(): saopt has been reset to 0 for surface area compuation'
    end if
-    
+
    ! numerical solver options
 
    if ( solvopt == 7 ) then
-      continue
+      write(6,'(a)') ' PB Bomb in pb_read(): solvopt=7 is no longer supported in 2017 and later release '
+      call mexit(6, 1)
    else if ( npbopt == 0 .and. solvopt > 5 .and. (.not. solvopt == 8) ) then
       write(6,'(a)') ' PB Bomb in pb_read(): solvopt>5 cannot be used to solve linear PB equation'
       call mexit(6, 1)
@@ -1153,22 +1163,24 @@ subroutine pb_read
       call mexit(6, 1)
    end if
    if ( npbopt == 1 .and. solvopt > 6 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): nonsupported solvopt (>6) for e nonlinear PB equation'
+      write(6,'(a)') ' PB Bomb in pb_read(): unsupported solvopt (>6) for e nonlinear PB equation'
       call mexit(6, 1)
    endif
    if ( npbopt == 1 .and. eneopt == 2 ) then
-      eneopt = 1
-      write(6,'(a)') ' PB Info in pb_read(): eneopt has been reset to be 1 for nonlinear PB equation'
+      write(6,'(a)') ' PB Info in pb_read(): pure charge view method uses '
+      write(6,'(a)') ' FD greens function for nonlinear PB equation'
    end if
-   if ( npbopt == 1 .and. frcopt > 0 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): force computatoin is not supported for nonlinear PB equation'
+   if ( npbopt == 1 .and. frcopt > 0 .and. eneopt /= 4 ) then
+      write(6,'(a)') ' PB Bomb in pb_read(): force computatoin is only supported for'
+      write(6,'(a)') ' nonlinear PB equation with the new p3m method, eneopt = 4'
       call mexit(6, 1)
    end if
 
    ! cutoff options
-    
+
    if ( cutfd > cutsa ) then
       cutsa = cutfd
+      write(6,'(a)') ' PB Info in pb_read(): cutsa has been reset to be equal to cutfd'
    end if
    if ( cutnb /= 0 .and. cutfd > cutnb ) then
       cutnb = cutfd
@@ -1182,9 +1194,15 @@ subroutine pb_read
       cutnb = 0
       write(6,'(a,f12.4,i6)') ' PB Info in pb_read(): cutnb has been reset to 0 with 5 < bcopt < 10', cutnb, bcopt
    end if
-   if ( cutnb == 0 .and. eneopt == 1 .and. bcopt < 6 ) then
-      write(6,'(a,f12.4,i6)') ' PB Bomb in pb_read(): cutnb=0 cannot be used with eneopt=1', cutnb, eneopt
-      call mexit(6, 1)
+   if ( cutnb == 0 ) then
+      if ( eneopt == 1 .and. bcopt < 6 ) then
+         write(6,'(a,f12.4,i6)') ' PB Bomb in pb_read(): cutnb=0 cannot be used with eneopt=1', cutnb, eneopt
+         call mexit(6, 1)
+      end if
+      if ( eneopt > 2 ) then
+         write(6,'(a,f12.4,i6)') ' PB Bomb in pb_read(): cutnb=0 cannot be used with eneopt=3,4', cutnb, eneopt
+         call mexit(6, 1)
+      end if
    end if
 
    ! let's set up some initial variables
@@ -1195,18 +1213,18 @@ subroutine pb_read
    cutsa = cutsa**2
    cutnb = cutnb**2
    cutres = cutres**2
-    
+
    dofd  = ndofd
    dosas  = ndosas
 
    epsin  = epsin*eps0
    epsout = epsout*eps0
-   epsmemb= epsmemb*eps0
+   epsmem= epsmem*eps0
    istrng = fioni * istrng
    pbkappa  = SQRT( 2.0d0 * istrng / (epsout * pbkb * pbtemp) )
 
    ! set buffer zone between the fine FD grid boundary and the solute surface:
-    
+
    if ( nbuffer == 0 ) then
       if ( istrng == 0.0d0 ) then
          nbuffer = int(2.0d0*dprob/space)+1
@@ -1217,24 +1235,21 @@ subroutine pb_read
             nbuffer = int(2.0d0*iprob/space)+1
          end if
       end if
-      if ( nbuffer >= fscale ) then
-         nbuffer = 2*nbuffer+1
-      else
-         nbuffer = 2*fscale+1
+      if ( nfocus > 1 ) then
+         if ( nbuffer >= fscale ) then
+            nbuffer = 2*nbuffer+1
+         else
+            nbuffer = 2*fscale+1
+         end if
       end if
    end if
-    
+
    ! set flag to scale induced surface charges:
-    
-   if ( scalec == 1) scalerf = .true. 
-    
+
+   if ( scalec == 1) scalerf = .true.
+
    ! set saved grid options
 
-   savxm(nfocus) = 0
-   savym(nfocus) = 0
-   savzm(nfocus) = 0
-   savxmym(nfocus) = 0
-   savxmymzm(nfocus) = 0
    savh(nfocus) = 0
    savbcopt(nfocus) = 0
 
@@ -1246,57 +1261,72 @@ subroutine pb_read
       savh(l) = savh(l+1)*fscale
    end do
 
-   do l = 1, nfocus
-      savxm(l) = 1
-      savym(l) = 1
-      savzm(l) = 1
-      savxmym(l) = 1
-      savxmymzm(l) = 1
-   end do
+   ! if grid parameters are read in ... set up saved arrays here
+   ! it is assumed that no focus is used for this special application
 
-   ! set MULTIBLOK focusing options
+   if ( rxm /= 0 .and. rym /= 0 .and. rzm /= 0 ) then
 
-   multiblock = .false.
-   if ( ngrdblkx < 1 .or. ngrdblky < 1 .or. ngrdblkz < 1 ) then
-      if ( xmblk > 0 .or.    ymblk > 0 .or.    zmblk > 0 ) then
-         write(6,'(a)') ' PB Info in pb_read: [x,y,z]mblk require non-zero ngrdblk[x,y,z].'
-         write(6,'(a)') ' PB Info in pb_read: [x,y,z]mblk are reset to zero.'
-         xmblk = 1; ymblk = 1; zmblk = 1
-      end if 
-   else if ( mod(ngrdblkx-1,fscale) /= 0 .or. &
-             mod(ngrdblky-1,fscale) /= 0 .or. &
-             mod(ngrdblkz-1,fscale) /= 0        ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): wrong ngrdblk[x,y,z] - fscale combination'
-      call mexit(6,1)
-   else if ( nfocus /= 2 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): Multiblock focusing need nfocus = 2.'
-      call mexit(6,1)
-   else if ( frcopt /= 0 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): Multiblock is incompatible with frcopt /= 0.'
-      call mexit(6,1)
-   else if ( eneopt == 2 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): Multiblock is incompatible with eneopt == 2.'
-      call mexit(6,1)
-   else if ( ivcap /= 0 ) then
-      write(6,'(a)') ' PB Bomb in pb_read(): Multiblock is incompatible with cap water.'
-      call mexit(6,1)
+      ! if grid parameter is read in then do not call setgrd
+
+      pbgrid = .false.
+
+      if ( nfocus > 1 ) then
+         write(6,'(a,4i6)') ' PB Bomb in pb_read(): focus is invoked while attempting to read in grid parameters',&
+                             rxm, rym, rzm, nfocus
+         call mexit(6, 1)
+      end if
+      savxm(nfocus) = rxm
+      savym(nfocus) = rym
+      savzm(nfocus) = rzm
+      savxmym(nfocus) = rxm*rym
+      savxmymzm(nfocus) = rxm*rym*rzm
+
+   ! else, set these to be minimum values ...
+
    else
-      multiblock = .true.
-      ! nbuffer is an odd number
-      buffer  = max(savh(nfocus)*(nbuffer-1)/2,buffer)
-      !nbuffer = max(nbuffer,nint(buffer/savh(nfocus)*2))
+
+      if ( .not. pbgrid ) then
+         write(6,'(a)') ' PB Bomb in pb_read(): both grid dimension and grid origins are required if read in'
+         call mexit(6, 1)
+      end if
+
+      do l = 1, nfocus
+         savxm(l) = 1
+         savym(l) = 1
+         savzm(l) = 1
+         savxmym(l) = 1
+         savxmymzm(l) = 1
+      end do
+
    end if
-#if !defined SANDER && !defined LIBPBSA
-#ifdef MPI
-   if ( .not. multiblock ) then
-      write(6,'(a)') 'pb_read: PBSA is not yet MPI capable.'
-      call mexit(6,1)
+
+   ! if grid origin is read in ... set up saved arrays here
+   ! it is assumed that no focus is used for this special application
+
+   if ( rgox /= 0.0d0 .and. rgoy /= 0.0d0 .and. rgoz /= 0.0d0 ) then
+
+      ! if grid parameter is read in then do not call setgrd
+
+      pbgrid = .false.
+
+      if ( nfocus > 1 ) then
+         write(6,'(a,3f8.3,i6)') ' PB Bomb in pb_read(): focus is invoked while attempting to read in grid parameters',&
+         rgox, rgoy, rgoz, nfocus
+         call mexit(6, 1)
+      end if
+      savgox(nfocus) = rgox
+      savgoy(nfocus) = rgoy
+      savgoz(nfocus) = rgoz
+
+   else
+      if ( .not. pbgrid ) then
+         write(6,'(a)') ' PB Bomb in pb_read(): both grid dimension and grid origins are required if read in'
+         call mexit(6, 1)
+      end if
    end if
-#endif /* MPI */
-#endif /*ndef SANDER or LIBPBSA*/
 
    ! set up ligand focusing option
-   
+
    ligand = .false.
    if ( len_trim(ligandmask) > 0 ) ligand = .true.
    if ( xmax-xmin > 0 .and. &
@@ -1313,9 +1343,6 @@ subroutine pb_read
       else if ( nfocus < 2 ) then
          write(6,'(a)') ' PB Bomb in pb_read(): You cannot use ligandmask without focusing.'
          call mexit(6,1)
-      else if ( multiblock ) then
-         write(6,'(a)') ' PB Bomb in pb_read(): You cannot use multiblock with ligandmask.'
-         call mexit(6,1)
       end if
       !buffer = max(space*nbuffer/2,buffer)
       !nbuffer = max(nbuffer,nint(buffer/space*2))
@@ -1327,17 +1354,13 @@ subroutine pb_read
    if ( phiout == 1 ) then
       outphi = .true.
       if ( radiopt /= 2 ) write(6,'(a,a,i6)') &
-      'PB Info in pb_read(): radiopt is no longer coerced by inp mode.',&
+      ' PB Info in pb_read(): radiopt is no longer coerced by inp mode.',&
       ' Please make sure atomic radii are consistent with those in the visualization program.',&
       radiopt
       inp = 0
       donpsa = .false.
       npopt = 0
    end if
-
-   ! set saltmap output
-
-   if ( saltout == 1 ) outsalt = .true.
 
 end subroutine pb_read
 
@@ -1388,9 +1411,9 @@ subroutine myresmask ( maskstr, masklength, resmask, nres )
          num_mode = .true.
          assigned = .false.
          i = i*10 + ichar(maskstr(strpos:strpos))-ichar('0')
-         if ( i > nres ) then 
+         if ( i > nres ) then
             print *,"mjhsieh: mask out of range"; call mexit(6,1)
-         end if 
+         end if
       else if ( maskstr(strpos:strpos) == '-' ) then
          if ( rng_mode ) then
             print *,"mjhsieh: mask syntax error"
@@ -1462,7 +1485,7 @@ subroutine myechoin (ilun,iout)
          call mexit(iout,1)
       endif
    enddo
-   
+
    1949 rewind(ilun)
    if (boolhastag) write(iout,"(79('-'))")
    write(iout,*)

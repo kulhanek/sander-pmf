@@ -4,6 +4,8 @@
 
 # program objects --------------------------------------------------------------
 SET(PBSA_SRC
+        sa_driver.F90
+        density.F90
         aug_iccg.F90
         bicg.F90
         coed20.F90
@@ -60,7 +62,7 @@ SET(PBSA_SRC
         jumps.F90
         locmem.F90
         matvec3.F90
-        membrane.F90
+#        membrane.F90
         memory_module.F90
         miniop.F90
         myopen.F90
@@ -69,10 +71,10 @@ SET(PBSA_SRC
         pb_augdrv.F90
         pb_chkfrc.F90
         pb_direct.F90
-        pb_exmol.F90
+#        pb_exmol.F90
         pb_fddrv.F90
-        pb_fft.F90
-        pb_fftsolv.F90
+#        pb_fft.F90
+#        pb_fftsolv.F90
         pb_force.F90
         pb_iimdrv.F90
         pb_init.F90
@@ -112,7 +114,11 @@ SET(PBSA_SRC
         xerprn.F90
         xersve.F90
         xgetua.F90
-        random.F90
+        pb_fdfrc.F90
+        pb_p3m.F90
+        pb_bldsys.F90
+        pb_crgview.F90
+#        random.F90
         )
 
 # ------------------------------------------------------------------------------

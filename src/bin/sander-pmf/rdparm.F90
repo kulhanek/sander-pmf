@@ -1,6 +1,6 @@
 #include "copyright.h"
-#include "dprec.fh"
-#include "assert.fh"
+#include "../include/dprec.fh"
+#include "../include/assert.fh"
 
 #ifdef API
 logical function need_to_bail(i, title, ierr)
@@ -186,7 +186,12 @@ subroutine rdparm1(nf)
      ipol = 0
    end if
 ! These two are actually used in the code.
-   mpoltype = ipol
+! RL: The use of ipol = 5 is temperary
+   if ( ipol < 5) then
+      mpoltype = ipol
+   else
+      mpoltype = 2 ! YD needs to confirm this
+   end if
    induced  = ipol
    if( iamoeba > 0 ) induced = 1
 
@@ -552,16 +557,19 @@ subroutine rdparm2(x,ix,ih,nf)
       fmtin=rfmt
       type = 'LENNARD_JONES_CCOEF'
       call nxtsec(nf,  6,  1,fmtin,  type,  fmt,  iok)
-      CHECK_REQUIRED(iok, 'LENNARD_JONES_CCOEF')
-
       if (iok /= 0) then
-         write(6, '(a)') 'Could not find LENNARD_JONES_CCOEF in topology &
-                      &file! Recreate topology for lj1264.'
-         call mexit(6,1)
-      endif
-
-      read(nf, fmt) (cn6(i), i= 1,nttyp)
-
+         if (lj1264 == -1) then
+            ! Default when C-coefficients absent is 0
+            lj1264 = 0
+         else
+            ! Requested, but not present
+            CHECK_REQUIRED(iok, 'LENNARD_JONES_CCOEF')
+         end if
+      else
+         read(nf, fmt) (cn6(i), i= 1,nttyp)
+         ! This was either requested, or is default when C-coefficients present
+         lj1264 = 1
+      end if
    end if
 
    if ( vdwmodel == 1 ) then
