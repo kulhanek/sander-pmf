@@ -72,6 +72,11 @@ subroutine sander()
   use sander_rism_interface, only: rism_setparam, rism_init, rism_finalize 
 #endif
 
+#ifdef PMFLIB
+   use pmf_sander
+   use nblist, only: a,b,c,alpha,beta,gamma
+#endif
+
 #ifdef PUPIL_SUPPORT
   use pupildata
 #endif /* PUPIL */
@@ -907,6 +912,26 @@ subroutine sander()
     call rism_init(commsander)
 #  endif /* RISMSANDER */
 
+#ifdef PMFLIB
+#ifdef MPI
+    call pmf_sander_init_taskid_mpi(mytaskid)
+#endif
+    if (master) then
+        ! basic initialization
+        call pmf_sander_init_preinit(mdin,natom,nres,ntb,nstlim,dt,temp0,a,b,c,alpha,beta,gamma)
+        ! topology population
+        do i=1,nres
+            call pmf_sander_set_residue(i,ih(m02-1+i),ix(i02-1+i))
+        end do
+        do i=1,natom
+            call pmf_sander_set_atom(i,ih(m04-1+i),ih(m06-1+i))
+        end do
+        call pmf_sander_finalize_preinit(natom,x(lmass),x(lcrd))
+        call pmf_sander_cst_init_collisions(ntc,nbonh,ix(iifstwt),ix(iibh),ix(ijbh),x(l50))
+        call pmf_sander_init(natom,x(lmass),x(lcrd))
+    end if
+#endif
+
 #ifdef MPI
     call mpi_barrier(commsander,ier)
 
@@ -1064,6 +1089,10 @@ subroutine sander()
     end if
     call startup_groups(ier)
     call startup(x, ix, ih)
+
+#ifdef PMFLIB
+    call pmf_sander_bcast_dat_mpi(natom,numtasks,iparpt)
+#endif
 
     ! Broadcast Empirical Valence Bond / Path Integral MD inputs/parameters to
     ! all PEs.  Note: the masters have all required EVB/PIMD inputs/parameters
@@ -1721,6 +1750,19 @@ subroutine sander()
           write (6,*) 'error in trajene()'
           call mexit(6, 1)
         end if
+
+! KULHANEK
+   case (10)
+      ! --- Single point calculation
+
+      write (6,*)
+      write (6,*) "  *** SINGLE POINT CALCULATION ***"
+      write (6,*)
+
+      call runext(x,ix,ih,ipairs,x(lcrd),x(lforce),x(lvel), &
+           ix(iibh),ix(ijbh),x(l50),x(lwinv),ix(ibellygp), &
+           x(l95),ene, carrms, qsetup)
+
       case default
 
         ! Invalid imin: input validation should be transferred to mdread.f
@@ -1787,6 +1829,12 @@ subroutine sander()
       REQUIRE(ier == 0)
     endif
   end if
+
+#ifdef PMFLIB
+    if (master) then
+        call pmf_sander_finalize()
+    end if
+#endif
 
   ! Calc time spent running vs setup
   call timer_stop(TIME_TOTAL)

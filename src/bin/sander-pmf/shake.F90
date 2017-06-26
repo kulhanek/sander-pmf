@@ -7,6 +7,10 @@
 subroutine shake(nrr,nbonh,nbona,nbper,ib,jb,igrp,winv,conp, &
       skip,x,xp,niter,belly,ifstwt,noshake,qspatial )
 
+#ifdef PMFLIB
+   use pmf_sander
+#endif
+
    implicit none
    logical skip(*),ready,first
    logical belly
@@ -127,6 +131,14 @@ subroutine shake(nrr,nbonh,nbona,nbper,ib,jb,igrp,winv,conp, &
          i  = i3/3+1
          j3 = jb(ll)
          j  = j3/3+1
+
+#ifdef PMFLIB
+         ! skip bonds that are part of BM constraints
+         if( pmf_sander_cst_checkatom(i) .or. pmf_sander_cst_checkatom(j) ) then
+            cycle bonds
+         end if
+#endif
+
          if (skip(nrr+i) .and. skip(nrr+j)) cycle bonds ! (already converged)
 
 #ifdef MPI

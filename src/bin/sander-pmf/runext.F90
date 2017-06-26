@@ -148,9 +148,9 @@ subroutine runext(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
         case(2)
             ene%pot%rism = 0.0
 #ifdef RISMSANDER           
-                if(rismprm%irism == 1) then
+                if(rismprm%rism == 1) then
                     call timer_start(TIME_RISM)
-                    call rism_force(x,fg,erism,irespa)
+                    call rism_force(x,fg,erism,irespa,imin)
                     ene%pot%rism = erism
                     call timer_stop(TIME_RISM)
                 endif

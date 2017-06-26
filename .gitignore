@@ -7,4 +7,6 @@ Makefile
 bin/**
 lib/**
 include/**
+tests/**
 Testing/
+sander17-pmf.creator.user
