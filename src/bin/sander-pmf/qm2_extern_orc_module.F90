@@ -114,7 +114,9 @@ contains
       write (6,'(80a)') ('-', i=1,80)
       write (6,'(a)') '   4.  RESULTS'
       write (6,'(80a)') ('-', i=1,80)
-      call system('rm -f '//dipfile//' '//gbwfile)
+      if ( trim(orc_nml%guess) /= 'keep' ) then
+        call system('rm -f '//dipfile//' '//gbwfile)
+      end if
     end if
 
     call system('rm -f '//inpfile)
@@ -136,7 +138,7 @@ contains
     end if
 
     ! remove gbw file if we don't want to re-use MOs
-    if ( trim(orc_nml%guess) /= 'read' ) then
+    if ( .not. ( (trim(orc_nml%guess) .eq. 'read') .or. (trim(orc_nml%guess) .eq. 'keep')) ) then
        call_buffer = trim(call_buffer)//' rm -f '//trim(gbwfile)//';'
     end if
 
@@ -222,7 +224,7 @@ contains
     jbasis       = 'NONE'
     method       = 'blyp'
     convkey      = 'verytightscf'
-    guess        = 'read'
+    guess        = 'keep'
     scfconv      = -1
     grid         = 4
     finalgrid    = 6
