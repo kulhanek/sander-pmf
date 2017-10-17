@@ -86,7 +86,9 @@ module qm2_extern_util_module
     filename = 'extern_location'//trim(id)
 
     ! Search for executable
-    call_buffer = 'which '//trim(program)//' > '//trim(filename)
+    ! Kulhanek
+    ! the which command on AFS volumes makes problems
+    call_buffer = 'bash -c ''type -p '//trim(program)//''' > '//trim(filename)
     stat = system(trim(call_buffer))
 
     if ( stat == 0 ) then

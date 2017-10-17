@@ -102,9 +102,6 @@ subroutine runext(xx,ix,ih,ipairs,x,fg,w,ib,jb,conp, &
 
 #ifdef MPI
    call sander_bomb('runext','not tested','it is not safe to call parallel implementation')
-   if ( ifsc == 1 )then
-      call sander_bomb('runext','ifsc == 1','not implemented')
-   end if
 #endif
 
    if(master)then

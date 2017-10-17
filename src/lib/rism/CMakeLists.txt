@@ -66,7 +66,7 @@ SET(RISM_SRC
         xblas/BLAS_dgemm_x.c
         xblas/BLAS_error.c
         )
-
+        
 # ------------------------------------------------------------------------------
 
 ADD_DEFINITIONS(${SANDER_DEFS} -DSANDER -DCONFIG_FC_UNDERSCORE)

@@ -39,6 +39,17 @@ ENDIF(NOT DEVELOPMENT_ROOT)
 # external libraries -----------------------------------------------------------
 # ==============================================================================
 
+# MPI ======================
+GET_FILENAME_COMPONENT(FCOMP_NAME ${CMAKE_Fortran_COMPILER} NAME_WE)
+if(FCOMP_NAME STREQUAL mpif90)
+    ADD_DEFINITIONS(-DMPI)
+    SET(MPI_ENABLED TRUE)
+    SET(MPI_HOME "$ENV{MPI_HOME}")
+    MESSAGE("-- MPI status: enabled")
+    MESSAGE("-- MPI home:   ${MPI_HOME}")
+ENDIF(FCOMP_NAME STREQUAL mpif90)
+
+
 # BLAS/LAPACK ===============
 IF(NOT MKL_FOUND)
     # BLAS ======================
@@ -62,11 +73,14 @@ INCLUDE_DIRECTORIES(${NETCDF_ROOT}/include SYSTEM)
 SET(NETCDF_FLIB_NAME fnetcdf)
 
 # FFTW3 =======================
-SET(FFTW3_ROOT ${DEVELOPMENT_ROOT}/thirdparty/fftw/3.3.6)
+SET(FFTW3_ROOT ${DEVELOPMENT_ROOT}/thirdparty/fftw/3.3.4)
 IF(EXISTS "${FFTW3_ROOT}/")
     LINK_DIRECTORIES(${FFTW3_ROOT}/lib)
     INCLUDE_DIRECTORIES(${FFTW3_ROOT}/include SYSTEM)
     SET(FFTW3_LIB_NAME fftw3)
+    IF(MPI_ENABLED)
+        SET(FFTW3_LIB_NAME ${FFTW3_LIB_NAME} fftw3_mpi)     
+    ENDIF(MPI_ENABLED)
     SET(HAVE_FFTW3 TRUE)
 ENDIF(EXISTS "${FFTW3_ROOT}/")
 
@@ -77,16 +91,6 @@ LINK_DIRECTORIES(${PMFLIB_ROOT}/lib)
 LINK_DIRECTORIES(${PMFLIB_ROOT}/lib/drivers)
 SET(PMFLIB_FLIB_NAME fpmf)
 SET(PMFLIB_DRIVER_LIB_NAME fpmfdrv_sander)
-
-# MPI ======================
-GET_FILENAME_COMPONENT(FCOMP_NAME ${CMAKE_Fortran_COMPILER} NAME_WE)
-if(FCOMP_NAME STREQUAL mpif90)
-    ADD_DEFINITIONS(-DMPI)
-    SET(MPI_ENABLED TRUE)
-    SET(MPI_HOME "$ENV{MPI_HOME}")
-    MESSAGE("-- MPI status: enabled")
-    MESSAGE("-- MPI home:   ${MPI_HOME}")
-ENDIF(FCOMP_NAME STREQUAL mpif90)
 
 # policies ---------------------------------------
 IF(COMMAND cmake_policy)
