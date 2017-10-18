@@ -38,32 +38,11 @@ ENDIF(NOT DEVELOPMENT_ROOT)
 # ==============================================================================
 # external libraries -----------------------------------------------------------
 # ==============================================================================
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${DEVELOPMENT_ROOT}/projects/cmake-modules/1.0/share/modules")
 
-# MPI ======================
-GET_FILENAME_COMPONENT(FCOMP_NAME ${CMAKE_Fortran_COMPILER} NAME_WE)
-if(FCOMP_NAME STREQUAL mpif90)
-    ADD_DEFINITIONS(-DMPI)
-    SET(MPI_ENABLED TRUE)
-    SET(MPI_HOME "$ENV{MPI_HOME}")
-    MESSAGE("-- MPI status: enabled")
-    MESSAGE("-- MPI home:   ${MPI_HOME}")
-ENDIF(FCOMP_NAME STREQUAL mpif90)
-
-
-# BLAS/LAPACK ===============
-IF(NOT MKL_FOUND)
-    # BLAS ======================
-    SET(BLAS_ROOT ${DEVELOPMENT_ROOT}/thirdparty/blas/netlib)
-    LINK_DIRECTORIES(${BLAS_ROOT}/lib)
-    SET(BLAS_LIB_NAME fblasd)
-
-    # LAPACK =====================
-    SET(LAPACK_ROOT ${DEVELOPMENT_ROOT}/thirdparty/lapack/3.1.1)
-    LINK_DIRECTORIES(${LAPACK_ROOT}/lib)
-    SET(LAPACK_LIB_NAME flapackd)
-ELSE(NOT MKL_FOUND)
-    SET(LAPACK_LIB_NAME ${MKL_LIBS})
-ENDIF(NOT MKL_FOUND)
+# BLAS/LAPACK =================
+# setup BLAS/LAPACK either from MKL or from fallback netlib blas and lapack
+FIND_PACKAGE(BlasLapack)
 
 # NetCDFCore ==================
 SET(NETCDF_ROOT ${DEVELOPMENT_ROOT}/thirdparty/netcdfcore/4.0.1)
@@ -121,6 +100,11 @@ ELSE(HAVE_FFTW3)
     SET(SANDER_DEFS -DNDEBUG -DBINTRAJ -DPMFLIB)
 ENDIF(HAVE_FFTW3)
 
+# setup IntelCDK if available
+INCLUDE(IntelCDK)
+# setup MPI if available
+INCLUDE(OpenMPI)
+
 # ==============================================================================
 # output directories -----------------------------------------------------------
 # ==============================================================================
@@ -144,15 +128,6 @@ IF(NOT DEFINED COMPOSITE_PROJECT)
     # the RPATH to be used when installing
     SET(CMAKE_INSTALL_RPATH "${FFTW3_ROOT}/lib:${BLAS_ROOT}/lib:${LAPACK_ROOT}/lib:${NETCDF_ROOT}/lib:${PMFLIB_ROOT}/lib:${PMFLIB_ROOT}/lib/drivers:${CMAKE_BINARY_DIR}/lib")
 
-    IF(MPI_HOME)
-        SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH}:${MPI_HOME}/lib)
-    ENDIF(MPI_HOME)
-
-    SET(INTEL_CORE_HOME $ENV{INTEL_CORE_HOME})
-    IF(INTEL_CORE_HOME)
-        SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH}:${INTEL_CORE_HOME})
-    ENDIF(INTEL_CORE_HOME)
-
     # add the automatically determined parts of the RPATH
     # which point to directories outside the build tree to the install RPATH
     SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
@@ -169,23 +144,20 @@ IF(NOT DEFINED COMPOSITE_PROJECT)
 
     # get the name of fortran compiler
     get_filename_component(FCOMP_NAME ${CMAKE_Fortran_COMPILER} NAME_WE)
+    IF(MPI_ENABLED)
+        EXECUTE_PROCESS(COMMAND mpifort --showme:command OUTPUT_VARIABLE FCOMP_NAME OUTPUT_STRIP_TRAILING_WHITESPACE)
+    ENDIF(MPI_ENABLED)       
 
     # Fortran options
     SET(CMAKE_Fortran_FLAGS_RELEASE "-O2 -ffree-line-length-none")
     SET(CMAKE_Fortran_FLAGS_DEBUG "-O0 -ffree-line-length-none")
 
     # fix the problem with dynamic libraries and xlf compiler on SP5
-    IF(FCOMP_NAME STREQUAL xlf)
-        SET(CMAKE_Fortran_FLAGS_RELEASE "-O2 -qsuppress=1501-510:cmpmsg")
-        SET(CMAKE_Fortran_FLAGS_DEBUG   "-g")
-        IF(LIBS_SHARED)
-            MESSAGE(FATAL_ERROR "LIBS_SHARED is ON, which is not supported with xlf compiler!")
-        ENDIF(LIBS_SHARED)
-    ELSEIF(FCOMP_NAME STREQUAL ifort)
+    IF(FCOMP_NAME STREQUAL ifort)
         # ifort
         SET(CMAKE_Fortran_FLAGS_RELEASE "-O2 -diag-disable 8291 -diag-disable 8290")
         SET(CMAKE_Fortran_FLAGS_DEBUG "-g -traceback -check all -diag-disable 8291 -diag-disable 8290")
-    ENDIF(FCOMP_NAME STREQUAL xlf)
+    ENDIF(FCOMP_NAME STREQUAL ifort)
 
     SET(CMAKE_BUILD_TYPE Release)
     #SET(CMAKE_BUILD_TYPE Debug)
