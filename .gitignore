@@ -10,3 +10,4 @@ include/**
 tests/**
 Testing/
 sander17-pmf.creator.user
+share/bin/sander.PMF

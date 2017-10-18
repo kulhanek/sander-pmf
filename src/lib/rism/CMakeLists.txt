@@ -74,7 +74,7 @@ ADD_DEFINITIONS(${SANDER_DEFS} -DSANDER -DCONFIG_FC_UNDERSCORE)
 # create static library --------------------------------------------------------
 IF(LIBS_STATIC)
     ADD_LIBRARY(rism_static STATIC ${RISM_SRC})
-    SET_TARGET_PROPERTIES(sqm_static PROPERTIES
+    SET_TARGET_PROPERTIES(rism_shared PROPERTIES
                             OUTPUT_NAME rism
                             CLEAN_DIRECT_OUTPUT 1)
 ENDIF(LIBS_STATIC)
@@ -87,6 +87,11 @@ IF(LIBS_SHARED)
                             OUTPUT_NAME rism
                             CLEAN_DIRECT_OUTPUT 1
                             VERSION ${SANDER_PMF_VERSION})
+                            
+    TARGET_LINK_LIBRARIES(rism_shared
+            ${FFTW3_LIB_NAME}
+            )
+        
     INSTALL(TARGETS rism_shared
             DESTINATION lib)
 

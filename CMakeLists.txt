@@ -40,6 +40,12 @@ ENDIF(NOT DEVELOPMENT_ROOT)
 # ==============================================================================
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${DEVELOPMENT_ROOT}/projects/cmake-modules/1.0/share/modules")
 
+# setup IntelCDK if available
+INCLUDE(IntelCDK)
+
+# setup MPI if available
+INCLUDE(OpenMPI)
+
 # BLAS/LAPACK =================
 # setup BLAS/LAPACK either from MKL or from fallback netlib blas and lapack
 FIND_PACKAGE(BlasLapack)
@@ -51,17 +57,17 @@ INCLUDE_DIRECTORIES(${NETCDF_ROOT}/src/lib/fnetcdf SYSTEM)
 INCLUDE_DIRECTORIES(${NETCDF_ROOT}/include SYSTEM)
 SET(NETCDF_FLIB_NAME fnetcdf)
 
-# FFTW3 =======================
-SET(FFTW3_ROOT ${DEVELOPMENT_ROOT}/thirdparty/fftw/3.3.4)
-IF(EXISTS "${FFTW3_ROOT}/")
-    LINK_DIRECTORIES(${FFTW3_ROOT}/lib)
-    INCLUDE_DIRECTORIES(${FFTW3_ROOT}/include SYSTEM)
-    SET(FFTW3_LIB_NAME fftw3)
-    IF(MPI_ENABLED)
-        SET(FFTW3_LIB_NAME ${FFTW3_LIB_NAME} fftw3_mpi)     
-    ENDIF(MPI_ENABLED)
-    SET(HAVE_FFTW3 TRUE)
-ENDIF(EXISTS "${FFTW3_ROOT}/")
+## FFTW3 =======================
+#SET(FFTW3_ROOT ${DEVELOPMENT_ROOT}/thirdparty/fftw/3.3.4)
+#IF(EXISTS "${FFTW3_ROOT}/")
+#    LINK_DIRECTORIES(${FFTW3_ROOT}/lib)
+#    INCLUDE_DIRECTORIES(${FFTW3_ROOT}/include SYSTEM)
+#    SET(FFTW3_LIB_NAME fftw3)
+#    IF(MPI_ENABLED)
+#        SET(FFTW3_LIB_NAME ${FFTW3_LIB_NAME} fftw3_mpi)     
+#    ENDIF(MPI_ENABLED)
+#    SET(HAVE_FFTW3 TRUE)
+#ENDIF(EXISTS "${FFTW3_ROOT}/")
 
 # PMFLIB ======================
 SET(PMFLIB_ROOT ${DEVELOPMENT_ROOT}/projects/pmflib/5.0)
@@ -99,11 +105,6 @@ ELSE(HAVE_FFTW3)
         )
     SET(SANDER_DEFS -DNDEBUG -DBINTRAJ -DPMFLIB)
 ENDIF(HAVE_FFTW3)
-
-# setup IntelCDK if available
-INCLUDE(IntelCDK)
-# setup MPI if available
-INCLUDE(OpenMPI)
 
 # ==============================================================================
 # output directories -----------------------------------------------------------
@@ -168,14 +169,5 @@ ENDIF(NOT DEFINED COMPOSITE_PROJECT)
 # ==============================================================================
 
 ADD_SUBDIRECTORY(src)
-
-IF(MPI_ENABLED)
-    INSTALL(FILES
-                share/bin/sander.PMF
-            DESTINATION
-                bin
-            PERMISSIONS
-                OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
-            )
-ENDIF(MPI_ENABLED)
+ADD_SUBDIRECTORY(share)
 
