@@ -805,7 +805,7 @@ _REAL_ function density_deriv_atom(dist,dist0,dx)
 
    implicit none
 
-   _REAL_ dist, dist0, dx
+   _REAL_, intent (in) :: dist, dist0, dx
 
    integer m
    _REAL_, parameter :: dash(6) = (/0.00d0,0.20d0,0.40d0,0.60d0,0.80d0,1.00d0 /)
