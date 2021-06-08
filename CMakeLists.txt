@@ -2,8 +2,9 @@
 # SANDER 17.0 CMake File - Taken from AMBER16/AmberTools17 distribution archive
 # ==============================================================================
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.10 FATAL_ERROR)
 #SET(CMAKE_VERBOSE_MAKEFILE ON)
+PROJECT(SANDER-PMF)
 
 # ==============================================================================
 # conditional setup ------------------------------------------------------------
