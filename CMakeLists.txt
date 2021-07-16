@@ -18,7 +18,7 @@ SET(LIBS_STATIC             OFF CACHE BOOL "Should the static version of pmflib 
 # ==============================================================================
 
 # define project name ----------------------------
-SET(SANDER_PMF_VERSION 17.05)
+SET(SANDER_PMF_VERSION 17.06)
 
 # what languages we use --------------------------
 ENABLE_LANGUAGE(C)
