@@ -2,6 +2,10 @@
 # sander-pmf
 # ==============================================================================
 
+IF(NOT OPENMPI_MODULE)
+    SET(OPENMPI_MODULE "openmpi")
+ENDIF(NOT OPENMPI_MODULE)
+
 IF(MPI_ENABLED)
     CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/bin/sander.PMF.in ${CMAKE_CURRENT_SOURCE_DIR}/bin/sander.PMF @ONLY)
     INSTALL(FILES
