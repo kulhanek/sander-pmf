@@ -390,6 +390,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
    _REAL_           :: pmfene
    logical          :: con_modified
    integer          :: pmfexit
+   _REAL_           :: pmflibcst
    pmfene           = 0.0d0
    con_modified     = .false.
    pmfexit          = 0
@@ -2325,7 +2326,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #else
     call pmf_sander_constraints(natom,x,con_modified)
 #endif
-
     if ( (ntc .ne. 1) .or. con_modified ) then
 #else
     if (ntc .ne. 1 ) then
@@ -2381,8 +2381,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 !------------------------------------------------------------------------------
     ! Step 4b: Now fix the velocities and calculate KE.
     ! Re-estimate the velocities from differences in positions.
-    if (.not. (ipimd == NMPIMD .and. ipimd == CMD .and. mybeadid .ne. 1)) &
+    if (.not. (ipimd == NMPIMD .and. ipimd == CMD .and. mybeadid .ne. 1)) then
       v(istart3:iend3) = (x(istart3:iend3) - f(istart3:iend3))*dtxinv
+    end if
     call timer_stop(TIME_SHAKE)
   end if
   call timer_start(TIME_VERLET)

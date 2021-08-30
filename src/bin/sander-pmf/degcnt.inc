@@ -50,9 +50,15 @@
               ix(ijbh), ix(iiba), ix(ijba), idumar, idumar, ntc, idumar, 0, &
               0, 0, idumar, rndfp, rndfs)
 
+#ifdef PMFLIB
+  call pmf_sander_num_of_pmflib_cst(pmflibcst)
+#endif
+
   ! RNDFP = # degrees of freedom for solute
+  ! PMFLIBCST = # of PMFLib constraints
   ! RNDFS = # degrees of freedom for solvent
   ! RNDF = total number of degrees of freedom.
+
 #  ifdef MPI
   if (mdloop .eq. 0 .and. master) then
 #  else
@@ -65,13 +71,21 @@
       write (6,'(a,f8.0)') "|  # of SOLVENT degrees of freedom (RNDFS): ", &
         rndfs
     end if
+#ifdef PMFLIB
+    write (6,'(a,f8.0)')   "|  # of PMFLIB constraints (PMFLIBCST):     ", &
+        pmflibcst
+#endif
   end if
 
   ! qtw - substract the number of overlapping noshake QM atoms in noshakemask
   rndfp = rndfp - qmmm_struct%noshake_overlap
 
   ! Modify RNDFP to reflect NDFMIN (set in mdread) and num_noshake
+#ifdef PMFLIB
+  rndfp = rndfp - ndfmin + num_noshake - pmflibcst
+#else
   rndfp = rndfp - ndfmin + num_noshake
+#endif
   rndf = rndfp + rndfs
 #  ifdef MPI
   if (mdloop .eq. 0 .and. master) then
@@ -84,7 +98,7 @@
         write (6,'(a,i6)') "|  QMSHAKE_NOSHAKEMASK_OVERLAP = ", &
           qmmm_struct%noshake_overlap
       end if
-      write (6,'(a,f8.0,a,i6,a,f8.0)') "|  NDFMIN = ", rndfp, &
+      write (6,'(a,i6,a,i6,a,f8.0)') "|  NDFMIN = ", ndfmin, &
         "     NUM_NOSHAKE = ", num_noshake, "     CORRECTED RNDFP = ", rndfp
       write (6,'(a,f8.0)') "|  TOTAL # of degrees of freedom (RNDF) = ", rndf
     end if
