@@ -102,6 +102,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
                                 Adaptive_Thermostat_hamiltonian, &
                                 file_nhc, nchain, thermo, nthermo, Econserved
   use sgld, only: isgld, sgenergy, sgfshake, sgldw, sgmdw
+  use resamplekin_mod, only: resamplekin
 
 #ifdef LES
   ! Self-Guided molecular/Langevin Dynamics (SGLD)
@@ -386,6 +387,15 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   _REAL_ :: plumed_energyUnits, plumed_timeUnits, plumed_lengthUnits
   _REAL_ :: plumed_chargeUnits
 
+  double precision      :: target_ekin               !< Target EKIN, used in Bussi's thermostat
+#ifdef LES
+  double precision      :: target_ekin_les           !< Target EKIN, used in Bussi's thermostat
+#endif
+  integer               :: target_ekin_update_nstep  !< Target EKIN update rate, used in Bussi's thermostat
+
+  logical               :: update_bussi_target_kin_energy_on_current_step
+  logical               :: update_kin_energy_on_current_step
+
 #if defined PMFLIB
    _REAL_           :: pmfene
    logical          :: con_modified
@@ -395,7 +405,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
    con_modified     = .false.
    pmfexit          = 0
 #endif
-  
+
 !------------------------------------------------------------------------------
 !  execution/initialization begins here:
 
@@ -583,10 +593,12 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       write (6,'(a,f8.2)')"non-LES target kinetic energy: ",ekinp0
     end if
   end if
+  target_ekin_les = ekinles0
 #else
   ekins0 = fac(3)*temp0
   ekin0  = fac(1)*temp0
 #endif
+  target_ekin = ekin0
 
 #ifdef LES
   if (abfqmmm_param%abfqmmm /= 1) then
@@ -632,7 +644,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 !------------------------------------------------------------------------------
   ! Constant pH setup 
   if (icnstph /= 0 .and. mdloop .eq. 0) call cnstphinit(x, ig)
-  if (ntt == 1) dttp = dt/tautp
+  if (ntt == 1 .or. ntt == 11) dttp = dt/tautp
   if (ntp > 0) dtcp = comp * 1.0d-06 * dt / taup
 
 !------------------------------------------------------------------------------
@@ -974,12 +986,15 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       ekinles0 = fac(3) * temp0les
       ekin0 = ekinp0 + ekinles0
     end if
+
+    target_ekin_les = ekinles0
 #else
     ekins0 = fac(3) * temp0
     ekin0 = fac(1) * temp0
 #endif
+    target_ekin = ekin0
 
-    if (ntt == 1) dttp = dt / tautp
+    if (ntt == 1  .or. ntt == 11) dttp = dt / tautp
     if (ntp > 0) then
       ener%volume = volume
       ener%density = tmass / (0.602204d0*volume)
@@ -1687,6 +1702,11 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   ! changed by MODWT during FORCE call).
   ekinp0 = fac(2)*temp0
 
+  target_ekin_update_nstep = tautp / dt
+  update_bussi_target_kin_energy_on_current_step = (ntt==11 .and. target_ekin_update_nstep /=0 .and. &
+      mod(total_nstep, target_ekin_update_nstep)==0)
+  update_kin_energy_on_current_step = ntt==1 .or. onstep .or. update_bussi_target_kin_energy_on_current_step
+
 #ifdef LES
   ! TEMP0LES may have changed too
   ekinles0=0.d0
@@ -1698,11 +1718,15 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ekins0 = fac(3)*temp0
     ekin0 = fac(1)*temp0
   end if
+  target_ekin_les = ekinles0
 #else
   ekins0 = fac(3)*temp0
   ekin0 = fac(1)*temp0
 #endif /* LES */
-  if (ntt == 1) dttp = dt/tautp
+
+  target_ekin = ekin0
+
+  if (ntt == 1 .or. ntt == 11) dttp = dt/tautp
 
 !------------------------------------------------------------------------------
   ! Pressure coupling:
@@ -2561,19 +2585,53 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ekeles = ekeles * 0.5d0
     ekphles = ekphles * 0.5d0
 #endif /* LES */
-    if (ntt == 1) then
+
+    if (ntt == 1 .or. update_bussi_target_kin_energy_on_current_step) then
+      if (ntt == 1) then
 #ifdef LES
-      if (temp0les < 0.d0) then
-        scaltp = sqrt(1.d0 + 2.d0*dttp*(ekin0-eke)/(ekmh+ekph))
-      else
-        scaltp = sqrt(1.d0 + 2.d0*dttp*(ekinp0-eke)/(ekmh+ekph))
-        scaltles = sqrt(1.d0 + 2.d0*dttp*(ekinles0-ekeles)/(ekmhles+ekphles))
-      end if
+        if (temp0les < 0.d0) then
+          scaltp = sqrt(1.d0 + 2.d0*dttp*(ekin0-eke)/(ekmh+ekph))
+        else
+          scaltp = sqrt(1.d0 + 2.d0*dttp*(ekinp0-eke)/(ekmh+ekph))
+          scaltles = sqrt(1.d0 + 2.d0*dttp*(ekinles0-ekeles)/(ekmhles+ekphles))
+        end if
 #else
-      ! Following is from T.E. Cheatham, III and B.R. Brooks,
-      ! Theor. Chem. Acc. 99:279, 1998.
-      scaltp = sqrt(1.d0 + 2.d0*dttp*(ekin0-eke)/(ekmh+ekph))
+        ! Following is from T.E. Cheatham, III and B.R. Brooks,
+        ! Theor. Chem. Acc. 99:279, 1998.
+        scaltp = sqrt(1.d0 + 2.d0*dttp*(ekin0-eke)/(ekmh+ekph))
 #endif /* LES */
+      ! }}}
+      else if (update_bussi_target_kin_energy_on_current_step) then
+#ifdef LES
+        if (temp0les < 0.d0) then
+          target_ekin  = resamplekin(eke, ekin0, int(rndf, 4), dttp)
+          scaltp = sqrt(target_ekin/eke)
+        else
+          target_ekin  = resamplekin(eke, ekinp0, int(rndf, 4), dttp)
+          scaltp = sqrt(target_ekin/eke)
+
+          target_ekin_les  = resamplekin(ekeles, ekinles0, int(rndf, 4), dttp)
+          scaltles = sqrt(target_ekin/eke)
+        end if
+#else
+        target_ekin  = resamplekin(eke, ekin0, int(rndf, 4), dttp)
+        scaltp = sqrt(target_ekin/eke)
+#endif
+      endif
+
+!    if (ntt == 1) then
+!#ifdef LES
+!      if (temp0les < 0.d0) then
+!        scaltp = sqrt(1.d0 + 2.d0*dttp*(ekin0-eke)/(ekmh+ekph))
+!      else
+!        scaltp = sqrt(1.d0 + 2.d0*dttp*(ekinp0-eke)/(ekmh+ekph))
+!        scaltles = sqrt(1.d0 + 2.d0*dttp*(ekinles0-ekeles)/(ekmhles+ekphles))
+!      end if
+!#else
+!      ! Following is from T.E. Cheatham, III and B.R. Brooks,
+!      ! Theor. Chem. Acc. 99:279, 1998.
+!      scaltp = sqrt(1.d0 + 2.d0*dttp*(ekin0-eke)/(ekmh+ekph))
+!#endif /* LES */
 
 #ifdef MPI /* SOFT CORE */
       if (icfe .ne. 0) then

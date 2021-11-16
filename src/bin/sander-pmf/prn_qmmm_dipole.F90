@@ -121,7 +121,7 @@ subroutine qmmm_dipole(coord,mass,ipres,lbres,nres)
             totaldipol=sqrt(mmdipole(1)**2+mmdipole(2)**2+mmdipole(3)**2)
 
             write(6,'(" ","          ","       X    ","    Y    ","    Z    "," TOTAL  ")')
-            write(6,'(" "," MM DIPOLE ",F9.3,F9.3,F9.3,F9.3)'), mmdipole(1:3), totaldipol
+            write(6,'(" "," MM DIPOLE ",F9.3,F9.3,F9.3,F9.3)') mmdipole(1:3), totaldipol
             
             !Computing the QM dipole moment
             call qm2_calc_dipole(qm_cm_coord)

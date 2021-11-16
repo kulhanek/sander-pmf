@@ -532,6 +532,10 @@
          write(6,'(5x,3(a,f10.5))') 'temp0   =',temp0, &
                ', tempi   =',tempi,', gamma_ln=', gamma_ln
          write(6,'(5x,a,i10,a,f12.5,/)') 'nkija   =',nkija,', sinrtau  =',sinrtau
+      else if (ntt == 11) then
+         write(6, '(/a)') 'Bussi temperature regulation:'
+         write(6, '(5x,3(a,f10.5))') 'temp0   =', temp0, &
+               ', tempi   =', tempi, ', tautp   =', tautp
       end if
 
       if( ntp /= 0 ) then
@@ -1794,11 +1798,11 @@
       DELAYED_ERROR
    end if
 
-   if (ntt < 0 .or. ntt > 10) then                                      ! APJ
+   if (ntt < 0 .or. ntt > 11) then                                      ! APJ
       write(6,'(/2x,a,i3,a)') 'NTT (',ntt,') must be between 0 and 10.' ! APJ
       DELAYED_ERROR
    end if
-   if (ntt == 1 .and. tautp < dt) then
+   if ((ntt == 1 .or. ntt==11) .and. tautp < dt) then
       write(6, '(/2x,a,f6.2,a)') 'TAUTP (',tautp,') < DT (step size)'
       DELAYED_ERROR
    end if

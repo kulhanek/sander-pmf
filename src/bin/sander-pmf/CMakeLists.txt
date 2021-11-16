@@ -5,6 +5,8 @@
 # program objects --------------------------------------------------------------
 SET(SANDER_SRC
 # -----------------------------------
+        boost-gamma-distribution.cpp
+# -----------------------------------
         ../../lib/sebomd/se_deeprec.F90
         ../../lib/sebomd/se_info_from_sander.F90
         ../../lib/sebomd/se_mpi_vars.F90
@@ -309,6 +311,7 @@ nfe-value.F90
         pol_gauss.F90
         ew_bndpol.F90
         sinr_t.F90
+        resamplekin.F90
         )
 
 
