@@ -180,7 +180,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
   ! SINR (Stochastic Isokinetic Nose-Hoover RESPA integrator)
   use sinr_t
-                      
+
   ! Local variables
   !  factt       : degree-of-freedom correction factor for temperature scaling
   !  nr          : local copy of nrp, number of atoms
@@ -263,7 +263,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #include "def_time.h"
 #include "extra_pts.h"
 #include "../pbsa/pb_md.h"
-      
+
 #ifdef LES
   ! additional variables for PIMD and LES
   _REAL_  :: xcmd(3*natomCL), vcmd(3*natomCL), vscalt
@@ -288,12 +288,12 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   _REAL_  Ekin2_tot,tmp
   integer :: idim
   _REAL_ :: E_nhc, exp1, exp2
-   
+
   logical ivscm
   logical qspatial
   logical resetvelo
   _REAL_ etot_save,ekpbs
-   
+
   logical do_list_update
   logical skip(*), belly, lout, loutfm, erstop, vlim, onstep
   _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), xr(*), xc(*), conp(*)
@@ -348,7 +348,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   _REAL_ r(3),cm(3),angvel(3),erot,moi,proj(3),rxv(3)
 #  endif
 #endif
-   
+
   integer nvalid, nvalidi
   _REAL_ eke
 
@@ -364,7 +364,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
   _REAL_,parameter :: pressure_constant = 6.85695d+4
   ! variables used in constant pressure PIMD
-  _REAL_ :: Nkt,centvir,pressure, aa, arg2, poly, e2, e4, e6, e8 
+  _REAL_ :: Nkt,centvir,pressure, aa, arg2, poly, e2, e4, e6, e8
   _REAL_ :: box_center(3)
 
 #ifdef MPI
@@ -379,7 +379,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #endif
 
   _REAL_ :: kinetic_E_save(2)
-  integer :: aqmmm_flag 
+  integer :: aqmmm_flag
 
   ! PLUMED related variables
   _REAL_ :: plumed_box(3,3), plumed_virial(3,3), plumed_kbt
@@ -499,7 +499,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   if (.not. allocated(f_or)) allocate(f_or(nr3))
   if (abfqmmm_param%abfqmmm == 1) then
 #ifdef MPI
-    call xdist(v, xx(lfrctmp), natom) 
+    call xdist(v, xx(lfrctmp), natom)
 #endif
     if (abfqmmm_param%system == 1) then
       if (abfqmmm_param%qmstep == 1) then
@@ -514,7 +514,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       v(1:nr3+iscale) = abfqmmm_param%v(1:nr3+iscale)
     endif
   endif
-   
+
   ! Cleanup the velocity if belly run
   if (belly) call bellyf(nr,ix(ibellygp),v)
 
@@ -532,7 +532,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   dtxinv = 1.0d0 / dtx
   dt5 = dtx * 0.5d0
   pconv = pconv*4.184d0
-   
+
   ! fac() are #deg freedom * kboltz / 2.  Multiply by T to get the expected
   ! kinetic energy.  fac(1) is for the entire system.
   fac(1) = boltz2*rndf
@@ -543,7 +543,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   ! Replaced solvent variables with LES ones
   ! since separate solvent coupling no longer used
   ! ASSUME SAME COUPLING CONSTANT FOR BOTH BATHS, just different target T
-  
+
   ! will also have to accumulate LES and non-LES kinetic energies separately
   if (temp0les < 0.d0) then
     fac(3) = boltz2*rndfs
@@ -567,14 +567,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   onefac(2) = 1.0d0 / fac(2)
   onefac(3) = 1.0d0 / fac(3)
   factt = rndf/(rndf+ndfmin)
-   
+
   ! These are "desired" kinetic energies based on the number of
   ! degrees of freedom and target temperature.  They will be used
-  ! for calculating the velocity scaling factor  
+  ! for calculating the velocity scaling factor
   ekinp0 = fac(2)*temp0
 #ifdef LES
-   
-  ! Modified for LES temperature   
+
+  ! Modified for LES temperature
   ekins0=0.d0
   ekinles0=0.d0
   if (temp0les < 0.d0) then
@@ -642,7 +642,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   end if
 
 !------------------------------------------------------------------------------
-  ! Constant pH setup 
+  ! Constant pH setup
   if (icnstph /= 0 .and. mdloop .eq. 0) call cnstphinit(x, ig)
   if (ntt == 1 .or. ntt == 11) dttp = dt/tautp
   if (ntp > 0) dtcp = comp * 1.0d-06 * dt / taup
@@ -668,7 +668,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
   nrek = 4
   nrep = 15
-  
+
   nvalid = 0
   nvalidi = 0
   nstep = 0
@@ -717,7 +717,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   ! Transform cartesian positions into normal mode positions for
   ! (Normal Mode) Path Integral Molecular Dynamics (PIMD)
   if (ipimd == NMPIMD .or. ipimd == CMD) call trans_pos_cart_to_nmode(x)
-  
+
 !------------------------------------------------------------------------------
   ! Make a first dynamics step.
   ! init = 3: general startup if not continuing a previous run
@@ -732,7 +732,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       xr(1:nr3) = x(1:nr3)
       call ekcmr(nspm, nsp, tma, ener%cmt, xr, v, amass, 1, nr)
     end if
-      
+
     ! Calculate the force.  Set irespa to get full
     ! energies calculated on step "0":
     irespa = 0
@@ -844,7 +844,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #endif /* MPI */
     endif
     ! End branches into Normal Mode Path Integral MD, Centroid MD, Linearized
-    ! Semi-Classical Initial Value Representation 
+    ! Semi-Classical Initial Value Representation
 
 !------------------------------------------------------------------------------
     ! Semi-Empirical Born-Oppenheimer Molecular Dynamics:
@@ -967,7 +967,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     end if
 #endif /* MPI SOFT CORE */
     irespa = 1
-      
+
 !------------------------------------------------------------------------------
     ! Reset quantities depending on temp0 and tautp (which may have been
     ! changed by modwt during the call to force()).  Recalculate target
@@ -975,7 +975,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ekinp0 = fac(2) * temp0
 
 #ifdef LES
-   
+
     ! Modified for LES temperature, not solvent
     ekins0 = 0.d0
     ekinles0 = 0.d0
@@ -1015,7 +1015,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ntnb = 0
     i3 = 0
     tempsu = 0.0d0
-      
+
 #ifdef LES
     ! Added LES tempsu (actual LES sum of m*v**2 )
     tempsules = 0.0d0
@@ -1031,7 +1031,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         if (temp0les < 0.d0) then
           tempsu = tempsu + rterm
           if (ipimd == CMD .and. (cnum(j) == 0 .or. cnum(j) == 1)) then
-            eke_cmd = eke_cmd + aamass*v(i3)*v(i3) 
+            eke_cmd = eke_cmd + aamass*v(i3)*v(i3)
           endif
         else
           if (cnum(j) == 0) then
@@ -1108,11 +1108,11 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #else
       ekmh = max(ener%kin%solt,fac(1)*10.d0)
 #endif /* LES */
-    end if     
+    end if
   end if
   ! This ends a HUGE conditional branch in which init == 3, general startup
   ! when not continuing a previous dynamics run.
-   
+
 
 !------------------------------------------------------------------------------
   ! What follows applies to the case of init = 4: continuation of a previous
@@ -1157,7 +1157,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     sc_ener(13) = sc_ener(6) + sc_ener(12)
   end if
 #endif /* MPI */
-   
+
    do im = 1, iscale
       ekmh = ekmh + scalm*v(nr3+im)*v(nr3+im)
    end do
@@ -1175,7 +1175,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     call emil_init(natom, 1.0/(temp0 * 2 * boltz2 ), &
                    mass, xx(lcrd), f, v, ener%box)
 #endif /* EMIL */
-   
+
   ! Adjust the step count if Adaptive Buffered Force QM/MM is in effect
   if (abfqmmm_param%abfqmmm == 1) then
     nstep=abfqmmm_param%qmstep
@@ -1187,10 +1187,10 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   ! is in effect, do this branch.
   if (init .ne. 4 .or. nstlim == 0 .or. &
       (abfqmmm_param%abfqmmm == 1 .and. abfqmmm_param%system == 1)) then
-      
+
     ! Print the initial energies and temperatures
 #ifdef RISMSANDER
-      
+
     if (rismprm%rism == 1 .and. rismprm%write_thermo==1 .and. &
         nstep <= 0 .and. facc .ne. 'A') then
       if (rism_calc_type(0) == RISM_FULL) then
@@ -1201,7 +1201,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         end if
       end if
     end if
-#endif /* RISMSANDER */      
+#endif /* RISMSANDER */
     if ((nstep <= 0 .and. master .and. facc .ne. 'A') .or. &
         (master .and. abfqmmm_param%abfqmmm == 1 .and. &
         (ntpr > 0 .and. mod(abfqmmm_param%qmstep,ntpr) == 0))) then
@@ -1262,7 +1262,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       call xdist(x, xx(lfrctmp), natom)
       call xdist(v, xx(lfrctmp), natom)
 #endif
-      if (master) then 
+      if (master) then
         call mdwrit(nstep, nr, ntxo, ntb, x, v, t, temp0)
         if (ntwx>0) call corpac(x, 1, nrx, MDCRD_UNIT, loutfm)
         if (ntwv>0) call corpac(v, 1, nrx, MDVEL_UNIT, loutfm)
@@ -1279,14 +1279,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     REQUIRE(ipimd == NMPIMD)
 #ifdef LES
     call part_setup_cnst_press_pimd(Nkt, tau_vol)
-#else     
+#else
     call full_setup_cnst_press_pimd(Nkt, tau_vol)
 #endif
     e2 = 1.0 / (2.0*3.0)
     e4 = e2 / (4.0*5.0)
     e6 = e4 / (6.0*7.0)
     e8 = e6 / (8.0*9.0)
-    x_lnv = log(box(1)*box(2)*box(3)) / 3 
+    x_lnv = log(box(1)*box(2)*box(3)) / 3
   end if
 
 !------------------------------------------------------------------------------
@@ -1346,14 +1346,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   ! End of contingency for Centroid MD with constant pressure conditions
 
 #ifdef MPI
-  ! If this is a replica run and we are on exchange > 1, restore the 
+  ! If this is a replica run and we are on exchange > 1, restore the
   ! old ekmh value since it was reset after we left runmd last time.
   ! DAN ROE: Only for ntt==1??
   if (rem /= 0 .and. mdloop >= 1) ekmh = remd_ekmh
 #endif
 
 !------------------------------------------------------------------------------
-#include "oininit.F90"  
+#include "oininit.F90"
   !  code initializing the OIN integrator:
   if (ntt == 10) then
 
@@ -1366,7 +1366,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #endif
     if (irest == 1) then
       call sinr_read_vels(v, sinrtau, sinrdata)
-    else 
+    else
       call init_sinr_vels(v, amass, sinrdata)
     endif
 
@@ -1407,7 +1407,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       end if
     end if
   end if
-  
+
   ! EVB reactive flux: driver for coordinating backward and
   ! forward propagation as well as for enforcing stopping criteria
 #if defined(MPI)
@@ -1416,13 +1416,13 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
      call react_flux(x, v, f, winv, tempi*factt, dt5, dtx, nr, nstep, nstlim)
    endif
 #endif
- 
+
 !------------------------------------------------------------------------------
   ! Step 1a: do some setup for pressure calculations:
   if (ntp > 0 .and. iamoeba == 0 .and. ipimd==0) then
     ener%cmt(1:3) = 0.d0
     xr(1:nr3) = x(1:nr3)
-      
+
     ! Calculate, for each molecule, the center of mass, kinetic energy
     ! of the center of mass, and the coordinates of the molecule
     ! relative to that center of mass.
@@ -1562,7 +1562,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #ifdef MPI
     call mpi_bcast(abfqmmm_param%f, 3*natom, mpi_double_precision, 0, &
                    commsander, ierr)
-#endif 
+#endif
     f_or(1:nr3) = abfqmmm_param%f(1:nr3)
     f(1:nr3) = abfqmmm_param%f(1:nr3)
   end if
@@ -1572,9 +1572,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekpbs,ekph,pmfene)
 #else
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekpbs,ekph,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
     ener%pot%tot = ener%pot%tot + pmfene
@@ -1666,7 +1666,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
           end if
         end if
 
-        ! This includes the sc-dvdl contribution into the vdw-part 
+        ! This includes the sc-dvdl contribution into the vdw-part
         ! and potential energy parts of the dvdl-statistics
         if (ifsc == 1) call adj_dvdl_stat(edvdl, edvdl_r)
       end if
@@ -1905,7 +1905,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   end if
   if (resetvelo) then
 
-    ! DAN ROE: Why are only the masters doing this?  Even if the velocities 
+    ! DAN ROE: Why are only the masters doing this?  Even if the velocities
     ! are broadcast to the child processes, the wont the different # of random
     ! calls put the randomg num generators out of sync, or do we not care?
     if (master) then
@@ -1941,9 +1941,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #endif /* MPI */
 
     ! At this point in the code, the velocities lag the positions by
-    ! half a timestep.  If we intend for the velocities to be drawn 
+    ! half a timestep.  If we intend for the velocities to be drawn
     ! from a Maxwell distribution at the timepoint where the positions
-    ! and velocities are synchronized, we must correct the new velccities 
+    ! and velocities are synchronized, we must correct the new velccities
     ! velocities by backing them up half a step using the current forces.
     ! Note that this fix only works for Newtonian dynamics.
     if (gammai == 0.d0 .and. (ipimd .ne. NMPIMD .or. ipimd .ne. CMD)) then
@@ -1955,7 +1955,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         v(i3+3) = v(i3+3) - f(i3+3)*wfac
         i3 = i3+3
       end do
-    end if    
+    end if
   end if
   ! End contingency for velocity reset in Andersen temperature coupling
 
@@ -2086,7 +2086,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
 !------------------------------------------------------------------------------
   else if (gammai == 0.d0) then
-      
+
     ! Newtonian dynamics: applying guiding force effect:
     if (isgld > 0) &
       call sgmdw(natom, istart, iend, ntp, dtx, ener, amass, winv, x, f, v)
@@ -2180,14 +2180,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         call gauss(0.d0, 1.d0, fln)
       end do
 #ifdef MPI /* SOFT CORE */
-    end if ! for (ifsc==1) call sc_lngdyn 
+    end if ! for (ifsc==1) call sc_lngdyn
 #endif
   end if  ! ( gammai == 0.d0 )
   ! End case switch for various thermostats, the last being the case of
   ! gammai not equl to zero, Langevin dynamics.
 
 !------------------------------------------------------------------------------
-  ! Update EMAP rigid domains 
+  ! Update EMAP rigid domains
   if (temap) call emap_move()
 
   ! Consider vlimit
@@ -2220,7 +2220,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ! Test if forces are to be written this step
     ifdump = .false.
     if (ntwf > 0) ifdump = (mod(total_nstep+1,ntwf) == 0)
-    if (ntwf == -1 .and. mod(total_nstep+1,ntwx) == 0) ifdump = .true. 
+    if (ntwf == -1 .and. mod(total_nstep+1,ntwx) == 0) ifdump = .true.
     ! ABF QM/MM has a combined coordinate and force file:
     ! never write forces by themselves for this type of dynamics
     if (abfqmmm_param%abfqmmm == 1) ifdump = .false.
@@ -2304,7 +2304,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     do i3 = istart3, iend3
       f(i3) = x(i3)
     end do
-  else    
+  else
     do i3 = istart3, iend3
       f(i3) = x(i3)
       x(i3) = x(i3) + v(i3)*dtx
@@ -2342,7 +2342,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   end do
 
   call timer_stop(TIME_VERLET)
-   
+
 !------------------------------------------------------------------------------
 #ifdef PMFLIB
 #ifdef MPI
@@ -2363,7 +2363,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     if (ntc .ne. 1 ) then
 #endif
 
-    if (isgld > 0) call sgfshake(istart, iend, dtx, amass, x, .false.)   
+    if (isgld > 0) call sgfshake(istart, iend, dtx, amass, x, .false.)
     qspatial = .false.
     call shake(nrp, nbonh, nbona, 0, ix(iibh), ix(ijbh), ix(ibellygp), &
                winv, conp, skip, f, x, nitp, belly, ix(iifstwt), &
@@ -2375,7 +2375,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     end if
 
     ! Including constraint forces in self-guiding force calculation
-    if (isgld > 0) call sgfshake(istart, iend, dtx, amass, x, .true.)   
+    if (isgld > 0) call sgfshake(istart, iend, dtx, amass, x, .true.)
 
 #ifdef PMFLIB
     end if
@@ -2428,7 +2428,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ekpbs = 0.d0
 #ifdef LES
     ekeles = 0.d0
-    ekphles = 0.d0 
+    ekphles = 0.d0
 #endif
     eke_cmd = 0.d0
     if (gammai == 0.0d0) then
@@ -2492,6 +2492,11 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
           else
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
           end if
+
+          ! Try pseudo KE from Eq. 4.7b of Pastor, Brooks & Szabo,
+          ! Mol. Phys. 65, 1409-1419 (1988):
+          ekpbs = ekpbs + aamass*v(i3)*vold(i3)
+          ekph = ekph + aamass*v(i3)**2
 #endif
         end do
       end do
@@ -2564,14 +2569,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #    endif
     end if
 #  endif
-      
+
     ! Calculate Ekin of the softcore part of the system
     if (ifsc .ne. 0) then
       call calc_softcore_ekin(amass, v, vold, istart, iend)
       sc_ener(13) = sc_ener(6) + sc_ener(12)
-    end if      
+    end if
 #endif
-      
+
     ! All processors handle the "extra" variables:
     do im = 1, iscale
       eke = eke + scalm*0.25d0*(v(nr3+im) + vold(nr3+im))**2
@@ -2669,7 +2674,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         v(nr3+im) = v(nr3+im)*scaltp
       end do
     end if
-    ! End contingency for Berendsen thermostat (ntt == 1)    
+    ! End contingency for Berendsen thermostat (ntt == 1)
   end if
   ! End contingency for Berendsen thermostat or onstep; end of step 4c
   !    (also: end of big section devoted to estimating the kinetic energy)
@@ -2769,7 +2774,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
   ! DAC/knut change: force the coordinates to be the same on both masters.
   ! For certain compilers, addition may not be strictly commutative, so
-  ! the forces on group 0 may be different by roundoff from the forces on 
+  ! the forces on group 0 may be different by roundoff from the forces on
   ! group 1.  This can lead to divergent trajectories.  The interval at
   ! which they are resynchronized is hard-wired here to 20, which seems to
   ! work fine in our tests.
@@ -2806,7 +2811,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #ifdef MPI
   if (.not. mpi_orig .and. numtasks > 1) then
     call timer_start(TIME_DISTCRD)
-     
+
 !------------------------------------------------------------------------------
     ! Here we provide every processor a full copy of the velocities
     ! for removal of center of mass motion, or for archiving.
@@ -2825,19 +2830,19 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   call timer_start(TIME_VERLET)
   ! This is the end of major broadcasting operations for parallel runs
 #endif  /* MPI */
-   
+
 !------------------------------------------------------------------------------
   ! Step 6: zero COM velocity if requested.  This is used for preventing
   ! the "block of ice flying thru space" phenomenon (caused by Berendsen
-  ! thermocoupling, or by coarse Ewald approximations).  It also 
+  ! thermocoupling, or by coarse Ewald approximations).  It also
   ! prevents accumulations of rotational momentum in vacuum simulations.
   if (ivscm) then
     if (mod(nstep,nsnb) == 0) ntnb = 1
     if (ifbox == 0) then
       if (is_langevin) then
 
-        ! Get current center of the system 
-        call get_position(nr, x, vcmx, vcmy, vcmz, sysrange, 0)       
+        ! Get current center of the system
+        call get_position(nr, x, vcmx, vcmy, vcmz, sysrange, 0)
 #ifdef MPI /* SOFT CORE */
         if (ifsc == 1) call sc_mix_position(vcmx, vcmy, vcmz, clambda)
 #endif /* MPI */
@@ -2859,7 +2864,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       end if
     else
 
-      ! This must be checked, as the branch is based on ifbox 
+      ! This must be checked, as the branch is based on ifbox
       if (.not. is_langevin) then
 
         ! Periodic simulation: just remove the translational velocity:
@@ -2890,7 +2895,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
           v(i+1) = v(i+1) - vcmy
           v(i+2) = v(i+2) - vcmz
         end do
-           
+
 #ifdef MPI /* SOFT CORE */
         if (icfe == 1) then
           if (ifsc == 1) then
@@ -2905,7 +2910,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ! End of contingency for isolated, non-periodic systems (ifbox == 0)
   end if
   ! End of contingency for zeroing system center of mass velocity
-  
+
 !------------------------------------------------------------------------------
   !  Also zero out the non-moving velocities if a belly is active:
   if (belly) call bellyf(nr, ix(ibellygp), v)
@@ -3020,7 +3025,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     if (ntp > 0) then
       box(1:3) = box(1:3)*rmu(1:3)
       ener%box(1:3) = box(1:3)
-        
+
       ! WARNING!!   This is not correct for non-orthogonal boxes if
       ! NTP > 1 (i.e. non-isotropic scaling).  Currently, general cell
       ! updates which allow cell angles to change are not implemented.
@@ -3034,7 +3039,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
 #ifdef MPI /* SOFT CORE */
       ! If softcore potentials and the dual topology approach are used
-      ! C.O.M. scaling has to be changed to account for different masses 
+      ! C.O.M. scaling has to be changed to account for different masses
       ! of the same molecule in V0 and V1. This is quite inefficient and is
       ! therefore done in a separate routine in softcore.f
       ! only both masters actually do the computation for ifsc==1
@@ -3074,7 +3079,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       call fill_tranvec()
     end if
   end if
-   
+
 #ifdef LES
   ener%kin%solt = eke
   ener%kin%solv = ekeles
@@ -3103,13 +3108,13 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ! Pastor, Brooks, Szabo conserved quantity
     ! for harmonic oscillator: Eq. 4.7b of Mol.
     ! Phys. 65:1409-1419, 1988
-    ener%kin%solv = ekpbs + ener%pot%tot  
+    ener%kin%solv = ekpbs + ener%pot%tot
   endif
   ener%kin%solt = eke
   ener%kin%tot  = ener%kin%solt
   if (ntt == 1 .and. onstep) ekmh = max(ekph,fac(1)*10.d0)
 #endif /* LES */
-   
+
   ! If velocities were reset, the KE is not accurate; fudge it
   ! here to keep the same total energy as on the previous step.
   ! Note that this only affects printout and averages for Etot
@@ -3136,7 +3141,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
 !------------------------------------------------------------------------------
   ! Step 8: update the step counter and the integration time:
-  if (abfqmmm_param%abfqmmm .ne. 1) then   
+  if (abfqmmm_param%abfqmmm .ne. 1) then
     nstep = nstep + 1
     t = t + dt
   end if
@@ -3146,7 +3151,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     nstep_cmd = nstep_cmd + 1
     t_cmd = t_cmd + dt
   end if
-   
+
   ! Full energies are only calculated every nrespa steps.
   ! nvalid is the number of steps where all energies are calculated.
   if (onstep .or. aqmmm_flag > 0) then
@@ -3178,7 +3183,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
 !------------------------------------------------------------------------------
     ! Passing of dvdl=dV/dl for Thermodynamic Integration w.r.t. mass
-    ! Note that ener(39) (in runmd and mix_frcti) = 
+    ! Note that ener(39) (in runmd and mix_frcti) =
     !       = ener(17) = ene(21) (in force). All denote dvdl.
     ! Note, ener() is now historical, MJW Feb 2010
     if (ipimd>0 .and. itimass>0) totener%pot%dvdl = ener%pot%dvdl
@@ -3211,7 +3216,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   lout = .false.
   if (ntpr > 0) lout = (mod(total_nstep,ntpr) == 0 .and. onstep)
   irespa = irespa + 1
-     
+
   ! Reset flags related to Poisson-Boltzmann electrostatics
 #ifdef MPI
   if (mytaskid == 0) then
@@ -3271,7 +3276,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #ifdef MPI
       end if
 #endif /* MPI */
-    end if 
+    end if
 
     ! ScaledMD: Flush scaledMDlog file
     if (scaledMD > 0) then
@@ -3410,7 +3415,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       ! Write out current replica#, exchange#, step#, and mytargettemp
       ! If mdloop==0 this is a normal md run (since REMD never calls
       ! corpac when mdloop==0) and we don't want the REMD header.
-      ! total_nstep is set in step 5. 
+      ! total_nstep is set in step 5.
       if (mdloop > 0 .and. loutfm) then
         if (trxsgld) then
           write (MDCRD_UNIT,'(a,4(1x,i8))') "RXSGLD ", repnum, mdloop, &
@@ -3542,7 +3547,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #endif /* MPI */
 
 !------------------------------------------------------------------------------
-    ! General printed output:  
+    ! General printed output:
     if (lout) then
       if (facc .ne. 'A') rewind(7)
 
@@ -3735,7 +3740,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         write(6,*) '----------------------------- END DIPOLE INFO -&
                     &-------------------------------'
       end if
-      ! End of dipole printing 
+      ! End of dipole printing
 
       if (nmropt > 0) call nmrptx(6)
       if (itgtmd == 2) then
@@ -3747,7 +3752,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       call amflsh(7)
     end if
     ! end of giant "if (lout)" continengy related to data output
-     
+
 !------------------------------------------------------------------------------
     ! Output running averages:
     ! total_nstep = Total nstep REMD/MD, set in step 5
@@ -3797,7 +3802,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
             end if
             sc_ener_tmp2(m) = sqrt(sc_ener_tmp2(m))
           end do
-        end if         
+        end if
         if (ievb .ne. 0) evb_frc%evb_ave = .true.
 #endif
 #ifdef RISMSANDER
@@ -3838,7 +3843,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         write(6,542)
       end if
     end if
-    ! End contingency to output running averages (ntave)      
+    ! End contingency to output running averages (ntave)
   end if
   ! End output work on the master process
 
@@ -3872,7 +3877,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 #endif
 
 !------------------------------------------------------------------------------
-  ! Major cycle back to new step unless we have reached our limit:  
+  ! Major cycle back to new step unless we have reached our limit:
   call trace_integer( 'end of step', nstep )
   call trace_output_mpi_tally( )
   call timer_stop(TIME_VERLET)
@@ -3905,7 +3910,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     call xdist(v, xx(lfrctmp), natom)
 #endif
     abfqmmm_param%v(1:nr3+iscale) = v(1:nr3+iscale)
-    deallocate(f_or, stat=ierr) 
+    deallocate(f_or, stat=ierr)
     return
   end if
 
@@ -3921,14 +3926,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
   480 continue
 
-#ifdef MPI     
+#ifdef MPI
 !------------------------------------------------------------------------------
   ! Replica Exchange MD post-dynamics work
   if (next_rem_method == 1) then
     remd_ekmh = ekmh
 
     ! Hybrid REMD
-    if (numwatkeep >= 0) then 
+    if (numwatkeep >= 0) then
       ! This is a hybrid REMD run. Get energy of
       ! stripped system for next exchange.
       call hybrid_remd_ene(xx, ix, ih, ipairs, qsetup, numwatkeep, hybridgb, &
@@ -3937,8 +3942,8 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     else
 
       ! The positions are currently one step ahead of the energy ener%pot%tot,
-      ! since force was called prior to the position propagation. Thus, call 
-      ! force one more time to update ener%pot%tot to reflect the current 
+      ! since force was called prior to the position propagation. Thus, call
+      ! force one more time to update ener%pot%tot to reflect the current
       ! coordinates.
       call force(xx, ix, ih, ipairs, x, f, ener, ener%vir, xx(l96), xx(l97), &
                  xx(l98), xx(l99), qsetup, do_list_update, nstep)
@@ -4027,8 +4032,8 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       if (ievb .ne. 0) then
         evb_nrg_ave(:) = evb_nrg_ave(:) / tspan
         evb_nrg_rms(:) = evb_nrg_rms(:) / tspan - evb_nrg_ave(:)**2
-        evb_nrg_rms(:) = max( evb_nrg_rms(:), 0.0d0 ) 
-        evb_nrg_rms(:) = sqrt( evb_nrg_rms(:) ) 
+        evb_nrg_rms(:) = max( evb_nrg_rms(:), 0.0d0 )
+        evb_nrg_rms(:) = sqrt( evb_nrg_rms(:) )
       endif
       if (ifsc .ne. 0) then
         do m = 1, ti_ene_cnt
@@ -4039,7 +4044,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
           end if
           sc_ener_rms(m) = sqrt(sc_ener_rms(m))
         end do
-      end if         
+      end if
       if (ievb .ne. 0) evb_frc%evb_ave = .true.
 #endif
       write(6, 540) nvalid
@@ -4100,7 +4105,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
                         xx(l189-1+m)
         end do
       end if
-        
+
       enert%kin%tot = enert%kin%tot*onefac(1)
       enert2%kin%tot = enert2%kin%tot*onefac(1)
       enert%kin%solt = enert%kin%solt*onefac(2)
@@ -4111,7 +4116,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     end if
     ! End contingency for nvalid > 0, signifying that
     ! all energies must be calculated
-      
+
     if (ntp > 0 .and. barostat == 2) call mcbar_summary
   end if
   ! End of contingency for work on the master process;
@@ -4142,5 +4147,5 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   600 format(i4,2x,4f12.4)
   call trace_exit( 'runmd' )
   return
-end subroutine runmd 
+end subroutine runmd
 
