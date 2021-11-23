@@ -2306,8 +2306,11 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     end do
   else
     do i3 = istart3, iend3
-      f(i3) = x(i3)
-      x(i3) = x(i3) + v(i3)*dtx
+    ! kulhanek -  J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176 
+    !  f(i3) = x(i3)
+    !  x(i3) = x(i3) + v(i3)*dtx
+       x(i3) = x(i3) + v(i3)*dtx
+       f(i3) = x(i3)
     end do
   end if
 #endif /* LES */
@@ -2406,7 +2409,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     ! Step 4b: Now fix the velocities and calculate KE.
     ! Re-estimate the velocities from differences in positions.
     if (.not. (ipimd == NMPIMD .and. ipimd == CMD .and. mybeadid .ne. 1)) then
-      v(istart3:iend3) = (x(istart3:iend3) - f(istart3:iend3))*dtxinv
+      ! kulhanek -  J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176 
+      ! v(istart3:iend3) = (x(istart3:iend3) - f(istart3:iend3))*dtxinv
+      v(istart3:iend3) = v(istart3:iend3) + (x(istart3:iend3) - f(istart3:iend3))*dtxinv
     end if
     call timer_stop(TIME_SHAKE)
   end if
