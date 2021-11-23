@@ -2496,7 +2496,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
           ! Try pseudo KE from Eq. 4.7b of Pastor, Brooks & Szabo,
           ! Mol. Phys. 65, 1409-1419 (1988):
           ekpbs = ekpbs + aamass*v(i3)*vold(i3)
-          ekph = ekph + aamass*v(i3)**2
+          ekph = ekph + c_ave*aamass*v(i3)**2
 #endif
         end do
       end do
