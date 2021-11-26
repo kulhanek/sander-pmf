@@ -918,7 +918,7 @@ subroutine sander()
 #endif
     if (master) then
         ! basic initialization
-        call pmf_sander_init_preinit(mdin,natom,nres,ntb,nstlim,dt,temp0,a,b,c,alpha,beta,gamma)
+        call pmf_sander_init_preinit(mdin,natom,nres,ntb,ntc,nstlim,dt,temp0,a,b,c,alpha,beta,gamma)
         ! topology population
         do i=1,nres
             call pmf_sander_set_residue(i,ih(m02-1+i),ix(i02-1+i))

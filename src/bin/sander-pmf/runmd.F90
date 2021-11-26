@@ -1572,9 +1572,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekpbs,ekph,pmfene)
+    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
 #else
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekpbs,ekph,pmfene)
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
     ener%pot%tot = ener%pot%tot + pmfene
@@ -2296,22 +2296,38 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     aa = exp(dt5 * v_lnv)
     arg2 = v_lnv * dt5 * v_lnv * dt5
     poly = 1.0d0 + arg2*(e2 + arg2*(e4 + arg2*(e6 + arg2*e8)))
-    do i3 = istart3, iend3
-      f(i3) = x(i3)
-      x(i3) = aa*(x(i3)*aa + v(i3)*poly*dtx)
-    end do
+    if( leapfrog_mode .eq. 1 ) then
+        ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
+        do i3 = istart3, iend3
+          x(i3) = aa*(x(i3)*aa + v(i3)*poly*dtx)
+          f(i3) = x(i3)
+        end do
+    else
+        ! standard leapfrog
+        do i3 = istart3, iend3
+          f(i3) = x(i3)
+          x(i3) = aa*(x(i3)*aa + v(i3)*poly*dtx)
+        end do
+    end if
   else if (ntt == 10) then
     do i3 = istart3, iend3
       f(i3) = x(i3)
     end do
   else
-    do i3 = istart3, iend3
-    ! kulhanek -  J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176 
-    !  f(i3) = x(i3)
-    !  x(i3) = x(i3) + v(i3)*dtx
-       x(i3) = x(i3) + v(i3)*dtx
-       f(i3) = x(i3)
-    end do
+    if( leapfrog_mode .eq. 1 ) then
+        ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
+        do i3 = istart3, iend3
+           x(i3) = x(i3) + v(i3)*dtx
+           f(i3) = x(i3)
+        end do
+    else
+        ! standard leapfrog
+        do i3 = istart3, iend3
+           f(i3) = x(i3)
+           x(i3) = x(i3) + v(i3)*dtx
+        end do
+    end if
+
   end if
 #endif /* LES */
 
@@ -2339,24 +2355,24 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   end if
 
   ! position update for the "extra" variables"
-  do i = 1,iscale
-    f(nr3+i) = x(nr3+i)
-    x(nr3+i) = x(nr3+i) + v(nr3+i)*dtx
-  end do
+  if( leapfrog_mode .eq. 1 ) then
+        ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
+        do i = 1,iscale
+            x(nr3+i) = x(nr3+i) + v(nr3+i)*dtx
+            f(nr3+i) = x(nr3+i)
+        end do
+    else
+        ! standard leapfrog
+        do i = 1,iscale
+            f(nr3+i) = x(nr3+i)
+            x(nr3+i) = x(nr3+i) + v(nr3+i)*dtx
+        end do
+    end if
 
   call timer_stop(TIME_VERLET)
 
 !------------------------------------------------------------------------------
-#ifdef PMFLIB
-#ifdef MPI
-    call pmf_sander_constraints_mpi(natom,x,con_modified)
-#else
-    call pmf_sander_constraints(natom,x,con_modified)
-#endif
-    if ( (ntc .ne. 1) .or. con_modified ) then
-#else
     if (ntc .ne. 1 ) then
-#endif
 
     ! Step 4a: if shake is being used, update the new positions to fix
     !          the bond lengths.
@@ -2404,19 +2420,36 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
       call timer_stop_start(TIME_DISTCRD, TIME_SHAKE)
     end if
 #endif  /* MPI */
+    end if
+
+#ifdef PMFLIB
+#ifdef MPI
+    call pmf_sander_constraints_mpi(leapfrog_mode,natom,f,x,con_modified)
+#else
+    call pmf_sander_constraints(leapfrog_mode,natom,f,x,con_modified)
+#endif
+    if ( (ntc .ne. 1) .or. con_modified ) then
+#else
+    if (ntc .ne. 1 ) then
+#endif
 
 !------------------------------------------------------------------------------
     ! Step 4b: Now fix the velocities and calculate KE.
     ! Re-estimate the velocities from differences in positions.
     if (.not. (ipimd == NMPIMD .and. ipimd == CMD .and. mybeadid .ne. 1)) then
-      ! kulhanek -  J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176 
-      ! v(istart3:iend3) = (x(istart3:iend3) - f(istart3:iend3))*dtxinv
-      v(istart3:iend3) = v(istart3:iend3) + (x(istart3:iend3) - f(istart3:iend3))*dtxinv
+      if( leapfrog_mode .eq. 1 ) then
+        ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
+        v(istart3:iend3) = v(istart3:iend3) + (x(istart3:iend3) - f(istart3:iend3))*dtxinv
+      else
+        ! standard leapfrog
+        v(istart3:iend3) = (x(istart3:iend3) - f(istart3:iend3))*dtxinv
+      end if
     end if
     call timer_stop(TIME_SHAKE)
   end if
   call timer_start(TIME_VERLET)
 
+  ! FIXME: this will not work for leapfrog_mode .eq. 1
   ! NEB: remove velocities but ONLY for the end beads so V doesn't
   ! accumulate if there are high forces
   if (ineb > 0 .and. (mybeadid == 1 .or. mybeadid == neb_nbead)) then
@@ -2498,10 +2531,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
           end if
 
-          ! Try pseudo KE from Eq. 4.7b of Pastor, Brooks & Szabo,
-          ! Mol. Phys. 65, 1409-1419 (1988):
-          ekpbs = ekpbs + aamass*v(i3)*vold(i3)
-          ekph = ekph + c_ave*aamass*v(i3)**2
 #endif
         end do
       end do

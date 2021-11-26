@@ -116,6 +116,7 @@
          ntp,pres0,comp,taup,barostat,mcbarint, &
          nscm,nstlim,t,dt, &
          ntc,ntcc,nconp,tol,ntf,ntn,nsnb, &
+         leapfrog_mode, &
          cut,dielc, &
          ntpr,ntwx,ntwv,ntwe,ntwf,ntave,ntpp,ioutfm, &
          ntr,nrc,ntrx,taur,nmropt, &
@@ -325,6 +326,7 @@
    t = ZERO
    dt = 0.001d0
    ntc = 1
+   leapfrog_mode = 1
    tol = 0.00001
    ntf = 1
    nsnb = 25

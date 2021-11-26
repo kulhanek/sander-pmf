@@ -559,7 +559,7 @@
 
    if( ntc /= 1 ) then
       write(6,'(/a)') 'SHAKE:'
-      write(6,'(5x,4(a,i8))') 'ntc     =',ntc,', jfastw  =',jfastw
+      write(6,'(5x,4(a,i8))') 'ntc     =',ntc,', jfastw  =',jfastw,', leapfrog_mode = ',leapfrog_mode
       write(6,'(5x,3(a,f10.5))') 'tol     =',tol
    end if
 
@@ -1914,6 +1914,10 @@
 
    if (ntc < 1 .or. ntc > 4) then
       write(6,'(/2x,a,i3,a)') 'NTC (',ntc,') must be 1,2,3 or 4.'
+      DELAYED_ERROR
+   end if
+   if (leapfrog_mode < 0 .or. leapfrog_mode > 1) then
+      write(6,'(/2x,a,i3,a)') 'leapfrog_mode (',leapfrog_mode,') must be 0 or 1.'
       DELAYED_ERROR
    end if
    if (jfastw < 0 .or. jfastw > 4) then
