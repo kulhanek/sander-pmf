@@ -30,6 +30,7 @@
 !   f:         force array, used to hold old coordinates temporarily, too
 !   v:         velocity array
 !   vold:      old velocity array, from the previous step
+!   xbar:      coordinates before SHAKE
 !   xr:        coordinates with respect to COM of molecule
 !   xc:        array of reals, matching the size of x itself, used for scratch
 !              space in various subroutine calls
@@ -41,7 +42,7 @@
 !   qsetup:    Flag to activate setup of multiple components, .false. on
 !              first call
 !------------------------------------------------------------------------------
-subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
+subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
                  conp, skip, nsp, tma, erstop, qsetup)
 
 !------------------------------------------------------------------------------
@@ -296,7 +297,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
   logical do_list_update
   logical skip(*), belly, lout, loutfm, erstop, vlim, onstep
-  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), xr(*), xc(*), conp(*)
+  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), xbar(*), xr(*), xc(*), conp(*)
   type(state_rec) :: ener   ! energy values per time step
   type(state_rec) :: enert  ! energy values tallied over the time steps
   type(state_rec) :: enert2 ! energy values squared tallied over the time steps
@@ -2299,8 +2300,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     if( leapfrog_mode .eq. 1 ) then
         ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
         do i3 = istart3, iend3
-          x(i3) = aa*(x(i3)*aa + v(i3)*poly*dtx)
           f(i3) = x(i3)
+          x(i3) = aa*(x(i3)*aa + v(i3)*poly*dtx)
+          xbar(i3) = x(i3)
         end do
     else
         ! standard leapfrog
@@ -2317,8 +2319,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     if( leapfrog_mode .eq. 1 ) then
         ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
         do i3 = istart3, iend3
-           x(i3) = x(i3) + v(i3)*dtx
            f(i3) = x(i3)
+           x(i3) = x(i3) + v(i3)*dtx
+           xbar(i3) = x(i3)
         end do
     else
         ! standard leapfrog
@@ -2358,8 +2361,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
   if( leapfrog_mode .eq. 1 ) then
         ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
         do i = 1,iscale
-            x(nr3+i) = x(nr3+i) + v(nr3+i)*dtx
             f(nr3+i) = x(nr3+i)
+            x(nr3+i) = x(nr3+i) + v(nr3+i)*dtx
+            xbar(nr3+i) = x(nr3+i)
         end do
     else
         ! standard leapfrog
@@ -2424,9 +2428,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
 
 #ifdef PMFLIB
 #ifdef MPI
-    call pmf_sander_constraints_mpi(leapfrog_mode,natom,f,x,con_modified)
+    call pmf_sander_constraints_mpi(leapfrog_mode,natom,xbar,x,con_modified)
 #else
-    call pmf_sander_constraints(leapfrog_mode,natom,f,x,con_modified)
+    call pmf_sander_constraints(leapfrog_mode,natom,xbar,x,con_modified)
 #endif
     if ( (ntc .ne. 1) .or. con_modified ) then
 #else
@@ -2439,7 +2443,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xr, xc, &
     if (.not. (ipimd == NMPIMD .and. ipimd == CMD .and. mybeadid .ne. 1)) then
       if( leapfrog_mode .eq. 1 ) then
         ! J. Chem. Phys. 126, 046101 (2007); https://doi.org/10.1063/1.2431176
-        v(istart3:iend3) = v(istart3:iend3) + (x(istart3:iend3) - f(istart3:iend3))*dtxinv
+        v(istart3:iend3) = v(istart3:iend3) + (x(istart3:iend3) - xbar(istart3:iend3))*dtxinv
       else
         ! standard leapfrog
         v(istart3:iend3) = (x(istart3:iend3) - f(istart3:iend3))*dtxinv
