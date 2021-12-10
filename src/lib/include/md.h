@@ -25,7 +25,7 @@ integer nrp,nspm,ig,ntx,ntcx,            &!5
       ibgion,ienion,profile_mpi,lj1264,                  &!72
       ipb,inp,ntrelax,relaxing,dec_verbose,vdwmodel,     &!78
       csurften,ninterface,no_ntt3_sync,nkija,idistr,     &!83
-      nucat,leapfrog_mode !85
+      nucat,leapfrog_mode,ekin_corr !86
 
 common/mdi/nrp,nspm,ig, &                                               !3
       ntx,ntcx,ntxo,ntt,ntp,ntr,init,ntcm,nscm, &                       !12
@@ -39,9 +39,9 @@ common/mdi/nrp,nspm,ig, &                                               !3
       tmode,ipol,iesp,ievb,nodeid,num_noshake,ibgion,ienion, &          !70
       profile_mpi,lj1264,ipb,inp,ntrelax,relaxing,dec_verbose,vdwmodel, &!78
       csurften,ninterface,no_ntt3_sync,nkija,idistr,     &!83
-      nucat,leapfrog_mode !85
+      nucat,leapfrog_mode,ekin_corr !86
 
-parameter (BC_MDI=85) ! Number of elements in the common block;
+parameter (BC_MDI=86) ! Number of elements in the common block;
                       ! Be sure to update if you change things
 
 ! ... floats:

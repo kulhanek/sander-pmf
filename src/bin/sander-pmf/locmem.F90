@@ -185,10 +185,12 @@ subroutine locmem()
    if (imin == 0) then
       call adj_mem_ptr( r_ptr, lvel,  3*natom*am_nbead + mxvar )
       call adj_mem_ptr( r_ptr, lvel2, 3*natom*am_nbead + mxvar )
+      call adj_mem_ptr( r_ptr, lvel3, 3*natom*am_nbead + mxvar )
       call adj_mem_ptr( r_ptr, lxbar, 3*natom*am_nbead + mxvar )
    else
       call adj_mem_ptr( r_ptr, lvel, 6*(3*natom*am_nbead + mxvar) )
       call adj_mem_ptr( r_ptr, lvel2, 0 )
+      call adj_mem_ptr( r_ptr, lvel3, 0 )
       call adj_mem_ptr( r_ptr, lxbar, 0 )
    end if
    call adj_mem_ptr( r_ptr, l45, 3*natom*am_nbead + mxvar )

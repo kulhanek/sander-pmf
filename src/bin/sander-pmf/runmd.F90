@@ -30,6 +30,7 @@
 !   f:         force array, used to hold old coordinates temporarily, too
 !   v:         velocity array
 !   vold:      old velocity array, from the previous step
+!   vold2:     old velocity array, from two steps behind
 !   xbar:      coordinates before SHAKE
 !   xr:        coordinates with respect to COM of molecule
 !   xc:        array of reals, matching the size of x itself, used for scratch
@@ -42,7 +43,7 @@
 !   qsetup:    Flag to activate setup of multiple components, .false. on
 !              first call
 !------------------------------------------------------------------------------
-subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
+subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr, xc, &
                  conp, skip, nsp, tma, erstop, qsetup)
 
 !------------------------------------------------------------------------------
@@ -297,7 +298,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
 
   logical do_list_update
   logical skip(*), belly, lout, loutfm, erstop, vlim, onstep
-  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), xbar(*), xr(*), xc(*), conp(*)
+  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), xbar(*), xr(*), xc(*), conp(*)
   type(state_rec) :: ener   ! energy values per time step
   type(state_rec) :: enert  ! energy values tallied over the time steps
   type(state_rec) :: enert2 ! energy values squared tallied over the time steps
@@ -351,7 +352,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
 #endif
 
   integer nvalid, nvalidi
-  _REAL_ eke
+  _REAL_ eke, ekehonr
 
   _REAL_, allocatable, dimension(:) :: frcti
 
@@ -465,6 +466,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
   ekph = 0.d0
   ekpbs = 0.d0
   eke = 0.d0
+  ekehonr = 0.0d0
 
 #ifdef LES
   aa = 0.d0
@@ -1167,6 +1169,8 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
    ekmhles = ekmhles * 0.5d0
 #endif /* LES */
 
+  ! kulhanek
+  vold2(1:nr3+iscale) = vold(1:nr3+iscale)
   vold(1:nr3+iscale) = v(1:nr3+iscale)
 
 #ifdef EMIL
@@ -1573,9 +1577,12 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    ! FIXME
+    ! call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
 #else
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    ! FIXME
+    ! call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ekehonr,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
     ener%pot%tot = ener%pot%tot + pmfene
@@ -2466,6 +2473,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
 !------------------------------------------------------------------------------
     ! Step 4c: get the KE, either for averaging or for Berendsen:
     eke = 0.d0
+    ekehonr = 0.0d0
     ekph = 0.d0
     ekpbs = 0.d0
 #ifdef LES
@@ -2535,9 +2543,16 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
           end if
 
+          ! 10.1063/1.2779878, higher-order nonreversible estimate of v^2
+          if (ekin_corr == 1) then
+            ekehonr = ekehonr + 0.5d0*aamass*( 0.25d0*(v(i3) + vold(i3))**2 &
+                                       - (1.0d0/8.0d0)*(v(i3) + vold(i3))*(v(i3) - 2.d0*vold(i3) + vold2(i3)))
+          end if
+
 #endif
         end do
       end do
+
     end if
     ! End branch based on gammai
 
@@ -2955,9 +2970,11 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, xbar, xr, xc, &
 
 !------------------------------------------------------------------------------
   ! Put current velocities into vold
-  vold(istart3:iend3) = v(istart3:iend3)
+  vold2(istart3:iend3) = vold(istart3:iend3)
+  vold(istart3:iend3)  = v(istart3:iend3)
   do im = 1, iscale
-    vold(nr3+im) = v(nr3+im)
+    vold2(nr3+im) = vold(nr3+im)
+    vold(nr3+im)  = v(nr3+im)
   end do
 
 !------------------------------------------------------------------------------

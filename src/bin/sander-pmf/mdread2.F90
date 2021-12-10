@@ -557,9 +557,12 @@
 
    end if
 
+   write(6,'(/a)') 'PMFLib modifications:'
+   write(6,'(5x,4(a,i8))') 'leapfrog_mode = ',leapfrog_mode, ', ekin_corr = ',ekin_corr
+
    if( ntc /= 1 ) then
       write(6,'(/a)') 'SHAKE:'
-      write(6,'(5x,4(a,i8))') 'ntc     =',ntc,', jfastw  =',jfastw,', leapfrog_mode = ',leapfrog_mode
+      write(6,'(5x,4(a,i8))') 'ntc     =',ntc,', jfastw  =',jfastw
       write(6,'(5x,3(a,f10.5))') 'tol     =',tol
    end if
 
@@ -1916,10 +1919,17 @@
       write(6,'(/2x,a,i3,a)') 'NTC (',ntc,') must be 1,2,3 or 4.'
       DELAYED_ERROR
    end if
+
+   ! kulhanek
    if (leapfrog_mode < 0 .or. leapfrog_mode > 1) then
       write(6,'(/2x,a,i3,a)') 'leapfrog_mode (',leapfrog_mode,') must be 0 or 1.'
       DELAYED_ERROR
    end if
+   if (ekin_corr < 0 .or. ekin_corr > 1) then
+      write(6,'(/2x,a,i3,a)') 'ekin_corr (',ekin_corr,') must be 0 or 1.'
+      DELAYED_ERROR
+   end if
+
    if (jfastw < 0 .or. jfastw > 4) then
       write(6,'(/2x,a,i3,a)') 'JFASTW (',jfastw,') must be 0->4.'
       DELAYED_ERROR
