@@ -352,7 +352,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
 #endif
 
   integer nvalid, nvalidi
-  _REAL_ eke, ekehonr
+  _REAL_ eke
 
   _REAL_, allocatable, dimension(:) :: frcti
 
@@ -466,7 +466,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
   ekph = 0.d0
   ekpbs = 0.d0
   eke = 0.d0
-  ekehonr = 0.0d0
 
 #ifdef LES
   aa = 0.d0
@@ -1577,12 +1576,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
 #ifdef MPI
-    ! FIXME
-    ! call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
 #else
-    ! FIXME
-    ! call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ekehonr,pmfene)
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
     ener%pot%tot = ener%pot%tot + pmfene
@@ -2473,7 +2469,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
 !------------------------------------------------------------------------------
     ! Step 4c: get the KE, either for averaging or for Berendsen:
     eke = 0.d0
-    ekehonr = 0.0d0
     ekph = 0.d0
     ekpbs = 0.d0
 #ifdef LES
@@ -2542,13 +2537,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
           else
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
           end if
-
-          ! 10.1063/1.2779878, higher-order nonreversible estimate of v^2
-          if (ekin_corr == 1) then
-            ekehonr = ekehonr + 0.5d0*aamass*( 0.25d0*(v(i3) + vold(i3))**2 &
-                                       - (1.0d0/8.0d0)*(v(i3) + vold(i3))*(v(i3) - 2.d0*vold(i3) + vold2(i3)))
-          end if
-
 #endif
         end do
       end do
