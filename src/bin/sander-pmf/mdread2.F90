@@ -558,7 +558,7 @@
    end if
 
    write(6,'(/a)') 'PMFLib modifications:'
-   write(6,'(5x,4(a,i8))') 'leapfrog_mode = ',leapfrog_mode, ', ekin_corr = ',ekin_corr
+   write(6,'(5x,4(a,i8))') 'leapfrog_mode = ',leapfrog_mode
 
    if( ntc /= 1 ) then
       write(6,'(/a)') 'SHAKE:'
@@ -1923,10 +1923,6 @@
    ! kulhanek
    if (leapfrog_mode < 0 .or. leapfrog_mode > 1) then
       write(6,'(/2x,a,i3,a)') 'leapfrog_mode (',leapfrog_mode,') must be 0 or 1.'
-      DELAYED_ERROR
-   end if
-   if (ekin_corr < 0 .or. ekin_corr > 1) then
-      write(6,'(/2x,a,i3,a)') 'ekin_corr (',ekin_corr,') must be 0 or 1.'
       DELAYED_ERROR
    end if
 
