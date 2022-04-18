@@ -47,6 +47,10 @@ INCLUDE(IntelCDK)
 # setup MPI if available
 INCLUDE(OpenMPI)
 
+# boost =======================
+FIND_PACKAGE(MyBoost REQUIRED)
+INCLUDE_DIRECTORIES(SYSTEM ${Boost_INCLUDE_DIRS})
+
 # BLAS/LAPACK =================
 # setup BLAS/LAPACK either from MKL or from fallback netlib blas and lapack
 FIND_PACKAGE(BlasLapack)
