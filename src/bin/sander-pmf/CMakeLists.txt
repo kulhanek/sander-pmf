@@ -5,8 +5,6 @@
 # program objects --------------------------------------------------------------
 SET(SANDER_SRC
 # -----------------------------------
-        boost-gamma-distribution.cpp
-# -----------------------------------
         ../../lib/sebomd/se_deeprec.F90
         ../../lib/sebomd/se_info_from_sander.F90
         ../../lib/sebomd/se_mpi_vars.F90
@@ -37,6 +35,8 @@ SET(SANDER_SRC
         ../../lib/sqm/qm2_load_params_and_allocate.F90 
         ../../lib/sqm/qm2_read_nm_and_alloc.F90
         ../../lib/sqm/qm2_scf.F90
+# -----------------------------------
+        boost-gamma-distribution.cpp
 # -----------------------------------
         abfqmmm_module.F90
         align.F90
