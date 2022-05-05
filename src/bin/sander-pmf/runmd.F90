@@ -32,6 +32,7 @@
 !   vold:      old velocity array, from the previous step
 !   vold2:     old velocity array, from two steps behind
 !   xbar:      coordinates before SHAKE
+!   ngf:       forces from Langevin
 !   xr:        coordinates with respect to COM of molecule
 !   xc:        array of reals, matching the size of x itself, used for scratch
 !              space in various subroutine calls
@@ -43,7 +44,7 @@
 !   qsetup:    Flag to activate setup of multiple components, .false. on
 !              first call
 !------------------------------------------------------------------------------
-subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr, xc, &
+subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, flng, xr, xc, &
                  conp, skip, nsp, tma, erstop, qsetup)
 
 !------------------------------------------------------------------------------
@@ -298,7 +299,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
 
   logical do_list_update
   logical skip(*), belly, lout, loutfm, erstop, vlim, onstep
-  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), xbar(*), xr(*), xc(*), conp(*)
+  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), xbar(*), flng(*), xr(*), xc(*), conp(*)
   type(state_rec) :: ener   ! energy values per time step
   type(state_rec) :: enert  ! energy values tallied over the time steps
   type(state_rec) :: enert2 ! energy values squared tallied over the time steps
@@ -1576,9 +1577,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene,c_implic)
 #else
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene,c_implic)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
     ener%pot%tot = ener%pot%tot + pmfene
@@ -2172,10 +2173,19 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
 #endif /* LES */
         call gauss(0.d0, rsd, fln)
         v(i3+1) = (v(i3+1)*c_explic + (f(i3+1)+fln)*wfac) * c_implic
+#ifdef PMFLIB
+        flng(i3+1) = fln
+#endif
         call gauss(0.d0, rsd, fln)
         v(i3+2) = (v(i3+2)*c_explic + (f(i3+2)+fln)*wfac) * c_implic
+#ifdef PMFLIB
+        flng(i3+2) = fln
+#endif
         call gauss(0.d0, rsd, fln)
         v(i3+3) = (v(i3+3)*c_explic + (f(i3+3)+fln)*wfac) * c_implic
+#ifdef PMFLIB
+        flng(i3+3) = fln
+#endif
         i3 = i3 + 3
       end do
       do j = 1, iskip_end
@@ -2183,6 +2193,13 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, xr
         ! Skip some random numbers
         call gauss(0.d0, 1.d0, fln)
       end do
+#ifdef PMFLIB
+#ifdef MPI
+      call pmf_sander_force_lng_mpi(natom,flng)
+#else
+      call pmf_sander_force_lng(natom,flng)
+#endif
+#endif
 #ifdef MPI /* SOFT CORE */
     end if ! for (ifsc==1) call sc_lngdyn
 #endif
