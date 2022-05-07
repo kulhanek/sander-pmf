@@ -1579,9 +1579,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekph,pmfene)
 #else
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekph,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
     ener%pot%tot = ener%pot%tot + pmfene
