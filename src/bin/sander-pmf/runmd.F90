@@ -628,6 +628,8 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
   c_implic = 1.d0 / (1.d0 + gammai*dt5)
   c_explic = 1.d0 - gammai*dt5
   c_ave = 1.d0 + gammai*dt5
+  ! FIXME - kulhanek
+  write(4789,*) c_ave
   sdfac = sqrt(4.d0 * gammai * boltz2 * temp0 / dtx)
 #ifdef LES
   if (temp0les < 0.d0) then
@@ -1577,9 +1579,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene,c_implic,c_explic)
+    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
 #else
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene,c_implic,c_explic)
+    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene
     ener%pot%tot = ener%pot%tot + pmfene
@@ -2553,6 +2555,8 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
             eke = eke + (aamass*v(i3)**2)*4.d0/3.d0
           else
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
+            ! kulhanek
+            ekph = ekph + aamass*v(i3)**2
           end if
 #endif
         end do
