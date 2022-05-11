@@ -628,8 +628,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
   c_implic = 1.d0 / (1.d0 + gammai*dt5)
   c_explic = 1.d0 - gammai*dt5
   c_ave = 1.d0 + gammai*dt5
-  ! FIXME - kulhanek
-  write(4789,*) c_ave
   sdfac = sqrt(4.d0 * gammai * boltz2 * temp0 / dtx)
 #ifdef LES
   if (temp0les < 0.d0) then
