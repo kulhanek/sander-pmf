@@ -31,6 +31,7 @@
 !   v:         velocity array
 !   vold:      old velocity array, from the previous step
 !   vold2:     old velocity array, from two steps behind
+!   vold3:     old velocity array, from three steps behind
 !   xbar:      coordinates before SHAKE
 !   ngf:       forces from Langevin
 !   xr:        coordinates with respect to COM of molecule
@@ -44,7 +45,7 @@
 !   qsetup:    Flag to activate setup of multiple components, .false. on
 !              first call
 !------------------------------------------------------------------------------
-subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, flng, xr, xc, &
+subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, xbar, flng, xr, xc, &
                  conp, skip, nsp, tma, erstop, qsetup)
 
 !------------------------------------------------------------------------------
@@ -299,7 +300,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
 
   logical do_list_update
   logical skip(*), belly, lout, loutfm, erstop, vlim, onstep
-  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), xbar(*), flng(*), xr(*), xc(*), conp(*)
+  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), vold3(*), xbar(*), flng(*), xr(*), xc(*), conp(*)
   type(state_rec) :: ener   ! energy values per time step
   type(state_rec) :: enert  ! energy values tallied over the time steps
   type(state_rec) :: enert2 ! energy values squared tallied over the time steps
@@ -316,7 +317,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
   _REAL_ tma(*)
   _REAL_ tspan, atempdrop, fln, scaltp
   _REAL_ vel, vel2, vcmx, vcmy, vcmz, vmax
-  _REAL_ winf, aamass, rterm, ekmh, ekph, wfac, rsd
+  _REAL_ winf, aamass, rterm, ekmh, ekph, ekv4, wfac, rsd
   _REAL_ fit, fiti, fit2
 
   ! Variables to control a Langevin dynamics simulation
@@ -400,11 +401,10 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
   logical               :: update_kin_energy_on_current_step
 
 #if defined PMFLIB
-   _REAL_           :: pmfene
-   logical          :: con_modified
-   integer          :: pmfexit
-   _REAL_           :: pmflibcst
-   pmfene           = 0.0d0
+   logical                  :: con_modified
+   integer                  :: pmfexit
+   _REAL_                   :: pmflibcst
+   type(PMFSanderEnergy)    :: pmfene
    con_modified     = .false.
    pmfexit          = 0
 #endif
@@ -465,6 +465,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
   dtcp = 0.d0
   dttp = 0.d0
   ekph = 0.d0
+  ekv4 = 0.d0
   ekpbs = 0.d0
   eke = 0.d0
 
@@ -1170,6 +1171,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
 #endif /* LES */
 
   ! kulhanek
+  vold3(1:nr3+iscale) = vold2(1:nr3+iscale)
   vold2(1:nr3+iscale) = vold(1:nr3+iscale)
   vold(1:nr3+iscale) = v(1:nr3+iscale)
 
@@ -1576,13 +1578,18 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
     if( ntb .ne. 0 ) then
         call pmf_sander_update_box(a,b,c,alpha,beta,gamma)
     end if
+    pmfene%epot     = ener%pot%tot
+    pmfene%ekinvv   = ener%kin%tot
+    pmfene%ekinlf   = ekph
+    pmfene%ekinv4   = ekv4
+    pmfene%erst     = 0.0d0
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekph,pmfene)
+    call pmf_sander_force_mpi(natom,x,v,f,pmfene)
 #else
-    call pmf_sander_force(natom,x,v,f,ener%pot%tot,ener%kin%tot,ekph,pmfene)
+    call pmf_sander_force(natom,x,v,f,pmfene)
 #endif
-    ener%pot%constraint = ener%pot%constraint + pmfene
-    ener%pot%tot = ener%pot%tot + pmfene
+    ener%pot%constraint = ener%pot%constraint + pmfene%erst
+    ener%pot%tot = ener%pot%tot + pmfene%erst
 #endif
 
 !------------------------------------------------------------------------------
@@ -2487,6 +2494,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
     ! Step 4c: get the KE, either for averaging or for Berendsen:
     eke = 0.d0
     ekph = 0.d0
+    ekv4 = 0.d0
     ekpbs = 0.d0
 #ifdef LES
     ekeles = 0.d0
@@ -2551,10 +2559,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
 #else
           if (ntt == 9) then
             eke = eke + (aamass*v(i3)**2)*4.d0/3.d0
+            ! kulhanek
+            ekph = ekph + aamass*v(i3)**2
+            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
           else
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
             ! kulhanek
             ekph = ekph + aamass*v(i3)**2
+            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
           end if
 #endif
         end do
@@ -2645,6 +2657,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
     end do
     eke = eke * 0.5d0
     ekph = ekph * 0.5d0
+    ekv4 = ekv4 * 0.5d0
     ekpbs = ekpbs * 0.5d0
 #ifdef LES
     ekeles = ekeles * 0.5d0
@@ -2977,9 +2990,11 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, xbar, fl
 
 !------------------------------------------------------------------------------
   ! Put current velocities into vold
+  vold3(istart3:iend3) = vold2(istart3:iend3)
   vold2(istart3:iend3) = vold(istart3:iend3)
   vold(istart3:iend3)  = v(istart3:iend3)
   do im = 1, iscale
+    vold3(nr3+im) = vold2(nr3+im)
     vold2(nr3+im) = vold(nr3+im)
     vold(nr3+im)  = v(nr3+im)
   end do
