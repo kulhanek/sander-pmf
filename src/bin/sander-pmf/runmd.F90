@@ -2200,13 +2200,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
         ! Skip some random numbers
         call gauss(0.d0, 1.d0, fln)
       end do
-#ifdef PMFLIB
-#ifdef MPI
-      call pmf_sander_force_lng_mpi(natom,flng)
-#else
-      call pmf_sander_force_lng(natom,flng)
-#endif
-#endif
 #ifdef MPI /* SOFT CORE */
     end if ! for (ifsc==1) call sc_lngdyn
 #endif
