@@ -2554,14 +2554,14 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
             eke = eke + (aamass*v(i3)**2)*4.d0/3.d0
             ! kulhanek
             ekph = ekph + aamass*v(i3)**2
-            ! ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
-            ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
+            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
+            ! ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
           else
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
             ! kulhanek
             ekph = ekph + aamass*v(i3)**2
-            ! ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
-            ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
+            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
+            !ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
           end if
 #endif
         end do
