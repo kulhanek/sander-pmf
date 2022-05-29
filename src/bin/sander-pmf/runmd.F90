@@ -2527,6 +2527,8 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
           ! Mol. Phys. 65, 1409-1419 (1988):
           ekpbs = ekpbs + aamass*v(i3)*vold(i3)
           ekph = ekph + aamass*v(i3)**2
+
+          ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
 #endif
         end do
       end do
@@ -2560,15 +2562,20 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
             ! kulhanek
             ekph = ekph + aamass*v(i3)**2
-            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
+            !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
+            !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/2.0d0)*( vold(i3) + vold2(i3) ))**2
             !ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
+            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
           end if
 #endif
         end do
       end do
-
+      !write(125488,*) v(1),vold(1),vold2(1),vold3(1)
+      !write(125489,*) x(1)
     end if
     ! End branch based on gammai
+
+    write(125488,*) (1.0d0/16.0d0)*(-v(1) + 9.0d0*vold(1) + 9.0d0*vold2(1) - vold3(1)), 0.5d0*(vold(1) + vold2(1))
 
 #ifdef MPI
     ! Sum up the partial kinetic energies:
