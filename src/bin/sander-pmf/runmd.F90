@@ -45,7 +45,7 @@
 !   qsetup:    Flag to activate setup of multiple components, .false. on
 !              first call
 !------------------------------------------------------------------------------
-subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, xbar, flng, xr, xc, &
+subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, vold4, vold5, xbar, xr, xc, &
                  conp, skip, nsp, tma, erstop, qsetup)
 
 !------------------------------------------------------------------------------
@@ -300,7 +300,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
 
   logical do_list_update
   logical skip(*), belly, lout, loutfm, erstop, vlim, onstep
-  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), vold3(*), xbar(*), flng(*), xr(*), xc(*), conp(*)
+  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), vold3(*), vold4(*), vold5(*), xbar(*), xr(*), xc(*), conp(*)
   type(state_rec) :: ener   ! energy values per time step
   type(state_rec) :: enert  ! energy values tallied over the time steps
   type(state_rec) :: enert2 ! energy values squared tallied over the time steps
@@ -317,7 +317,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
   _REAL_ tma(*)
   _REAL_ tspan, atempdrop, fln, scaltp
   _REAL_ vel, vel2, vcmx, vcmy, vcmz, vmax
-  _REAL_ winf, aamass, rterm, ekmh, ekph, ekv4, wfac, rsd
+  _REAL_ winf, aamass, rterm, ekmh, ekph, ekv4, ekv6, wfac, rsd
   _REAL_ fit, fiti, fit2
 
   ! Variables to control a Langevin dynamics simulation
@@ -466,6 +466,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
   dttp = 0.d0
   ekph = 0.d0
   ekv4 = 0.d0
+  ekv6 = 0.d0
   ekpbs = 0.d0
   eke = 0.d0
 
@@ -1171,6 +1172,8 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
 #endif /* LES */
 
   ! kulhanek
+  vold5(1:nr3+iscale) = vold4(1:nr3+iscale)
+  vold4(1:nr3+iscale) = vold3(1:nr3+iscale)
   vold3(1:nr3+iscale) = vold2(1:nr3+iscale)
   vold2(1:nr3+iscale) = vold(1:nr3+iscale)
   vold(1:nr3+iscale) = v(1:nr3+iscale)
@@ -1582,6 +1585,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
     pmfene%ekinvv   = ener%kin%tot
     pmfene%ekinlf   = ekph
     pmfene%ekinv4   = ekv4
+    pmfene%ekinv6   = ekv6
     pmfene%erst     = 0.0d0
 #ifdef MPI
     call pmf_sander_force_mpi(natom,x,v,f,pmfene)
@@ -2180,19 +2184,10 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
 #endif /* LES */
         call gauss(0.d0, rsd, fln)
         v(i3+1) = (v(i3+1)*c_explic + (f(i3+1)+fln)*wfac) * c_implic
-#ifdef PMFLIB
-        flng(i3+1) = fln
-#endif
         call gauss(0.d0, rsd, fln)
         v(i3+2) = (v(i3+2)*c_explic + (f(i3+2)+fln)*wfac) * c_implic
-#ifdef PMFLIB
-        flng(i3+2) = fln
-#endif
         call gauss(0.d0, rsd, fln)
         v(i3+3) = (v(i3+3)*c_explic + (f(i3+3)+fln)*wfac) * c_implic
-#ifdef PMFLIB
-        flng(i3+3) = fln
-#endif
         i3 = i3 + 3
       end do
       do j = 1, iskip_end
@@ -2488,6 +2483,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
     eke = 0.d0
     ekph = 0.d0
     ekv4 = 0.d0
+    ekv6 = 0.0d0
     ekpbs = 0.d0
 #ifdef LES
     ekeles = 0.d0
@@ -2554,30 +2550,24 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
 #else
           if (ntt == 9) then
             eke = eke + (aamass*v(i3)**2)*4.d0/3.d0
-            ! kulhanek
-            ekph = ekph + aamass*v(i3)**2
-            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
-            ! ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
           else
             eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
             ! kulhanek
-            ekph = ekph + aamass*v(i3)**2
+            ekph = ekph + c_ave*aamass*v(i3)**2
             !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
             !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/2.0d0)*( vold(i3) + vold2(i3) ))**2
             !ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
-            ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
+            ekv4 = ekv4 + c_ave*aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
+            ekv6 = ekv6 + c_ave*aamass*( (1.0d0/256.0d0)*(+3.0d0*v(i3) -25.0d0*vold(i3) +150.0d0*vold2(i3) &
+                                                          +150.0d0*vold3(i3) -25.0d0*vold4(i3) +3.0d0*vold5(i3)) )**2
           end if
 #endif
         end do
       end do
-      !write(125488,*) v(1),vold(1),vold2(1),vold3(1)
-      !write(125489,*) x(1)
     end if
     ! End branch based on gammai
 
-    ! FIXME - 2022-05-29
-    eke = ekv4
-    !write(125488,*) (1.0d0/16.0d0)*(-v(1) + 9.0d0*vold(1) + 9.0d0*vold2(1) - vold3(1)), 0.5d0*(vold(1) + vold2(1))
+    ! write(14789,*) eke,ekv4,ekv6
 
 #ifdef MPI
     ! Sum up the partial kinetic energies:
@@ -2662,6 +2652,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
     eke = eke * 0.5d0
     ekph = ekph * 0.5d0
     ekv4 = ekv4 * 0.5d0
+    ekv6 = ekv6 * 0.5d0
     ekpbs = ekpbs * 0.5d0
 #ifdef LES
     ekeles = ekeles * 0.5d0
