@@ -2575,7 +2575,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, x
     end if
     ! End branch based on gammai
 
-    write(125488,*) (1.0d0/16.0d0)*(-v(1) + 9.0d0*vold(1) + 9.0d0*vold2(1) - vold3(1)), 0.5d0*(vold(1) + vold2(1))
+    ! FIXME - 2022-05-29
+    eke = ekv4
+    !write(125488,*) (1.0d0/16.0d0)*(-v(1) + 9.0d0*vold(1) + 9.0d0*vold2(1) - vold3(1)), 0.5d0*(vold(1) + vold2(1))
 
 #ifdef MPI
     ! Sum up the partial kinetic energies:
