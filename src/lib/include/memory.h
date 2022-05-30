@@ -36,7 +36,7 @@ integer       natom,nres,nbonh,nbona,ntheth,ntheta,nphih, &
       grad3tmp, grad4tmp, &
 ! Modified by WJM, YD, RL
       l2402, l2403, l2404, ldf, lpol2, lpolbnd, &  ! Hai Nguyen: add GB index here
-      lxbar,lvel3,lvel4,lvel5,lvel6                                      ! kulhanek
+      lxbar,lvel3,lvel4,lvel5,lvel6,llng,llngold                                  ! kulhanek
 
 !  1        2         3         4         5      6     7     8      9      10
 common/memory/ &
@@ -63,9 +63,9 @@ common/memory/ &
  imask1  ,imask2   ,numadjst ,mxadjmsk,noshake,                                     & !146
  divchg  ,hessian  ,gradsebomd, grad1tmp ,grad2tmp, grad3tmp, grad4tmp,             & !153 SEBOMD
  l2402   ,l2403    ,l2404    ,ldf     ,lpol2 ,lpolbnd,                              & !159
- lxbar   ,lvel3    ,lvel4    ,lvel5   ,lvel6                                          !164 kulhanek
+ lxbar   ,lvel3    ,lvel4    ,lvel5   ,lvel6 ,llng   ,llngold                       !166 kulhanek
 ! Modified by WJM, RL
  !Hai Nguyen: add GB arrays here
 
 ! MEMORY_H_BC_MEMORY is the size of the MEMORY common block
-#define MEMORY_H_BC_MEMORY 164
+#define MEMORY_H_BC_MEMORY 166

@@ -495,7 +495,7 @@
          write(6,'(5x,4(a,i8))') 'ig      =',ig, ', vrand   =',vrand
          write(6,'(5x,3(a,f10.5))') 'temp0   =',temp0, ', tempi   =',tempi
       else if( ntt == 3 ) then
-         write(6,'(/a)') 'Langevin dynamics temperature regulation:'
+         write(6,'(/a)') 'Langevin dynamics temperature regulation (BKK):'
          write(6,'(5x,4(a,i8))') 'ig      =',ig
          write(6,'(5x,3(a,f10.5))') 'temp0   =',temp0, &
                ', tempi   =',tempi,', gamma_ln=', gamma_ln
@@ -536,6 +536,11 @@
          write(6, '(/a)') 'Bussi temperature regulation:'
          write(6, '(5x,3(a,f10.5))') 'temp0   =', temp0, &
                ', tempi   =', tempi, ', tautp   =', tautp
+      else if (ntt == 12) then
+         write(6,'(/a)') 'Langevin dynamics temperature regulation (G-JF):'
+         write(6,'(5x,4(a,i8))') 'ig      =',ig
+         write(6,'(5x,3(a,f10.5))') 'temp0   =',temp0, &
+               ', tempi   =',tempi,', gamma_ln=', gamma_ln
       end if
 
       if( ntp /= 0 ) then
@@ -1801,17 +1806,17 @@
       DELAYED_ERROR
    end if
 
-   if (ntt < 0 .or. ntt > 11) then                                      ! APJ
-      write(6,'(/2x,a,i3,a)') 'NTT (',ntt,') must be between 0 and 10.' ! APJ
+   if (ntt < 0 .or. ntt > 12) then                                      ! APJ
+      write(6,'(/2x,a,i3,a)') 'NTT (',ntt,') must be between 0 and 12.' ! APJ
       DELAYED_ERROR
    end if
    if ((ntt == 1 .or. ntt==11) .and. tautp < dt) then
       write(6, '(/2x,a,f6.2,a)') 'TAUTP (',tautp,') < DT (step size)'
       DELAYED_ERROR
    end if
-   if( ntt < 3 .or. ntt > 10) then  ! APJ
+   if( ntt < 3 .or. ntt > 12) then  ! APJ
       if( gamma_ln > 0.d0 ) then
-         write(6,'(a)') 'ntt must be 3 to 10 if gamma_ln > 0' ! APJ
+         write(6,'(a)') 'ntt must be 3 to 12 if gamma_ln > 0' ! APJ
          DELAYED_ERROR
       end if
    end if

@@ -1647,7 +1647,8 @@ subroutine sander()
                           x(lcrd), x(lvel), x(lforce), qsetup)
           else
             call runmd(x, ix, ih, ipairs, x(lcrd), x(lwinv), x(lmass), &
-                       x(lforce), x(lvel), x(lvel2), x(lvel3), x(lvel4), x(lvel5), x(lvel6), x(lxbar), x(l45), x(lcrdr), &
+                       x(lforce), x(lvel), x(lvel2), x(lvel3), x(lvel4), x(lvel5), x(lvel6), x(lxbar), &
+                       x(llng), x(llngold), x(l45), x(lcrdr), &
                        x(l50), x(l95), ix(i70), x(l75), erstop, qsetup)
           end if
           ! End branch for Beeman integrator

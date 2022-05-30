@@ -45,7 +45,7 @@
 !   qsetup:    Flag to activate setup of multiple components, .false. on
 !              first call
 !------------------------------------------------------------------------------
-subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, vold4, vold5, xbar, xr, xc, &
+subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, vold4, vold5, xbar, flng, flngold, xr, xc, &
                  conp, skip, nsp, tma, erstop, qsetup)
 
 !------------------------------------------------------------------------------
@@ -300,7 +300,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
 
   logical do_list_update
   logical skip(*), belly, lout, loutfm, erstop, vlim, onstep
-  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), vold3(*), vold4(*), vold5(*), xbar(*), xr(*), xc(*), conp(*)
+  _REAL_ x(*), winv(*), amass(*), f(*), v(*), vold(*), vold2(*), vold3(*), vold4(*), vold5(*), xbar(*), flng(*), flngold(*), xr(*), xc(*), conp(*)
   type(state_rec) :: ener   ! energy values per time step
   type(state_rec) :: enert  ! energy values tallied over the time steps
   type(state_rec) :: enert2 ! energy values squared tallied over the time steps
@@ -630,6 +630,31 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
   c_implic = 1.d0 / (1.d0 + gammai*dt5)
   c_explic = 1.d0 - gammai*dt5
   c_ave = 1.d0 + gammai*dt5
+! kulhanek
+  if( ntt .eq. 12 ) then
+      sdfac = sqrt(4.d0 * gammai * boltz2 * temp0 * dtx)
+      !write(4789,*) sdfac
+
+      do j = 1, iskip_start
+        ! Skip some random numbers
+        call gauss(0.d0, 1.d0, fln)
+      end do
+
+      ! Do Langevin step
+      i3 = 3*(istart - 1)
+      do j = istart, iend
+        rsd = sdfac * sqrt(amass(j)) * winv(j)
+        call gauss(0.d0, rsd, flngold(i3+1))
+        call gauss(0.d0, rsd, flngold(i3+2))
+        call gauss(0.d0, rsd, flngold(i3+3))
+        i3 = i3 + 3
+      end do
+      do j = 1, iskip_end
+        ! Skip some random numbers
+        call gauss(0.d0, 1.d0, fln)
+      end do
+      !write(5489,*) flngold(1:3*natom)
+  else
   sdfac = sqrt(4.d0 * gammai * boltz2 * temp0 / dtx)
 #ifdef LES
   if (temp0les < 0.d0) then
@@ -638,6 +663,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
     sdfacles = sqrt( 4.d0*gammai*boltz2*temp0les/dtx )
   endif
 #endif /* LES */
+  end if
+
+
   if (is_langevin .and. ifbox==0) then
     call get_position(nr, x, sysx, sysy, sysz, sysrange, 0)
 #ifdef MPI
@@ -2129,10 +2157,16 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
     ! Eq. 11. (Note that the first term on the rhs of Eq. 11b
     ! should not be there.) Update Langevin parameters, since temp0
     ! might have changed:
+! kulhanek
+if( ntt .eq. 12 ) then
+    sdfac = sqrt(4.d0 * gammai * boltz2 * temp0 * dtx)
+else
     sdfac = sqrt(4.d0 * gammai * boltz2 * temp0 / dtx)
 #ifdef LES
     sdfacles = sqrt(4.d0 * gammai * boltz2 * temp0les / dtx)
 #endif /* LES */
+end if
+
 
 #ifdef MPI /* SOFT CORE */
     if (ifsc == 1) then
@@ -2163,7 +2197,6 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
 #endif
     endif
       do j = 1, iskip_start
-
         ! Skip some random numbers
         call gauss(0.d0, 1.d0, fln)
       end do
@@ -2173,6 +2206,18 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
       do j = istart, iend
         wfac = winv(j) * dtx
         aamass = amass(j)
+
+        ! kulhanek
+        if( ntt .eq. 12 ) then
+            rsd = sdfac * sqrt(aamass) * winv(j)
+            call gauss(0.d0, rsd, flng(i3+1))
+            call gauss(0.d0, rsd, flng(i3+2))
+            call gauss(0.d0, rsd, flng(i3+3))
+
+            v(i3+1) = (v(i3+1)*c_explic + (f(i3+1)*wfac+0.5d0*(flng(i3+1)+flngold(i3+1)))) * c_implic
+            v(i3+2) = (v(i3+2)*c_explic + (f(i3+2)*wfac+0.5d0*(flng(i3+2)+flngold(i3+2)))) * c_implic
+            v(i3+3) = (v(i3+3)*c_explic + (f(i3+3)*wfac+0.5d0*(flng(i3+3)+flngold(i3+3)))) * c_implic
+        else
 #ifdef LES
         if (temp0les >= 0 .and. temp0 .ne. temp0les .and. cnum(j) .ne. 0) then
           rsd = sdfacles * sqrt(aamass)
@@ -2182,16 +2227,16 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
 #else
         rsd = sdfac*sqrt(aamass)
 #endif /* LES */
-        call gauss(0.d0, rsd, fln)
-        v(i3+1) = (v(i3+1)*c_explic + (f(i3+1)+fln)*wfac) * c_implic
-        call gauss(0.d0, rsd, fln)
-        v(i3+2) = (v(i3+2)*c_explic + (f(i3+2)+fln)*wfac) * c_implic
-        call gauss(0.d0, rsd, fln)
-        v(i3+3) = (v(i3+3)*c_explic + (f(i3+3)+fln)*wfac) * c_implic
+        call gauss(0.d0, rsd, flng(i3+1))
+        call gauss(0.d0, rsd, flng(i3+2))
+        call gauss(0.d0, rsd, flng(i3+3))
+            v(i3+1) = (v(i3+1)*c_explic + (f(i3+1)+flng(i3+1))*wfac) * c_implic
+            v(i3+2) = (v(i3+2)*c_explic + (f(i3+2)+flng(i3+2))*wfac) * c_implic
+            v(i3+3) = (v(i3+3)*c_explic + (f(i3+3)+flng(i3+3))*wfac) * c_implic
+        end if
         i3 = i3 + 3
       end do
       do j = 1, iskip_end
-
         ! Skip some random numbers
         call gauss(0.d0, 1.d0, fln)
       end do
@@ -2201,7 +2246,7 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
   end if  ! ( gammai == 0.d0 )
   ! End case switch for various thermostats, the last being the case of
   ! gammai not equl to zero, Langevin dynamics.
-
+  ! write(3589,*) flng(1),flngold(1)
 !------------------------------------------------------------------------------
   ! Update EMAP rigid domains
   if (temap) call emap_move()
@@ -2551,15 +2596,20 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
           if (ntt == 9) then
             eke = eke + (aamass*v(i3)**2)*4.d0/3.d0
           else
-            eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
             ! kulhanek
-            ekph = ekph + c_ave*aamass*v(i3)**2
-            !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
-            !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/2.0d0)*( vold(i3) + vold2(i3) ))**2
-            !ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
-            ekv4 = ekv4 + c_ave*aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
-            ekv6 = ekv6 + c_ave*aamass*( (1.0d0/256.0d0)*(+3.0d0*v(i3) -25.0d0*vold(i3) +150.0d0*vold2(i3) &
-                                                          +150.0d0*vold3(i3) -25.0d0*vold4(i3) +3.0d0*vold5(i3)) )**2
+            if( ntt .eq. 12 ) then
+                eke = eke + aamass*( 0.5d0*(v(i3) + vold(i3))*c_ave + 0.25d0*(flngold(i3)-flng(i3)) )**2
+                flngold(i3) = flng(i3)
+            else
+                eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
+                ekph = ekph + c_ave*aamass*v(i3)**2
+                !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
+                !ekv4 = ekv4 + c_ave*aamass*( (1.0d0/2.0d0)*( vold(i3) + vold2(i3) ))**2
+                !ekv4 = ekv4 + aamass*( (1.0d0/12.0d0)*(-v(i3) + 7.0d0*vold(i3) + 7.0d0*vold2(i3) - vold3(i3)) )**2
+                ekv4 = ekv4 + c_ave*aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
+                ekv6 = ekv6 + c_ave*aamass*( (1.0d0/256.0d0)*(+3.0d0*v(i3) -25.0d0*vold(i3) +150.0d0*vold2(i3) &
+                                                              +150.0d0*vold3(i3) -25.0d0*vold4(i3) +3.0d0*vold5(i3)) )**2
+            end if
           end if
 #endif
         end do
