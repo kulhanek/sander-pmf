@@ -1616,9 +1616,9 @@ subroutine runmd(xx, ix, ih, ipairs, x, winv, amass, f, v, vold, vold2, vold3, v
     pmfene%ekinv6   = ekv6
     pmfene%erst     = 0.0d0
 #ifdef MPI
-    call pmf_sander_force_mpi(natom,x,vicf,f,pmfene)
+    call pmf_sander_force_mpi(natom,x,v,f,pmfene)
 #else
-    call pmf_sander_force(natom,x,vicf,f,pmfene)
+    call pmf_sander_force(natom,x,v,f,pmfene)
 #endif
     ener%pot%constraint = ener%pot%constraint + pmfene%erst
     ener%pot%tot = ener%pot%tot + pmfene%erst
