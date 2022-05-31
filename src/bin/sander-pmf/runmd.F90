@@ -2604,7 +2604,7 @@ end if
                 !ekv4 = ekv4 + aamass*( (1.0d0/16.0d0)*(-v(i3) + 9.0d0*vold(i3) + 9.0d0*vold2(i3) - vold3(i3)) )**2
                 !ekv6 = ekv6 + aamass*( (1.0d0/256.0d0)*(+3.0d0*v(i3) -25.0d0*vold(i3) +150.0d0*vold2(i3) &
                 !                                              +150.0d0*vold3(i3) -25.0d0*vold4(i3) +3.0d0*vold5(i3)) )**2
-                ekv4 = ekv4 + aamass*(1.0d0/4.0d0)*(v(i3) + vold(i3))**2 + aamass*(1.0d0/8.0d0)*(v(i3) - vold(i3))**2
+                ekv4 = ekv4 + aamass*(1.0d0/4.0d0)*(v(i3) + vold(i3))**2 - aamass*(1.0d0/8.0d0)*(v(i3) - vold(i3))**2
             else
                 vicf(i3) = v(i3)
                 eke = eke + aamass*0.25d0*c_ave*(v(i3) + vold(i3))**2
